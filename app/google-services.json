@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "687907685612",
+    "project_id": "finfit-d32b3",
+    "storage_bucket": "finfit-d32b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687907685612:android:e1f2a1b6e5eb650bba91c9",
+        "android_client_info": {
+          "package_name": "com.example.finfit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIlITBfEg457WpukCb-Wkj0S0gdnSPjVE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
