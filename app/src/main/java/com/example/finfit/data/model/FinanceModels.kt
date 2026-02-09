@@ -11,8 +11,10 @@ data class UserWallet(
     val disposableAmount: Double = 0.0,
     val isSavingsHidden: Boolean = false,
     val isDisposableHidden: Boolean = false,
-    val totalBalance: Double = savingsAmount + disposableAmount
-)
+) {
+    val totalBalance: Double
+        get() = savingsAmount + disposableAmount
+}
 
 /**
  * Dữ liệu giao dịch (Thu nhập, Chi tiêu, hoặc Chuyển tiền)
