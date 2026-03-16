@@ -44,7 +44,7 @@ data class SavingsGoal(
 )
 
 /**
- * Phân loại chi tiêu/thu nhập
+ * Phân loại chi tiêu
  */
 data class Category(
     val id: String = "",
@@ -56,11 +56,11 @@ data class Category(
 enum class TransactionType {
     EXPENSE,  // Chi tiêu
     INCOME,   // Thu nhập
-    TRANSFER  // Chuyển tiền (Ví dụ: Từ tiền mặt sang tiết kiệm)
+    TRANSFER  // Chuyển tiền
 }
 
 enum class PaymentMethod {
     CASH,    // Tiền mặt
-    BANKING  // App ngân hàng/Ví điện tử
+    BANKING  // App ngân hàng
 }
 

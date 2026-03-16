@@ -22,13 +22,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.finfit.data.repository.AuthReposeitory
+import com.example.finfit.data.repository.AuthRepository
 import com.example.finfit.ui.theme.*
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.launch
 
 @Composable
-fun AuthScreen(authRepository: AuthReposeitory, onLoginSuccess: (FirebaseUser) -> Unit) {
+fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) -> Unit) {
     var isLoginMode by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }

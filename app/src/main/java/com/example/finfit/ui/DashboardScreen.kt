@@ -10,10 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,38 +24,7 @@ import com.example.finfit.ui.theme.*
 
 @Composable
 fun DashboardScreen(userEmail: String, wallet: UserWallet?, onLogout: () -> Unit) {
-    // Biến để quản lý Tab hiện tại (0: Home, 1: Wallets, 2: Budget, 3: Profile)
-    var selectedTab by remember { mutableStateOf(0) }
-
-    Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = { BottomNavigationBar(selectedTab) { selectedTab = it } },
-            floatingActionButton = {
-                if (selectedTab == 0) { // Chỉ hiện nút + ở trang chủ
-                    FloatingActionButton(
-                            onClick = { /* TODO */},
-                            containerColor = PrimaryBlue,
-                            contentColor = Color.White,
-                            shape = CircleShape,
-                            modifier = Modifier.offset(y = 40.dp)
-                    ) { Icon(Icons.Default.Add, contentDescription = "Add") }
-                }
-            },
-            floatingActionButtonPosition = FabPosition.Center
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            when (selectedTab) {
-                0 -> HomeContent(userEmail, wallet)
-                3 -> ProfileContent(userEmail, onLogout)
-                else -> {
-                    // Các tab đang phát triển
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Tính năng đang phát triển", color = TextGray)
-                    }
-                }
-            }
-        }
-    }
+    HomeContent(userEmail, wallet)
 }
 
 @Composable
@@ -78,81 +43,7 @@ fun HomeContent(userEmail: String, wallet: UserWallet?) {
     }
 }
 
-@Composable
-fun ProfileContent(email: String, onLogout: () -> Unit) {
-    Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Cài đặt cá nhân", color = TextWhite, fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Avatar giả lập
-        Box(
-                modifier = Modifier.size(100.dp).clip(CircleShape).background(CardBackground),
-                contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                    Icons.Default.Person,
-                    contentDescription = null,
-                    tint = PrimaryBlue,
-                    modifier = Modifier.size(60.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(email, color = TextWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text("Thành viên Premium", color = PrimaryBlue, fontSize = 14.sp)
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        // Danh sách cài đặt
-        SettingsItem(Icons.Default.Palette, "Giao diện", "Tối / Sáng")
-        SettingsItem(Icons.Default.Notifications, "Thông báo", "Đang bật")
-        SettingsItem(Icons.Default.Security, "Bảo mật", "Vân tay / PIN")
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
-                shape = RoundedCornerShape(16.dp)
-        ) { Text("Đăng xuất", color = Color.White, fontWeight = FontWeight.Bold) }
-    }
-}
-
-@Composable
-fun SettingsItem(icon: ImageVector, title: String, value: String) {
-    Row(
-            modifier =
-                    Modifier.fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(CardBackground)
-                            .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(DarkBackground),
-                contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = PrimaryBlue,
-                    modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextWhite, fontWeight = FontWeight.Bold)
-            Text(value, color = TextGray, fontSize = 12.sp)
-        }
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextGray)
-    }
-}
 
 @Composable
 fun HeaderSection(email: String) {
@@ -394,35 +285,5 @@ fun TransactionListItem(
             Text(sub, color = TextGray, fontSize = 12.sp)
         }
         Text(amount, color = amountColor, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun BottomNavigationBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    NavigationBar(containerColor = DarkBackground) {
-        NavigationBarItem(
-                icon = { Icon(Icons.Default.Home, null) },
-                label = { Text("Trang chủ") },
-                selected = selectedTab == 0,
-                onClick = { onTabSelected(0) }
-        )
-        NavigationBarItem(
-                icon = { Icon(Icons.Default.AccountBalanceWallet, null) },
-                label = { Text("Ví") },
-                selected = selectedTab == 1,
-                onClick = { onTabSelected(1) }
-        )
-        NavigationBarItem(
-                icon = { Icon(Icons.Default.PieChart, null) },
-                label = { Text("Ngân sách") },
-                selected = selectedTab == 2,
-                onClick = { onTabSelected(2) }
-        )
-        NavigationBarItem(
-                icon = { Icon(Icons.Default.Settings, null) },
-                label = { Text("Cá nhân") },
-                selected = selectedTab == 3,
-                onClick = { onTabSelected(3) }
-        )
     }
 }
