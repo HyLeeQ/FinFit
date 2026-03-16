@@ -36,7 +36,12 @@ import com.example.finfit.DashboardWithData
 import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
 import com.example.finfit.data.repository.FirestoreRepository
-import com.example.finfit.health.ui.HealthScreen
+import com.example.finfit.health.ui.HealthDashboardScreen
+import com.example.finfit.health.ui.StepTrackerScreen
+import com.example.finfit.health.ui.FoodScannerScreen
+import com.example.finfit.health.ui.HealthStatsScreen
+import com.example.finfit.health.ui.HealthPredictionScreen
+import com.example.finfit.health.ui.HealthLogScreen
 import com.example.finfit.finance.ui.FinanceScreen
 
 @Composable
@@ -92,8 +97,30 @@ fun MainScreen(
             composable(Routes.ADD) {
                 PlaceholderScreen("Thêm Giao Dịch")
             }
-            composable(Routes.HEALTH) {
-                HealthScreen()
+            composable(Routes.HEALTH_DASHBOARD) {
+                HealthDashboardScreen(
+                    userEmail = userEmail,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Routes.STEP_TRACKER) {
+                StepTrackerScreen(userEmail) { navController.popBackStack() }
+            }
+            composable(Routes.FOOD_SCANNER) {
+                FoodScannerScreen(userEmail) { navController.popBackStack() }
+            }
+            composable(Routes.HEALTH_STATS) {
+                HealthStatsScreen(userEmail) { navController.popBackStack() }
+            }
+            composable(Routes.HEALTH_PREDICTION) {
+                HealthPredictionScreen(userEmail) { navController.popBackStack() }
+            }
+            composable(Routes.HEALTH_LOG) {
+                HealthLogScreen(userEmail) { navController.popBackStack() }
             }
             composable(Routes.PROFILE) {
                 ProfileScreen(userEmail, onLogout)
@@ -135,12 +162,16 @@ fun BottomNavigationBar(navController: NavHostController) {
                     label = { Text(item.label, fontSize = 10.sp) },
                     selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
                     onClick = {
+                        val isHealthTab = item.route == Routes.HEALTH_DASHBOARD
+                        val isAlreadyHealth = currentDestination?.hierarchy?.any { it.route == Routes.HEALTH_DASHBOARD || it.route == Routes.STEP_TRACKER || it.route == Routes.FOOD_SCANNER || it.route == Routes.HEALTH_STATS || it.route == Routes.HEALTH_PREDICTION || it.route == Routes.HEALTH_LOG } == true
+                        
                         navController.navigate(item.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
                             launchSingleTop = true
-                            restoreState = true
+                            // Nếu đang bấm vào Health tab thì luôn load mới, không khôi phục luồng cũ
+                            restoreState = item.route != Routes.HEALTH_DASHBOARD
                         }
                     }
                 )
