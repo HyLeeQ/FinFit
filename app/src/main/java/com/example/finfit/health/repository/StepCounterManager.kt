@@ -22,11 +22,10 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
     private val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
     private val stepDao = HealthDatabase.getDatabase(context).stepDao()
+    private val prefs = context.getSharedPreferences("StepTrackerPrefs", Context.MODE_PRIVATE)
 
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps: StateFlow<Int> = _todaySteps.asStateFlow()
-
-    private var initialStepsAtStartOfDay: Int = -1
 
     init {
         loadStepsFromDb()
@@ -42,6 +41,7 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
             val date = getCurrentDate()
             val stepEntity = stepDao.getStepsByDate(date)
             if (stepEntity != null) {
+                // Tách biệt Room DB để người dùng thấy giá trị ngay lập tức khi mở app
                 _todaySteps.value = stepEntity.steps
             } else {
                 _todaySteps.value = 0
@@ -63,36 +63,52 @@ class StepCounterManager(private val context: Context) : SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
             val currentSensorSteps = event.values[0].toInt()
 
+            // Bỏ qua giá trị rác 0 của Android Sensor đôi khi gửi ngay lập tức sau khi đăng ký
+            if (currentSensorSteps <= 0) return
+
             CoroutineScope(Dispatchers.IO).launch {
-                val date = getCurrentDate()
-                val stepEntity = stepDao.getStepsByDate(date)
+                val currentDate = getCurrentDate()
+                
+                var savedDate = prefs.getString("saved_date", "")
+                var sensorBaseline = prefs.getInt("sensor_baseline", currentSensorSteps)
+                var accumulatedSteps = prefs.getInt("accumulated_steps", 0)
+                var lastSensorValue = prefs.getInt("last_sensor_value", currentSensorSteps)
 
-                // Nếu là lần đầu tiên đọc sensor trong ngày (hoặc chưa có lưu trong DB)
-                if (initialStepsAtStartOfDay == -1) {
-                    if (stepEntity != null && stepEntity.steps > 0) {
-                        // Tính ngược lại initial load của máy nếu lỡ khởi động lại view
-                        initialStepsAtStartOfDay = currentSensorSteps - stepEntity.steps
-                    } else {
-                        // Đây là những bước đầu tiên của ngày
-                        initialStepsAtStartOfDay = currentSensorSteps
+                // Phát hiện sang ngày mới
+                if (savedDate != currentDate) {
+                    savedDate = currentDate
+                    sensorBaseline = currentSensorSteps
+                    accumulatedSteps = 0
+                    lastSensorValue = currentSensorSteps
+                }
+
+                // Phát hiện Reboot (Sensor bị reset vòng đời)
+                if (currentSensorSteps < lastSensorValue) {
+                    val stepsBeforeReboot = lastSensorValue - sensorBaseline
+                    if (stepsBeforeReboot > 0) {
+                        accumulatedSteps += stepsBeforeReboot
                     }
+                    sensorBaseline = 0
                 }
 
-                // Tính số bước hôm nay: Số hiện tại - Số ban đầu
-                val stepsTodayCalculated = currentSensorSteps - initialStepsAtStartOfDay
+                lastSensorValue = currentSensorSteps
 
-                // Chống số âm nếu device reboot làm sensor reset về 0 (đặc trị sensor android)
-                val finalSteps = if (stepsTodayCalculated < 0) {
-                     initialStepsAtStartOfDay = 0 // Reset initial steps vì sensor vừa bị clear by reboot
-                     currentSensorSteps
-                } else {
-                     stepsTodayCalculated
-                }
+                // Tính toán số bước chân thuần tuý hôm nay
+                val todayStepsCalculated = accumulatedSteps + (currentSensorSteps - sensorBaseline)
 
-                _todaySteps.value = finalSteps
+                // Cập nhật State liên tục cho lần sau
+                prefs.edit()
+                    .putString("saved_date", savedDate)
+                    .putInt("sensor_baseline", sensorBaseline)
+                    .putInt("accumulated_steps", accumulatedSteps)
+                    .putInt("last_sensor_value", lastSensorValue)
+                    .apply()
 
-                // Lưu vào Room
-                stepDao.insertSteps(StepEntity(date = date, steps = finalSteps))
+                // Bắn Data lên Giao diện
+                _todaySteps.value = todayStepsCalculated
+
+                // Lưu vào Room DB làm Lịch Sử
+                stepDao.insertSteps(StepEntity(currentDate, todayStepsCalculated))
             }
         }
     }

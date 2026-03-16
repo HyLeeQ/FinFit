@@ -37,7 +37,7 @@ import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
 import com.example.finfit.data.repository.FirestoreRepository
 import com.example.finfit.health.ui.HealthDashboardScreen
-import com.example.finfit.health.ui.StepTrackerScreen
+import com.example.finfit.health.ui.StepCounterScreen
 import com.example.finfit.health.ui.FoodScannerScreen
 import com.example.finfit.health.ui.HealthStatsScreen
 import com.example.finfit.health.ui.HealthPredictionScreen
@@ -107,8 +107,8 @@ fun MainScreen(
                     }
                 )
             }
-            composable(Routes.STEP_TRACKER) {
-                StepTrackerScreen(userEmail) { navController.popBackStack() }
+            composable(Routes.STEP_COUNTER) {
+                StepCounterScreen(userEmail) { navController.popBackStack() }
             }
             composable(Routes.FOOD_SCANNER) {
                 FoodScannerScreen(userEmail) { navController.popBackStack() }
