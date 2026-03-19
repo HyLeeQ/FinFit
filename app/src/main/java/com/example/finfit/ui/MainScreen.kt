@@ -32,17 +32,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.finfit.DashboardWithData
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
-import com.example.finfit.data.repository.FirestoreRepository
-import com.example.finfit.health.ui.HealthDashboardScreen
-import com.example.finfit.health.ui.StepCounterScreen
-import com.example.finfit.health.ui.FoodScannerScreen
-import com.example.finfit.health.ui.HealthStatsScreen
-import com.example.finfit.health.ui.HealthPredictionScreen
-import com.example.finfit.health.ui.HealthLogScreen
+import com.example.finfit.finance.model.TransactionType
+import com.example.finfit.finance.repository.FirestoreRepository
+import com.example.finfit.finance.ui.DashboardWithData
+import com.example.finfit.finance.ui.AddTransactionWithData
 import com.example.finfit.finance.ui.FinanceScreen
+import com.example.finfit.health.ui.*
 
 @Composable
 fun MainScreen(
@@ -50,7 +49,8 @@ fun MainScreen(
     firestoreRepository: FirestoreRepository,
     refreshTrigger: Int,
     onTransactionSaved: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onAction: (TransactionType?) -> Unit
 ) {
     val navController = rememberNavController()
 
@@ -61,9 +61,7 @@ fun MainScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
-                    navController.navigate(Routes.ADD) {
-                        launchSingleTop = true
-                    }
+                    onAction(null)
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
@@ -87,19 +85,21 @@ fun MainScreen(
                     userEmail = userEmail,
                     firestoreRepository = firestoreRepository,
                     refreshTrigger = refreshTrigger,
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    onAction = onAction
                 )
             }
             composable(Routes.FINANCE) {
                 FinanceScreen()
             }
-            composable(Routes.ADD) {
-                com.example.finfit.AddTransactionWithData(
-                    firestoreRepository = firestoreRepository,
-                    onTransactionSaved = onTransactionSaved,
-                    onBack = { navController.popBackStack() }
-                )
-            }
+            // HÀM ADD ĐÃ ĐƯỢC CHUYỂN RA NAVHOST NGOÀI (MainActivity) 
+            // ĐỂ XỬ LÝ ĐƯỜNG DẪN TOÀN CỤC VÀ ĐỒNG BỘ NAVIGATION
+            /*
+            composable(
+                route = "${Routes.ADD}?type={type}",
+                ...
+            ) { ... }
+            */
             composable(Routes.HEALTH_DASHBOARD) {
                 HealthDashboardScreen(
                     userEmail = userEmail,

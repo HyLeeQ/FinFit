@@ -1,4 +1,4 @@
-package com.example.finfit.ui
+package com.example.finfit.finance.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -27,11 +27,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.finfit.data.model.BankAccount
-import com.example.finfit.data.model.SUPPORTED_BANKS
-import com.example.finfit.data.model.Transaction
-import com.example.finfit.data.model.TransactionType
-import com.example.finfit.data.model.UserWallet
+import com.example.finfit.finance.model.BankAccount
+import com.example.finfit.finance.model.SUPPORTED_BANKS
+import com.example.finfit.finance.model.Transaction
+import com.example.finfit.finance.model.TransactionType
+import com.example.finfit.finance.model.UserWallet
 import com.example.finfit.ui.theme.*
 import com.google.firebase.Timestamp
 
@@ -64,12 +64,13 @@ val INCOME_CATEGORIES = listOf(
 @Composable
 fun AddTransactionScreen(
     wallet: UserWallet?,
+    initialType: TransactionType = TransactionType.EXPENSE,
     onSave: (Transaction, UserWallet) -> Unit,
     onBack: () -> Unit
 ) {
     if (wallet == null) { onBack(); return }
 
-    var txType   by remember { mutableStateOf(TransactionType.EXPENSE) }
+    var txType   by remember { mutableStateOf(initialType) }
     var amount   by remember { mutableStateOf("") }
     var note     by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
@@ -407,6 +408,11 @@ fun AccountPickerDialog(accounts: List<BankAccount>, onSelected: (BankAccount) -
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(bankInfo.emoji, fontSize = 22.sp)
+                val formatCurrency = { amount: Double ->
+                    val fmt = java.text.NumberFormat.getInstance(java.util.Locale("vi", "VN"))
+                    fmt.maximumFractionDigits = 0
+                    "${fmt.format(amount)} đ"
+                }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(acc.displayName, color = TextWhite, fontWeight = FontWeight.Bold)

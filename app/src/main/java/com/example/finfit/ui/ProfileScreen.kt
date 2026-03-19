@@ -73,7 +73,22 @@ fun ProfileScreen(email: String, onLogout: () -> Unit) {
 
         // Danh sách cài đặt - Sử dụng tên khác để tránh trùng lặp
         ProfileSettingsItemRow(Icons.Default.Palette, "Giao diện", "Tối / Sáng")
-        ProfileSettingsItemRow(Icons.Default.Notifications, "Thông báo", "Đang bật")
+        
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val isNotiEnabled = android.provider.Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+            ?.contains(context.packageName) ?: false
+            
+        ProfileSettingsItemRow(
+            Icons.Default.Notifications, 
+            "Đồng bộ ngân hàng", 
+            if (isNotiEnabled) "Tự động (+/-) số dư" else "Chưa cấp quyền",
+            onClick = {
+                context.startActivity(android.content.Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").apply { 
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            }
+        )
+
         ProfileSettingsItemRow(Icons.Default.Security, "Bảo mật", "Vân tay / PIN")
 
         Spacer(modifier = Modifier.weight(1f))
@@ -92,13 +107,14 @@ fun ProfileScreen(email: String, onLogout: () -> Unit) {
 }
 
 @Composable
-fun ProfileSettingsItemRow(icon: ImageVector, title: String, value: String) {
+fun ProfileSettingsItemRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
+            .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

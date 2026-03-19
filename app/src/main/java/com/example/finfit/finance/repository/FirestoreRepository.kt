@@ -1,10 +1,12 @@
-package com.example.finfit.data.repository
+package com.example.finfit.finance.repository
 
-import com.example.finfit.data.model.BankAccount
-import com.example.finfit.data.model.Transaction
-import com.example.finfit.data.model.UserWallet
+import com.example.finfit.finance.model.BankAccount
+import com.example.finfit.finance.model.Transaction
+import com.example.finfit.finance.model.UserWallet
+import com.example.finfit.finance.model.TransactionType
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 
 class FirestoreRepository {
@@ -109,9 +111,9 @@ class FirestoreRepository {
                 try {
                     val typeStr = doc.getString("type") ?: "EXPENSE"
                     val type = try {
-                        com.example.finfit.data.model.TransactionType.valueOf(typeStr)
+                        TransactionType.valueOf(typeStr)
                     } catch (e: Exception) {
-                        com.example.finfit.data.model.TransactionType.EXPENSE
+                        TransactionType.EXPENSE
                     }
                     Transaction(
                         id        = doc.id,
@@ -119,7 +121,7 @@ class FirestoreRepository {
                         type      = type,
                         category  = doc.getString("category") ?: "",
                         note      = doc.getString("note") ?: "",
-                        timestamp = doc.getTimestamp("timestamp") ?: com.google.firebase.Timestamp.now()
+                        timestamp = doc.getTimestamp("timestamp") ?: Timestamp.now()
                     )
                 } catch (e: Exception) { null }
             }

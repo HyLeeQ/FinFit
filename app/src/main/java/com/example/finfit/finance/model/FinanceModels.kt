@@ -1,4 +1,4 @@
-package com.example.finfit.data.model
+package com.example.finfit.finance.model
 
 import com.google.firebase.Timestamp
 

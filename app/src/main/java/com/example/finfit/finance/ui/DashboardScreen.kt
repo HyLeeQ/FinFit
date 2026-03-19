@@ -1,4 +1,4 @@
-package com.example.finfit.ui
+package com.example.finfit.finance.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,12 +27,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.finfit.data.model.BankAccount
-import com.example.finfit.data.model.BankInfo
-import com.example.finfit.data.model.SUPPORTED_BANKS
-import com.example.finfit.data.model.Transaction
-import com.example.finfit.data.model.TransactionType
-import com.example.finfit.data.model.UserWallet
+import com.example.finfit.finance.model.BankAccount
+import com.example.finfit.finance.model.BankInfo
+import com.example.finfit.finance.model.SUPPORTED_BANKS
+import com.example.finfit.finance.model.Transaction
+import com.example.finfit.finance.model.TransactionType
+import com.example.finfit.finance.model.UserWallet
 import com.example.finfit.ui.theme.*
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -53,7 +53,8 @@ fun DashboardScreen(
     transactions: List<Transaction>,
     onSaveWallet: (UserWallet) -> Unit,
     onSilentSave: (UserWallet) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onAction: (TransactionType?) -> Unit = {}
 ) {
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
@@ -63,6 +64,7 @@ fun DashboardScreen(
             wallet      = wallet,
             transactions = transactions,
             onSilentSave = onSilentSave,
+            onAction = onAction,
             onEditAccount = { id -> screen = Screen.EditAccount(id) },
             onAddAccount  = { screen = Screen.AddAccount() }
         )
@@ -88,6 +90,7 @@ fun HomeContent(
     wallet: UserWallet?,
     transactions: List<Transaction>,
     onSilentSave: (UserWallet) -> Unit,
+    onAction: (TransactionType?) -> Unit,
     onEditAccount: (String) -> Unit,
     onAddAccount: () -> Unit
 ) {
@@ -139,7 +142,7 @@ fun HomeContent(
         }
 
         item { Spacer(Modifier.height(24.dp)) }
-        item { QuickActionsSection() }
+        item { QuickActionsSection(onAction) }
         item { Spacer(Modifier.height(24.dp)) }
         
         // Hiện tại tạm ẩn phần biểu đồ để tập trung vào list giao dịch
@@ -625,18 +628,21 @@ fun HeaderSection(userEmail: String) {
 
 // ─── Quick actions ────────────────────────────────────────────
 @Composable
-fun QuickActionsSection() {
+fun QuickActionsSection(onAction: (TransactionType?) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        ActionItem(Icons.Default.SwapHoriz, "Chuyển tiền")
-        ActionItem(Icons.Default.BarChart,  "Phân tích")
-        ActionItem(Icons.Default.QrCodeScanner, "Quét QR")
-        ActionItem(Icons.Default.MoreHoriz, "Thêm")
+        ActionItem(Icons.Default.SwapHoriz, "Chuyển tiền") { onAction(TransactionType.TRANSFER) }
+        ActionItem(Icons.Default.BarChart,  "Phân tích") { onAction(null) }
+        ActionItem(Icons.Default.QrCodeScanner, "Quét QR")   { onAction(null) }
+        ActionItem(Icons.Default.MoreHoriz, "Thêm")     { onAction(null) }
     }
 }
 
 @Composable
-fun ActionItem(icon: ImageVector, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+fun ActionItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
         Box(
             modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)).background(CardBackground),
             contentAlignment = Alignment.Center
