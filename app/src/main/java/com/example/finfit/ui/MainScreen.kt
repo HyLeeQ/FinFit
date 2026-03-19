@@ -48,6 +48,8 @@ import com.example.finfit.finance.ui.FinanceScreen
 fun MainScreen(
     userEmail: String,
     firestoreRepository: FirestoreRepository,
+    refreshTrigger: Int,
+    onTransactionSaved: () -> Unit,
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
@@ -60,11 +62,7 @@ fun MainScreen(
             FloatingActionButton(
                 onClick = { 
                     navController.navigate(Routes.ADD) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -88,6 +86,7 @@ fun MainScreen(
                 DashboardWithData(
                     userEmail = userEmail,
                     firestoreRepository = firestoreRepository,
+                    refreshTrigger = refreshTrigger,
                     onLogout = onLogout
                 )
             }
@@ -95,7 +94,11 @@ fun MainScreen(
                 FinanceScreen()
             }
             composable(Routes.ADD) {
-                PlaceholderScreen("Thêm Giao Dịch")
+                com.example.finfit.AddTransactionWithData(
+                    firestoreRepository = firestoreRepository,
+                    onTransactionSaved = onTransactionSaved,
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(Routes.HEALTH_DASHBOARD) {
                 HealthDashboardScreen(

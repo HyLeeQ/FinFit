@@ -142,11 +142,32 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
             Button(
                     onClick = {
                         scope.launch {
+                            val trimmedEmail = email.trim()
+
+                            // --- DEV SHORTCUTS ---
+                            // Ánh xạ "a"/"a" thành tài khoản hợp lệ với Firebase 
+                            // Firebase bắt buộc định dạng email và mật khẩu >= 6 ký tự
+                            val finalEmail = when {
+                                trimmedEmail == "a" && password == "a" -> "a@a.com"
+                                trimmedEmail == "b" && password == "b" -> "b@b.com"
+                                else -> trimmedEmail
+                            }
+                            val finalPassword = when {
+                                (trimmedEmail == "a" && password == "a") || (trimmedEmail == "b" && password == "b") -> "123456"
+                                else -> password
+                            }
+                            // ---------------------
+
+                            if (finalEmail.isEmpty() || finalPassword.isEmpty()) {
+                                android.widget.Toast.makeText(context, "Vui lòng nhập thông tin", android.widget.Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+
                             val user =
                                     if (isLoginMode) {
-                                        authRepository.signIn(email, password)
+                                        authRepository.signIn(finalEmail, finalPassword)
                                     } else {
-                                        authRepository.signUp(email, password)
+                                        authRepository.signUp(finalEmail, finalPassword)
                                     }
 
                             if (user != null) {
@@ -154,8 +175,8 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
                             } else {
                                 android.widget.Toast.makeText(
                                                 context,
-                                                if (isLoginMode) "Đăng nhập thất bại"
-                                                else "Đăng ký thất bại",
+                                                if (isLoginMode) "Đăng nhập thất bại. Kiểm tra lại thông tin."
+                                                else "Đăng ký thất bại. Bạn có thể đã đăng ký tài khoản dev này rồi.",
                                                 android.widget.Toast.LENGTH_SHORT
                                         )
                                         .show()
