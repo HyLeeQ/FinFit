@@ -13,4 +13,7 @@ interface StepDao {
 
     @Query("SELECT * FROM step_history WHERE date = :date")
     suspend fun getStepsByDate(date: String): StepEntity?
+
+    @Query("DELETE FROM step_history")
+    suspend fun deleteAllSteps()
 }

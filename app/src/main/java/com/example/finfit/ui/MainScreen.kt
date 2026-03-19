@@ -163,7 +163,7 @@ fun BottomNavigationBar(navController: NavHostController) {
                     selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
                     onClick = {
                         val isHealthTab = item.route == Routes.HEALTH_DASHBOARD
-                        val isAlreadyHealth = currentDestination?.hierarchy?.any { it.route == Routes.HEALTH_DASHBOARD || it.route == Routes.STEP_TRACKER || it.route == Routes.FOOD_SCANNER || it.route == Routes.HEALTH_STATS || it.route == Routes.HEALTH_PREDICTION || it.route == Routes.HEALTH_LOG } == true
+                        val isAlreadyHealth = currentDestination?.hierarchy?.any { it.route == Routes.HEALTH_DASHBOARD || it.route == Routes.STEP_COUNTER || it.route == Routes.FOOD_SCANNER || it.route == Routes.HEALTH_STATS || it.route == Routes.HEALTH_PREDICTION || it.route == Routes.HEALTH_LOG } == true
                         
                         navController.navigate(item.route) {
                             popUpTo(navController.graph.findStartDestination().id) {

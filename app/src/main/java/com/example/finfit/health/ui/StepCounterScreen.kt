@@ -17,11 +17,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.finfit.health.repository.StepCounterManager
+import com.example.finfit.health.repository.StepCounterService
 
 @Composable
 fun StepCounterScreen(userEmail: String, onBack: () -> Unit) {
     val context = LocalContext.current
-    val stepManager = remember { StepCounterManager(context) }
+
+    // StepCounterManager chỉ dùng để đọc StateFlow hiển thị UI
+    // Sensor thực tế do StepCounterService quản lý (chạy 24/7)
+    val stepManager = remember { StepCounterManager.getInstance(context) }
     val todaySteps by stepManager.todaySteps.collectAsState()
 
     var hasPermission by remember {
@@ -38,24 +42,33 @@ fun StepCounterScreen(userEmail: String, onBack: () -> Unit) {
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            hasPermission = isGranted
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            hasPermission = permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: true
         }
     )
 
     LaunchedEffect(Unit) {
-        if (!hasPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            permissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+        val permissionsToRequest = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (permissionsToRequest.isNotEmpty()) {
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
 
-    DisposableEffect(hasPermission) {
-        if (hasPermission) {
-            stepManager.startListening()
-        }
-        onDispose {
-            stepManager.stopListening()
+    // Khởi động Foreground Service khi đã có quyền
+    LaunchedEffect(hasPermission) {
+        if (hasPermission && !StepCounterService.isRunning(context)) {
+            StepCounterService.start(context)
         }
     }
 

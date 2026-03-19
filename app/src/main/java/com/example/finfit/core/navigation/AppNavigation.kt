@@ -20,7 +20,6 @@ object Routes {
     // Sub-routes for Health
     const val HEALTH_DASHBOARD = "health_dashboard"
     const val STEP_COUNTER = "stepCounter" // Phân hệ đếm bước mới bằng Sensor/Room
-    const val STEP_TRACKER = "step_tracker" // (Cũ - Placeholder)
     const val FOOD_SCANNER = "food_scanner"
     const val HEALTH_STATS = "health_stats"
     const val HEALTH_PREDICTION = "health_prediction"
