@@ -131,21 +131,35 @@ class FirestoreRepository {
         }
     }
 
-    /** Thêm giao dịch mới */
-    suspend fun addTransaction(uid: String, transaction: Transaction) {
+    /** Xóa giao dịch */
+    suspend fun deleteTransaction(uid: String, transactionId: String) {
         try {
-            val ref = usersCollection.document(uid).collection("transactions").document()
-            val data = mapOf(
-                "id"        to ref.id,
-                "amount"    to transaction.amount,
-                "type"      to transaction.type.name,
-                "category"  to transaction.category,
-                "note"      to transaction.note,
-                "timestamp" to transaction.timestamp
-            )
-            ref.set(data).await()
+            usersCollection.document(uid).collection("transactions").document(transactionId).delete().await()
+            android.util.Log.d("FirestoreSuccess", "Đã xóa giao dịch: $transactionId")
         } catch (e: Exception) {
-            android.util.Log.e("FirestoreError", "addTransaction: ${e.message}")
+            android.util.Log.e("FirestoreError", "deleteTransaction err: ${e.message}")
+            throw e
+        }
+    }
+
+    /** Cập nhật giao dịch */
+    suspend fun updateTransaction(uid: String, updatedTransaction: Transaction) {
+        try {
+            val data = mapOf(
+                "amount"    to updatedTransaction.amount,
+                "type"      to updatedTransaction.type.name,
+                "category"  to updatedTransaction.category,
+                "note"      to updatedTransaction.note,
+                "timestamp" to updatedTransaction.timestamp
+            )
+            usersCollection.document(uid)
+                .collection("transactions")
+                .document(updatedTransaction.id)
+                .set(data, com.google.firebase.firestore.SetOptions.merge())
+                .await()
+            android.util.Log.d("FirestoreSuccess", "Đã cập nhật giao dịch: ${updatedTransaction.id}")
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "updateTransaction err: ${e.message}")
             throw e
         }
     }

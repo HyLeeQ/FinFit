@@ -84,6 +84,40 @@ fun DashboardWithData(
                 wallet = updated
                 scope.launch { try { firestoreRepository.saveUserWallet(updated) } catch (e: Exception) { Log.e("SilentSave", e.message ?: "") } }
             },
+            onDeleteTransaction = { txId ->
+                if (user != null) {
+                    scope.launch {
+                        try {
+                            firestoreRepository.deleteTransaction(user.uid, txId)
+                            Toast.makeText(context, "Đã xóa giao dịch!", Toast.LENGTH_SHORT).show()
+                            // Kích hoạt load lại dữ liệu
+                            val txList = firestoreRepository.getTransactions(user.uid)
+                            transactions = txList
+                            val data = firestoreRepository.getUserWallet(user.uid)
+                            if (data != null) wallet = data
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Lỗi khi xóa: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
+            onUpdateTransaction = { updatedTx ->
+                if (user != null) {
+                    scope.launch {
+                        try {
+                            firestoreRepository.updateTransaction(user.uid, updatedTx)
+                            Toast.makeText(context, "Đã cập nhật giao dịch!", Toast.LENGTH_SHORT).show()
+                            // Kích hoạt load lại dữ liệu
+                            val txList = firestoreRepository.getTransactions(user.uid)
+                            transactions = txList
+                            val data = firestoreRepository.getUserWallet(user.uid)
+                            if (data != null) wallet = data
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Lỗi khi cập nhật: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            },
             onLogout = onLogout,
             onAction = onAction
         )

@@ -41,8 +41,9 @@ import java.util.Locale
 // ─── Routes nội bộ ───────────────────────────────────────────
 private sealed class Screen {
     object Home : Screen()
-    data class EditAccount(val accountId: String?) : Screen()  // null = tạo mới
+    data class EditAccount(val accountId: String?) : Screen()
     data class AddAccount(val dummy: Unit = Unit) : Screen()
+    data class EditTransaction(val transaction: Transaction) : Screen()
 }
 
 // ─── Entry point ─────────────────────────────────────────────
@@ -53,6 +54,8 @@ fun DashboardScreen(
     transactions: List<Transaction>,
     onSaveWallet: (UserWallet) -> Unit,
     onSilentSave: (UserWallet) -> Unit,
+    onDeleteTransaction: (String) -> Unit,
+    onUpdateTransaction: (Transaction) -> Unit,
     onLogout: () -> Unit,
     onAction: (TransactionType?) -> Unit = {}
 ) {
@@ -66,7 +69,8 @@ fun DashboardScreen(
             onSilentSave = onSilentSave,
             onAction = onAction,
             onEditAccount = { id -> screen = Screen.EditAccount(id) },
-            onAddAccount  = { screen = Screen.AddAccount() }
+            onAddAccount  = { screen = Screen.AddAccount() },
+            onEditTransaction = { tx -> screen = Screen.EditTransaction(tx) }
         )
         is Screen.EditAccount -> EditAccountScreen(
             accountId    = s.accountId,
@@ -78,6 +82,13 @@ fun DashboardScreen(
         is Screen.AddAccount -> AddAccountScreen(
             wallet = wallet,
             onSave = { updated -> onSaveWallet(updated); screen = Screen.Home },
+            onBack = { screen = Screen.Home }
+        )
+        is Screen.EditTransaction -> EditTransactionScreen(
+            transaction = s.transaction,
+            wallet = wallet,
+            onSave = { updated -> onUpdateTransaction(updated); screen = Screen.Home },
+            onDelete = { id -> onDeleteTransaction(id); screen = Screen.Home },
             onBack = { screen = Screen.Home }
         )
     }
@@ -92,7 +103,8 @@ fun HomeContent(
     onSilentSave: (UserWallet) -> Unit,
     onAction: (TransactionType?) -> Unit,
     onEditAccount: (String) -> Unit,
-    onAddAccount: () -> Unit
+    onAddAccount: () -> Unit,
+    onEditTransaction: (Transaction) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -149,14 +161,17 @@ fun HomeContent(
         // item { SpendingBreakdownSection() }
         // item { Spacer(Modifier.height(24.dp)) }
         
-        item { RecentTransactionsSection(transactions) }
+        item { RecentTransactionsSection(transactions, onEditTransaction) }
         item { Spacer(Modifier.height(80.dp)) }
     }
 }
 
 // ─── Recent transactions ───────────────────────
 @Composable
-fun RecentTransactionsSection(transactions: List<Transaction>) {
+fun RecentTransactionsSection(
+    transactions: List<Transaction>,
+    onEditTransaction: (Transaction) -> Unit
+) {
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Giao dịch gần đây", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -175,9 +190,100 @@ fun RecentTransactionsSection(transactions: List<Transaction>) {
                     title = if (tx.note.isNotBlank()) tx.note else tx.category,
                     sub = SimpleDateFormat("HH:mm • dd/MM", Locale.getDefault()).format(tx.timestamp.toDate()) + (if (tx.type == TransactionType.INCOME) " • Thu nhập" else if (tx.type == TransactionType.EXPENSE) " • Chi tiêu" else " • Chuyển tiền"),
                     amount = (if (tx.type == TransactionType.EXPENSE) "-" else "+") + formatCurrency(tx.amount),
-                    amountColor = if (tx.type == TransactionType.INCOME) Color(0xFF10C67F) else if (tx.type == TransactionType.EXPENSE) Color(0xFFEF4444) else Color(0xFF6366F1)
+                    amountColor = if (tx.type == TransactionType.INCOME) Color(0xFF10C67F) else if (tx.type == TransactionType.EXPENSE) Color(0xFFEF4444) else Color(0xFF6366F1),
+                    onClick = { onEditTransaction(tx) }
                 )
             }
+        }
+    }
+}
+
+// ─── Màn hình chỉnh sửa giao dịch ───────────────────────────
+@Composable
+fun EditTransactionScreen(
+    transaction: Transaction,
+    wallet: UserWallet?,
+    onSave: (Transaction) -> Unit,
+    onDelete: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    var editAmount by remember { mutableStateOf(if (transaction.amount % 1 == 0.0) transaction.amount.toLong().toString() else transaction.amount.toString()) }
+    var editNote   by remember { mutableStateOf(transaction.note) }
+    var selectedCategory by remember { mutableStateOf(transaction.category) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Xóa giao dịch?", color = TextWhite) },
+            text = { Text("Bạn có chắc muốn xóa lịch sử giao dịch này?", color = TextGray) },
+            confirmButton = {
+                TextButton(onClick = { onDelete(transaction.id) }) { Text("Xóa", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Hủy", color = TextGray) }
+            },
+            containerColor = CardBackground
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
+            }
+            Text("Chỉnh sửa giao dịch", color = TextWhite, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = { showDeleteDialog = true }) {
+                Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+
+        // Số tiền
+        OutlinedTextField(
+            value = editAmount,
+            onValueChange = { editAmount = it },
+            label = { Text("Số tiền") },
+            suffix = { Text("đ", color = TextWhite) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite)
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // Ghi chú
+        OutlinedTextField(
+            value = editNote,
+            onValueChange = { editNote = it },
+            label = { Text("Ghi chú") },
+            placeholder = { Text("Mô tả giao dịch...") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite)
+        )
+        Spacer(Modifier.height(16.dp))
+        
+        // Hạng mục (Tạm thời là TextField hiển thị, có thể làm picker sau)
+        Text("Hạng mục: $selectedCategory", color = TextGray, fontSize = 14.sp)
+        
+        Spacer(Modifier.weight(1f))
+
+        Button(
+            onClick = {
+                val amountText = editAmount.replace(".", "").replace(",", "")
+                val amount = amountText.toDoubleOrNull() ?: 0.0
+                val updated = transaction.copy(
+                    amount = amount,
+                    note = editNote,
+                    category = selectedCategory
+                )
+                onSave(updated)
+            },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -697,9 +803,12 @@ fun SpendingRow(label: String, percent: Int, color: Color) {
 }
 
 @Composable
-fun TransactionListItem(icon: ImageVector, title: String, sub: String, amount: String, amountColor: Color) {
+fun TransactionListItem(icon: ImageVector, title: String, sub: String, amount: String, amountColor: Color, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(46.dp).clip(CircleShape).background(CardBackground), contentAlignment = Alignment.Center) {
