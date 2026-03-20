@@ -38,7 +38,7 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Box(
-            modifier = Modifier.fillMaxSize().background(DarkBackground).padding(24.dp),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
             contentAlignment = Alignment.Center
     ) {
         Column(
@@ -49,7 +49,7 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
             Surface(
                     modifier = Modifier.size(80.dp),
                     shape = RoundedCornerShape(20.dp),
-                    color = CardBackground
+                    color = MaterialTheme.colorScheme.surface
             ) {
                 Icon(
                         imageVector = Icons.Default.Lock,
@@ -63,7 +63,7 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
 
             Text(
                     text = if (isLoginMode) "Chào mừng trở lại!" else "Tạo tài khoản mới",
-                    color = TextWhite,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
             )
@@ -71,7 +71,7 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
                     text =
                             if (isLoginMode) "Đăng nhập để tiếp tục quản lý tài chính"
                             else "Bắt đầu hành trình tiết kiệm của bạn",
-                    color = TextGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
             )
 
@@ -81,18 +81,18 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
             OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email", color = TextGray) },
+                    label = { Text("Email", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Default.Email, null, tint = PrimaryBlue) },
                     colors =
                             OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = PrimaryBlue,
-                                    unfocusedBorderColor = CardBackground,
-                                    focusedTextColor = TextWhite,
-                                    unfocusedTextColor = TextWhite,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.surface,
+                                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                                     cursorColor = PrimaryBlue,
-                                    focusedContainerColor = CardBackground,
-                                    unfocusedContainerColor = CardBackground
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
                             ),
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true
@@ -104,7 +104,7 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
             OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Mật khẩu", color = TextGray) },
+                    label = { Text("Mật khẩu", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Default.Lock, null, tint = PrimaryBlue) },
                     trailingIcon = {
@@ -114,7 +114,7 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
                                             if (isPasswordVisible) Icons.Default.VisibilityOff
                                             else Icons.Default.Visibility,
                                     contentDescription = null,
-                                    tint = TextGray
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     },
@@ -125,12 +125,12 @@ fun AuthScreen(authRepository: AuthRepository, onLoginSuccess: (FirebaseUser) ->
                     colors =
                             OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = PrimaryBlue,
-                                    unfocusedBorderColor = CardBackground,
-                                    focusedTextColor = TextWhite,
-                                    unfocusedTextColor = TextWhite,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.surface,
+                                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                                     cursorColor = PrimaryBlue,
-                                    focusedContainerColor = CardBackground,
-                                    unfocusedContainerColor = CardBackground
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
                             ),
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true

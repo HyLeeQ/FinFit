@@ -35,13 +35,13 @@ val SUPPORTED_BANKS = listOf(
 // ──────────────────────────────────────────────────────────────
 //  Tài khoản ngân hàng / ví
 // ──────────────────────────────────────────────────────────────
-data class BankAccount(
+data class AppBankAccount(
     val id: String = "",
     val bankCode: String = "OTHER",    // mã nhận biết ngân hàng
     val name: String = "",             // tên hiển thị do người dùng đặt
     val amount: Double = 0.0,
     val colorIndex: Int = 0,           // 0-5: bảng màu gradient card
-    val isHidden: Boolean = false
+    val isHidden: Boolean = true
 ) {
     /** Tổng số dư (tính nhanh ở UI) */
     val displayName: String get() = name.ifBlank {
@@ -52,13 +52,13 @@ data class BankAccount(
 // ──────────────────────────────────────────────────────────────
 //  Ví tổng hợp
 // ──────────────────────────────────────────────────────────────
-data class UserWallet(
+data class AppUserWallet(
     val uid: String = "",
     // Thông tin cũ → giữ để không mất data Firestore
     val savingsAmount: Double = 0.0,
     val disposableAmount: Double = 0.0,
-    val isSavingsHidden: Boolean = false,
-    val isDisposableHidden: Boolean = false,
+    val isSavingsHidden: Boolean = true,
+    val isDisposableHidden: Boolean = true,
     val card1Name: String = "THẺ CHÍNH",
     val card1Type: String = "Thẻ ngân hàng",
     val card1Color: Int = 0,
@@ -66,7 +66,7 @@ data class UserWallet(
     val card2Type: String = "Tiền mặt",
     val card2Color: Int = 1,
     // === Mới: danh sách tài khoản đa năng ===
-    val accounts: List<BankAccount> = emptyList()
+    val accounts: List<AppBankAccount> = emptyList()
 ) {
     val totalBalance: Double
         get() = accounts.sumOf { it.amount }
@@ -75,7 +75,7 @@ data class UserWallet(
 // ──────────────────────────────────────────────────────────────
 //  Giao dịch
 // ──────────────────────────────────────────────────────────────
-data class Transaction(
+data class FinanceTransaction(
     val id: String = "",
     val amount: Double = 0.0,
     val type: TransactionType = TransactionType.EXPENSE,

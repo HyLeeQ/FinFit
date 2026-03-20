@@ -2,21 +2,34 @@ package com.example.finfit.finance.ui
 
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.animation.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalContext
-import com.example.finfit.finance.model.BankAccount
-import com.example.finfit.finance.model.Transaction
-import com.example.finfit.finance.model.TransactionType
-import com.example.finfit.finance.model.UserWallet
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import com.example.finfit.finance.model.*
 import com.example.finfit.data.repository.AuthRepository
 import com.example.finfit.finance.repository.FirestoreRepository
 import com.example.finfit.ui.theme.PrimaryBlue
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import java.util.UUID
 
 @Composable
@@ -28,39 +41,49 @@ fun DashboardWithData(
     onAction: (TransactionType?) -> Unit
 ) {
     val user = AuthRepository().getCurrentUser()
-    var wallet by remember { mutableStateOf<UserWallet?>(null) }
-    var transactions by remember { mutableStateOf<List<Transaction>>(emptyList()) }
+    var wallet by remember { mutableStateOf<AppUserWallet?>(null) }
+    var transactions by remember { mutableStateOf<List<FinanceTransaction>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     LaunchedEffect(user?.uid, refreshTrigger) {
         if (user != null) {
-            isLoading = (wallet == null) // Chỉ hiện loading to ở lần đầu
-            val data = firestoreRepository.getUserWallet(user.uid)
-            val txList = firestoreRepository.getTransactions(user.uid)
-            transactions = txList
+            // Chỉ hiện loading xoay ở lần đầu tiên vào màn hình
+            if (wallet == null) isLoading = true
             
-            wallet = if (data != null) {
-                if (data.accounts.isEmpty() && (data.savingsAmount > 0 || data.disposableAmount > 0)) {
-                    val migratedAccounts = buildList {
-                        if (data.savingsAmount > 0 || data.card1Name != "THẺ CHÍNH") {
-                            add(BankAccount(UUID.randomUUID().toString(), "MB", data.card1Name, data.savingsAmount, data.card1Color, data.isSavingsHidden))
+            try {
+                // Chạy song song để tăng tốc độ (giảm "đơ" khi chuyển trang)
+                val walletDeferred = async { firestoreRepository.getUserWallet(user.uid) }
+                val txDeferred = async { firestoreRepository.getTransactions(user.uid) }
+                
+                val walletData = walletDeferred.await()
+                transactions = txDeferred.await()
+                
+                wallet = if (walletData != null) {
+                    if (walletData.accounts.isEmpty() && (walletData.savingsAmount > 0 || walletData.card1Name != "THẺ CHÍNH")) {
+                        val migratedAccounts = buildList {
+                            if (walletData.savingsAmount > 0 || walletData.card1Name != "THẺ CHÍNH") {
+                                add(AppBankAccount(UUID.randomUUID().toString(), "MB", walletData.card1Name, walletData.savingsAmount, walletData.card1Color, walletData.isSavingsHidden))
+                            }
+                            if (walletData.disposableAmount > 0 || walletData.card2Name != "TIỀN MẶT") {
+                                add(AppBankAccount(UUID.randomUUID().toString(), "CASH", walletData.card2Name, walletData.disposableAmount, walletData.card2Color, walletData.isDisposableHidden))
+                            }
                         }
-                        if (data.disposableAmount > 0 || data.card2Name != "TIỀN MẶT") {
-                            add(BankAccount(UUID.randomUUID().toString(), "CASH", data.card2Name, data.disposableAmount, data.card2Color, data.isDisposableHidden))
-                        }
-                    }
-                    val migrated = data.copy(accounts = migratedAccounts)
-                    firestoreRepository.saveUserWallet(migrated)
-                    migrated
-                } else data
-            } else {
-                val newWallet = UserWallet(uid = user.uid)
-                firestoreRepository.saveUserWallet(newWallet)
-                newWallet
+                        val migrated = walletData.copy(accounts = migratedAccounts)
+                        firestoreRepository.saveUserWallet(migrated)
+                        migrated
+                    } else walletData
+                } else {
+                    val newWallet = AppUserWallet(uid = user.uid)
+                    firestoreRepository.saveUserWallet(newWallet)
+                    newWallet
+                }
+            } catch (e: Exception) {
+                Log.e("FinanceWrappers", "Error fetching data: ${e.message}")
+            } finally {
+                isLoading = false
             }
-            isLoading = false
         }
     }
 
@@ -137,8 +160,9 @@ fun AddTransactionWithData(
         TransactionType.EXPENSE
     }
     val user = AuthRepository().getCurrentUser()
-    var wallet by remember { mutableStateOf<UserWallet?>(null) }
+    var wallet by remember { mutableStateOf<AppUserWallet?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isSaving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -154,22 +178,55 @@ fun AddTransactionWithData(
             CircularProgressIndicator(color = PrimaryBlue)
         }
     } else {
-        AddTransactionScreen(
-            wallet = wallet,
-            initialType = initialType,
-            onSave = { transaction, updatedWallet ->
-                wallet = updatedWallet
-                scope.launch {
-                    try {
-                        firestoreRepository.saveUserWallet(updatedWallet)
-                        if (user != null) firestoreRepository.addTransaction(user.uid, transaction)
-                        Toast.makeText(context, "Đã lưu giao dịch!", Toast.LENGTH_SHORT).show()
-                        onTransactionSaved()
-                        onBack()
-                    } catch (e: Exception) { Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show() }
+        Box(Modifier.fillMaxSize()) {
+            AddTransactionScreen(
+                wallet = wallet,
+                initialType = initialType,
+                onSave = { transaction, updatedWallet ->
+                    if (isSaving) return@AddTransactionScreen
+                    wallet = updatedWallet
+                    isSaving = true
+                    scope.launch {
+                        try {
+                            firestoreRepository.saveUserWallet(updatedWallet)
+                            if (user != null) firestoreRepository.addTransaction(user.uid, transaction)
+                            Toast.makeText(context, "Đã lưu giao dịch!", Toast.LENGTH_SHORT).show()
+                            onTransactionSaved()
+                            onBack()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                            isSaving = false
+                        }
+                    }
+                },
+                onBack = onBack
+            )
+            
+            // Lớp phủ ngăn người dùng tương tác trong khi lưu
+            if (isSaving) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .clickable(enabled = false) {},
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = PrimaryBlue)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Đang lưu...", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        }
+                    }
                 }
-            },
-            onBack = onBack
-        )
+            }
+        }
     }
 }

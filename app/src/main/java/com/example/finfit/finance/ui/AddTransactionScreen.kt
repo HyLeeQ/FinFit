@@ -27,11 +27,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.finfit.finance.model.BankAccount
+import com.example.finfit.finance.model.AppBankAccount
 import com.example.finfit.finance.model.SUPPORTED_BANKS
-import com.example.finfit.finance.model.Transaction
+import com.example.finfit.finance.model.FinanceTransaction
 import com.example.finfit.finance.model.TransactionType
-import com.example.finfit.finance.model.UserWallet
+import com.example.finfit.finance.model.AppUserWallet
 import com.example.finfit.ui.theme.*
 import com.google.firebase.Timestamp
 
@@ -63,9 +63,9 @@ val INCOME_CATEGORIES = listOf(
 // ── Màn hình thêm giao dịch ───────────────────────────────────
 @Composable
 fun AddTransactionScreen(
-    wallet: UserWallet?,
+    wallet: AppUserWallet?,
     initialType: TransactionType = TransactionType.EXPENSE,
-    onSave: (Transaction, UserWallet) -> Unit,
+    onSave: (FinanceTransaction, AppUserWallet) -> Unit,
     onBack: () -> Unit
 ) {
     if (wallet == null) { onBack(); return }
@@ -105,7 +105,11 @@ fun AddTransactionScreen(
         TransactionType.TRANSFER -> Color(0xFF6366F1)
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
         // ── Header ──
         item {
             Row(
@@ -113,9 +117,9 @@ fun AddTransactionScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground)
                 }
-                Text("Thêm giao dịch", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Thêm giao dịch", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
         }
 
@@ -126,7 +130,7 @@ fun AddTransactionScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(CardBackground)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -144,7 +148,7 @@ fun AddTransactionScreen(
                     .padding(horizontal = 16.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Số tiền", color = TextGray, fontSize = 13.sp)
+                Text("Số tiền", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
                     Text(
@@ -184,7 +188,7 @@ fun AddTransactionScreen(
         if (txType != TransactionType.TRANSFER) {
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text("Danh mục", color = TextGray, fontSize = 13.sp)
+                    Text("Danh mục", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     Spacer(Modifier.height(10.dp))
                     CategoryGrid(
                         categories = if (txType == TransactionType.EXPENSE) EXPENSE_CATEGORIES else INCOME_CATEGORIES,
@@ -202,10 +206,10 @@ fun AddTransactionScreen(
                 onValueChange = { note = it },
                 label  = { Text("Ghi chú (tùy chọn)") },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                leadingIcon = { Icon(Icons.Default.Edit, null, tint = TextGray) },
+                leadingIcon = { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor   = TextWhite,
-                    unfocusedTextColor = TextWhite,
+                    focusedTextColor   = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                     focusedBorderColor = accentColor
                 ),
                 shape = RoundedCornerShape(14.dp)
@@ -221,31 +225,41 @@ fun AddTransactionScreen(
                     val amt = amount.toDoubleOrNull() ?: 0.0
                     if (amt <= 0) return@Button
 
-                    val transaction = Transaction(
-                        amount   = amt,
-                        type     = txType,
-                        category = category.ifBlank { if (txType == TransactionType.EXPENSE) "Khác" else "Khác" },
-                        note     = note,
+                    val transaction = FinanceTransaction(
+                        amount    = amt,
+                        type      = txType,
+                        category  = category.ifBlank { if (txType == TransactionType.EXPENSE) "Khác" else "Khác" },
+                        note      = note,
                         timestamp = Timestamp.now()
                     )
 
                     // Cập nhật số dư tài khoản
+                    val currentWallet = wallet ?: return@Button
+                    val targetAccId = fromAccount?.id ?: currentWallet.accounts.firstOrNull()?.id
+                    
+                    if (targetAccId == null && currentWallet.accounts.isNotEmpty()) {
+                        // Fallback fallback
+                    }
+
                     val updatedAccounts = when (txType) {
-                        TransactionType.EXPENSE -> wallet.accounts.map {
-                            if (it.id == fromAccount?.id) it.copy(amount = it.amount - amt) else it
+                        TransactionType.EXPENSE -> currentWallet.accounts.map {
+                            if (it.id == targetAccId) it.copy(amount = it.amount - amt) else it
                         }
-                        TransactionType.INCOME -> wallet.accounts.map {
-                            if (it.id == fromAccount?.id) it.copy(amount = it.amount + amt) else it
+                        TransactionType.INCOME -> currentWallet.accounts.map {
+                            if (it.id == targetAccId) it.copy(amount = it.amount + amt) else it
                         }
-                        TransactionType.TRANSFER -> wallet.accounts.map {
-                            when (it.id) {
-                                fromAccount?.id -> it.copy(amount = it.amount - amt)
-                                toAccount?.id   -> it.copy(amount = it.amount + amt)
-                                else -> it
+                        TransactionType.TRANSFER -> {
+                            val toAccId = toAccount?.id ?: currentWallet.accounts.lastOrNull()?.id
+                            currentWallet.accounts.map {
+                                when (it.id) {
+                                    targetAccId -> it.copy(amount = it.amount - amt)
+                                    toAccId     -> it.copy(amount = it.amount + amt)
+                                    else -> it
+                                }
                             }
                         }
                     }
-                    onSave(transaction, wallet.copy(accounts = updatedAccounts))
+                    onSave(transaction, currentWallet.copy(accounts = updatedAccounts))
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -261,12 +275,13 @@ fun AddTransactionScreen(
         item { Spacer(Modifier.height(80.dp)) }
     }
 }
+}
 
 // ── Tab loại giao dịch ────────────────────────────────────────
 @Composable
 fun RowScope.TxTypeTab(label: String, selected: Boolean, color: Color, onClick: () -> Unit) {
     val bg by animateColorAsState(if (selected) color else Color.Transparent, label = "")
-    val tc by animateColorAsState(if (selected) Color.White else TextGray, label = "")
+    val tc by animateColorAsState(if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, label = "")
     Box(
         modifier = Modifier
             .weight(1f)
@@ -296,15 +311,15 @@ fun NumericKeypad(onDigit: (String) -> Unit, onDelete: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(CardBackground)
+                    .background(MaterialTheme.colorScheme.surface)
                     .clickable { if (key == "⌫") onDelete() else onDigit(key) }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (key == "⌫") {
-                    Icon(Icons.Default.Backspace, null, tint = TextGray, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Backspace, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 } else {
-                    Text(key, color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(key, color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -319,13 +334,13 @@ fun formatAmountDisplay(raw: String): String {
 
 // ── Chọn tài khoản ───────────────────────────────────────────
 @Composable
-fun AccountSelectorRow(label: String, account: BankAccount?, onClick: () -> Unit) {
+fun AccountSelectorRow(label: String, account: AppBankAccount?, onClick: () -> Unit) {
     val bankInfo = SUPPORTED_BANKS.find { it.code == account?.bankCode } ?: SUPPORTED_BANKS.last()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(CardBackground)
+            .background(MaterialTheme.colorScheme.surface)
             .clickable { onClick() }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -333,18 +348,18 @@ fun AccountSelectorRow(label: String, account: BankAccount?, onClick: () -> Unit
         Text(bankInfo.emoji, fontSize = 22.sp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, color = TextGray, fontSize = 11.sp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             Text(
                 account?.displayName ?: "Chọn tài khoản",
-                color = TextWhite,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold
             )
         }
         if (account != null) {
-            Text(formatCurrency(account.amount), color = TextGray, fontSize = 12.sp)
+            Text(formatCurrency(account.amount), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Spacer(Modifier.width(6.dp))
         }
-        Icon(Icons.Default.KeyboardArrowDown, null, tint = TextGray, modifier = Modifier.size(18.dp))
+        Icon(Icons.Default.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -361,7 +376,7 @@ fun CategoryGrid(categories: List<TxCategory>, selected: String, onSelect: (Stri
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) cat.color.copy(alpha = 0.2f) else CardBackground)
+                            .background(if (isSelected) cat.color.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface)
                             .border(
                                 if (isSelected) 1.5.dp else 0.dp,
                                 if (isSelected) cat.color else Color.Transparent,
@@ -376,7 +391,7 @@ fun CategoryGrid(categories: List<TxCategory>, selected: String, onSelect: (Stri
                             contentAlignment = Alignment.Center
                         ) { Icon(cat.icon, null, tint = cat.color, modifier = Modifier.size(18.dp)) }
                         Spacer(Modifier.height(4.dp))
-                        Text(cat.label, color = if (isSelected) cat.color else TextGray, fontSize = 10.sp, textAlign = TextAlign.Center)
+                        Text(cat.label, color = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, textAlign = TextAlign.Center)
                     }
                 }
                 // Filler nếu row không đủ 5
@@ -389,11 +404,11 @@ fun CategoryGrid(categories: List<TxCategory>, selected: String, onSelect: (Stri
 // ── Bottom sheet chọn tài khoản ──────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountPickerDialog(accounts: List<BankAccount>, onSelected: (BankAccount) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = CardBackground) {
+fun AccountPickerDialog(accounts: List<AppBankAccount>, onSelected: (AppBankAccount) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Text(
             "Chọn tài khoản",
-            color = TextWhite,
+            color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
@@ -408,17 +423,12 @@ fun AccountPickerDialog(accounts: List<BankAccount>, onSelected: (BankAccount) -
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(bankInfo.emoji, fontSize = 22.sp)
-                val formatCurrency = { amount: Double ->
-                    val fmt = java.text.NumberFormat.getInstance(java.util.Locale("vi", "VN"))
-                    fmt.maximumFractionDigits = 0
-                    "${fmt.format(amount)} đ"
-                }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(acc.displayName, color = TextWhite, fontWeight = FontWeight.Bold)
-                    Text(bankInfo.displayName, color = TextGray, fontSize = 12.sp)
+                    Text(acc.displayName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+                    Text(bankInfo.displayName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
-                Text(formatCurrency(acc.amount), color = TextGray)
+                Text(formatCurrency(acc.amount), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(32.dp))

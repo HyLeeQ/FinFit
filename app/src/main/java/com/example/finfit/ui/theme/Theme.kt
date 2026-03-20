@@ -12,50 +12,53 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
-        darkColorScheme(
-                primary = PrimaryBlue,
-                secondary = CardBackground,
-                tertiary = AccentGreen,
-                background = DarkBackground,
-                surface = CardBackground,
-                onPrimary = TextWhite,
-                onSecondary = TextWhite,
-                onTertiary = TextWhite,
-                onBackground = TextWhite,
-                onSurface = TextWhite
-        )
+    darkColorScheme(
+        primary = DarkPrimary,
+        onPrimary = Color.White,
+        primaryContainer = DarkPrimary,
+        secondary = DarkSecondary,
+        tertiary = DarkTertiary,
+        background = DarkBackground,
+        surface = DarkSurface,
+        onBackground = DarkOnSurface,
+        onSurface = DarkOnSurface,
+        surfaceVariant = DarkSurfaceVariant,
+        onSurfaceVariant = DarkOnSurfaceVariant
+    )
 
 private val LightColorScheme =
-        lightColorScheme(
-                primary = PrimaryBlue,
-                secondary = Color(0xFFE2E8F0),
-                tertiary = AccentGreen,
-                background = Color.White,
-                surface = Color(0xFFF8FAFC),
-                onPrimary = Color.White,
-                onSecondary = Color(0xFF0F172A),
-                onTertiary = Color.White,
-                onBackground = Color(0xFF0F172A),
-                onSurface = Color(0xFF0F172A)
-        )
+    lightColorScheme(
+        primary = LightPrimary,
+        onPrimary = Color.White,
+        primaryContainer = LightPrimaryContainer,
+        secondary = LightSecondary,
+        secondaryContainer = LightSecondaryContainer,
+        tertiary = LightTertiary,
+        tertiaryContainer = LightTertiaryContainer,
+        background = LightBackground,
+        surface = LightSurface,
+        onBackground = LightOnSurface,
+        onSurface = LightOnSurface,
+        surfaceVariant = LightSurfaceContainerLow,
+        onSurfaceVariant = LightOnSurfaceVariant
+    )
 
 @Composable
 fun FinFitTheme(
-        darkTheme: Boolean = isSystemInDarkTheme(),
-        // Dynamic color is available on Android 12+
-        dynamicColor: Boolean = true,
-        content: @Composable () -> Unit
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Set dynamicColor to false by default as the user wants specific brand colors
+    dynamicColor: Boolean = false,
+    content: @Composable () -> Unit
 ) {
-        val colorScheme =
-                when {
-                        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                                val context = LocalContext.current
-                                if (darkTheme) dynamicDarkColorScheme(context)
-                                else dynamicLightColorScheme(context)
-                        }
-                        darkTheme -> DarkColorScheme
-                        else -> LightColorScheme
-                }
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context)
+            else dynamicLightColorScheme(context)
+        }
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
 
         MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

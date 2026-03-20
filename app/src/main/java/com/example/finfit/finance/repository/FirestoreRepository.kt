@@ -1,20 +1,21 @@
 package com.example.finfit.finance.repository
 
-import com.example.finfit.finance.model.BankAccount
-import com.example.finfit.finance.model.Transaction
-import com.example.finfit.finance.model.UserWallet
+import com.example.finfit.finance.model.AppBankAccount
+import com.example.finfit.finance.model.FinanceTransaction
+import com.example.finfit.finance.model.AppUserWallet
 import com.example.finfit.finance.model.TransactionType
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 class FirestoreRepository {
     private val db = Firebase.firestore
     private val usersCollection = db.collection("users")
 
     /** Lấy thông tin ví (bao gồm danh sách tài khoản) */
-    suspend fun getUserWallet(uid: String): UserWallet? {
+    suspend fun getUserWallet(uid: String): AppUserWallet? {
         return try {
             val doc = usersCollection.document(uid).get().await()
             if (!doc.exists()) return null
@@ -35,7 +36,7 @@ class FirestoreRepository {
             @Suppress("UNCHECKED_CAST")
             val rawAccounts = doc.get("accounts") as? List<Map<String, Any>> ?: emptyList()
             val accounts = rawAccounts.map { m ->
-                BankAccount(
+                AppBankAccount(
                     id         = m["id"] as? String ?: "",
                     bankCode   = m["bankCode"] as? String ?: "OTHER",
                     name       = m["name"] as? String ?: "",
@@ -45,7 +46,7 @@ class FirestoreRepository {
                 )
             }
 
-            UserWallet(
+            AppUserWallet(
                 uid = uid,
                 savingsAmount = savingsAmount,
                 disposableAmount = disposableAmount,
@@ -57,12 +58,12 @@ class FirestoreRepository {
             )
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "getUserWallet err: ${e.message}")
-            null
+            throw e // TUYỆT ĐỐI không trả về null khi lỗi, phải báo lỗi để tránh mất dữ liệu!
         }
     }
 
     /** Lưu ví (bao gồm danh sách tài khoản) */
-    suspend fun saveUserWallet(wallet: UserWallet) {
+    suspend fun saveUserWallet(wallet: AppUserWallet) {
         try {
             val accountsData = wallet.accounts.map { acc ->
                 mapOf(
@@ -88,7 +89,7 @@ class FirestoreRepository {
                 "card2Color"         to wallet.card2Color,
                 "accounts"           to accountsData
             )
-            usersCollection.document(wallet.uid).set(data).await()
+            usersCollection.document(wallet.uid).set(data)
             android.util.Log.d("FirestoreSuccess", "Đã lưu UserWallet")
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "saveUserWallet: ${e.message}")
@@ -97,7 +98,7 @@ class FirestoreRepository {
     }
 
     /** Lấy danh sách giao dịch gần nhất */
-    suspend fun getTransactions(uid: String, limit: Long = 20): List<Transaction> {
+    suspend fun getTransactions(uid: String, limit: Long = 20): List<FinanceTransaction> {
         return try {
             val snapshot = usersCollection
                 .document(uid)
@@ -115,7 +116,7 @@ class FirestoreRepository {
                     } catch (e: Exception) {
                         TransactionType.EXPENSE
                     }
-                    Transaction(
+                    FinanceTransaction(
                         id        = doc.id,
                         amount    = doc.getDouble("amount") ?: 0.0,
                         type      = type,
@@ -143,7 +144,7 @@ class FirestoreRepository {
     }
 
     /** Cập nhật giao dịch */
-    suspend fun updateTransaction(uid: String, updatedTransaction: Transaction) {
+    suspend fun updateTransaction(uid: String, updatedTransaction: FinanceTransaction) {
         try {
             val data = mapOf(
                 "amount"    to updatedTransaction.amount,
@@ -160,6 +161,32 @@ class FirestoreRepository {
             android.util.Log.d("FirestoreSuccess", "Đã cập nhật giao dịch: ${updatedTransaction.id}")
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "updateTransaction err: ${e.message}")
+            throw e
+        }
+    }
+
+    /** Thêm giao dịch mới */
+    suspend fun addTransaction(uid: String, transaction: FinanceTransaction) {
+        try {
+            val data = mapOf(
+                "amount"        to transaction.amount,
+                "type"          to transaction.type.name,
+                "category"      to transaction.category,
+                "note"          to transaction.note,
+                "paymentMethod" to transaction.paymentMethod.name,
+                "timestamp"     to transaction.timestamp,
+                "isFromOCR"     to transaction.isFromOCR,
+                "imageUrl"      to transaction.imageUrl,
+                "linkedGoalId"  to transaction.linkedGoalId
+            )
+            usersCollection.document(uid)
+                .collection("transactions")
+                .document(transaction.id.ifBlank { UUID.randomUUID().toString() })
+                .set(data)
+                .await()
+            android.util.Log.d("FirestoreSuccess", "Đã thêm giao dịch mới: ${transaction.id}")
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "addTransaction err: ${e.message}")
             throw e
         }
     }

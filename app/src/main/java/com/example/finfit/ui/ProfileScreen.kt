@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -18,13 +18,50 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.finfit.ui.theme.*
+import com.example.finfit.data.local.ThemeMode
 
 @Composable
-fun ProfileScreen(email: String, onLogout: () -> Unit) {
+fun ProfileScreen(
+    email: String, 
+    themeMode: ThemeMode,
+    onThemeChange: (ThemeMode) -> Unit,
+    onLogout: () -> Unit
+) {
+    var showThemeDialog by remember { mutableStateOf(false) }
+
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = { Text("Chọn giao diện") },
+            text = {
+                Column {
+                    ThemeOptionRow("Theo hệ thống", themeMode == com.example.finfit.data.local.ThemeMode.SYSTEM) {
+                        onThemeChange(com.example.finfit.data.local.ThemeMode.SYSTEM)
+                        showThemeDialog = false
+                    }
+                    ThemeOptionRow("Sáng", themeMode == com.example.finfit.data.local.ThemeMode.LIGHT) {
+                        onThemeChange(com.example.finfit.data.local.ThemeMode.LIGHT)
+                        showThemeDialog = false
+                    }
+                    ThemeOptionRow("Tối", themeMode == com.example.finfit.data.local.ThemeMode.DARK) {
+                        onThemeChange(com.example.finfit.data.local.ThemeMode.DARK)
+                        showThemeDialog = false
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeDialog = false }) { Text("Đóng") }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -36,14 +73,14 @@ fun ProfileScreen(email: String, onLogout: () -> Unit) {
         ) {
             Text(
                 "Cài đặt cá nhân",
-                color = TextWhite,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
             Icon(
                 Icons.Default.Settings,
                 contentDescription = null,
-                tint = TextWhite,
+                tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -55,7 +92,7 @@ fun ProfileScreen(email: String, onLogout: () -> Unit) {
             modifier = Modifier
                 .size(100.dp)
                 .clip(CircleShape)
-                .background(CardBackground),
+                .background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -67,13 +104,18 @@ fun ProfileScreen(email: String, onLogout: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text(email, color = TextWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(email, color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("Thành viên Premium", color = PrimaryBlue, fontSize = 14.sp)
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Danh sách cài đặt - Sử dụng tên khác để tránh trùng lặp
-        ProfileSettingsItemRow(Icons.Default.Palette, "Giao diện", "Tối / Sáng")
+        // Danh sách cài đặt
+        val currentThemeLabel = when(themeMode) {
+            com.example.finfit.data.local.ThemeMode.SYSTEM -> "Theo hệ thống"
+            com.example.finfit.data.local.ThemeMode.LIGHT -> "Sáng"
+            com.example.finfit.data.local.ThemeMode.DARK -> "Tối"
+        }
+        ProfileSettingsItemRow(Icons.Default.Palette, "Giao diện", currentThemeLabel, onClick = { showThemeDialog = true })
         
         val context = androidx.compose.ui.platform.LocalContext.current
         val isNotiEnabled = android.provider.Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
@@ -114,7 +156,7 @@ fun ProfileSettingsItemRow(icon: ImageVector, title: String, value: String, onCl
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(CardBackground)
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -123,7 +165,7 @@ fun ProfileSettingsItemRow(icon: ImageVector, title: String, value: String, onCl
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(DarkBackground),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -135,9 +177,24 @@ fun ProfileSettingsItemRow(icon: ImageVector, title: String, value: String, onCl
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextWhite, fontWeight = FontWeight.Bold)
-            Text(value, color = TextGray, fontSize = 12.sp)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+            Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextGray)
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+fun ThemeOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = MaterialTheme.colorScheme.onSurface)
+        RadioButton(selected = selected, onClick = onClick)
     }
 }

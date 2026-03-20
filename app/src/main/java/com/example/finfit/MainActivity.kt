@@ -1,19 +1,18 @@
 package com.example.finfit
 
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.example.finfit.core.navigation.Routes
+import com.example.finfit.data.local.ThemeMode
+import com.example.finfit.data.local.ThemePreferences
 import com.example.finfit.data.repository.AuthRepository
 import com.example.finfit.finance.repository.FirestoreRepository
-import com.example.finfit.finance.model.TransactionType
-import com.example.finfit.finance.ui.DashboardWithData
 import com.example.finfit.finance.ui.AddTransactionWithData
 import com.example.finfit.ui.AuthScreen
 import com.example.finfit.ui.MainScreen
@@ -25,13 +24,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val themePrefs = ThemePreferences(this)
+        
         setContent {
-            FinFitTheme {
+            var themeMode by remember { mutableStateOf(themePrefs.getThemeMode()) }
+            val useDarkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+
+            FinFitTheme(darkTheme = useDarkTheme) {
                 val navController = rememberNavController()
                 val currentUser = authRepository.getCurrentUser()
                 val startDestination = if (currentUser == null) Routes.AUTH else Routes.MAIN
-
-                // Move refreshTrigger up to be shared across screens
+                
                 var refreshTrigger by remember { mutableStateOf(0) }
 
                 NavHost(navController = navController, startDestination = startDestination) {
@@ -64,15 +71,22 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(route) {
                                         launchSingleTop = true
                                     }
-                                }
+                                },
+                                themeMode = themeMode,
+                                onThemeChange = { newMode ->
+                                    themeMode = newMode
+                                    themePrefs.setThemeMode(newMode)
+                                },
+                                initialTab = themePrefs.getLastTab(),
+                                onTabSelected = { tab -> themePrefs.setLastTab(tab) }
                             )
                         }
                     }
                     composable(
                         Routes.ADD + "?type={type}",
                         arguments = listOf(
-                            androidx.navigation.navArgument("type") {
-                                type = androidx.navigation.NavType.StringType
+                            navArgument("type") {
+                                type = NavType.StringType
                                 nullable = true
                                 defaultValue = null
                             }

@@ -4,8 +4,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // Định nghĩa các tên màn hình
@@ -17,6 +17,7 @@ object Routes {
     const val HEALTH = "health"
     const val ADD = "add"
     const val PROFILE = "profile"
+    const val ASSISTANT = "assistant" // Màn hình trợ lý AI mới
     // Sub-routes for Health
     const val HEALTH_DASHBOARD = "health_dashboard"
     const val STEP_COUNTER = "stepCounter" // Phân hệ đếm bước mới bằng Sensor/Room
@@ -28,8 +29,8 @@ object Routes {
 
 sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: String) {
     object Home : BottomNavItem(Routes.DASHBOARD, Icons.Default.Home, "Trang chủ")
-    object Finance : BottomNavItem(Routes.FINANCE, Icons.Default.Payments, "Tài chính")
+    object Assistant : BottomNavItem(Routes.ASSISTANT, Icons.Default.SmartToy, "Trợ lý AI")
     object Add : BottomNavItem(Routes.ADD, Icons.Default.Add, "Thêm")
     object Health : BottomNavItem(Routes.HEALTH_DASHBOARD, Icons.Default.Favorite, "Sức khỏe")
-    object Profile : BottomNavItem(Routes.PROFILE, Icons.Default.Settings, "Cá nhân")
+    object Profile : BottomNavItem(Routes.PROFILE, Icons.Default.Person, "Cá nhân")
 }
