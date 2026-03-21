@@ -4,6 +4,8 @@ import com.example.finfit.finance.model.AppBankAccount
 import com.example.finfit.finance.model.FinanceTransaction
 import com.example.finfit.finance.model.AppUserWallet
 import com.example.finfit.finance.model.TransactionType
+import com.example.finfit.finance.model.SavingsGoal
+import com.example.finfit.finance.model.PaymentMethod
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.Timestamp
@@ -13,6 +15,62 @@ import java.util.UUID
 class FirestoreRepository {
     private val db = Firebase.firestore
     private val usersCollection = db.collection("users")
+
+    /** Lấy danh sách mục tiêu tiết kiệm */
+    suspend fun getSavingsGoals(uid: String): List<SavingsGoal> {
+        return try {
+            val snapshot = usersCollection.document(uid).collection("savingsGoals").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                SavingsGoal(
+                    id           = doc.id,
+                    goalName     = doc.getString("goalName") ?: "",
+                    targetAmount = doc.getDouble("targetAmount") ?: 0.0,
+                    currentAmount = doc.getDouble("currentAmount") ?: 0.0,
+                    targetDate   = doc.getTimestamp("targetDate"),
+                    iconEmoji    = doc.getString("iconEmoji") ?: "🎯",
+                    colorHex     = doc.getLong("colorHex") ?: 0xFF3B82F6L,
+                    createdAt    = doc.getTimestamp("createdAt") ?: Timestamp.now()
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "getSavingsGoals: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /** Lưu mục tiêu tiết kiệm (Thêm/Sửa) */
+    suspend fun saveSavingsGoal(uid: String, goal: SavingsGoal) {
+        try {
+            val data = mapOf(
+                "goalName"     to goal.goalName,
+                "targetAmount" to goal.targetAmount,
+                "currentAmount" to goal.currentAmount,
+                "targetDate"   to goal.targetDate,
+                "iconEmoji"    to goal.iconEmoji,
+                "colorHex"     to goal.colorHex,
+                "createdAt"    to goal.createdAt
+            )
+            val docRef = if (goal.id.isBlank()) {
+                usersCollection.document(uid).collection("savingsGoals").document()
+            } else {
+                usersCollection.document(uid).collection("savingsGoals").document(goal.id)
+            }
+            docRef.set(data, com.google.firebase.firestore.SetOptions.merge()).await()
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "saveSavingsGoal: ${e.message}")
+            throw e
+        }
+    }
+
+    /** Xóa mục tiêu tiết kiệm */
+    suspend fun deleteSavingsGoal(uid: String, goalId: String) {
+        try {
+            usersCollection.document(uid).collection("savingsGoals").document(goalId).delete().await()
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "deleteSavingsGoal: ${e.message}")
+            throw e
+        }
+    }
 
     /** Lấy thông tin ví (bao gồm danh sách tài khoản) */
     suspend fun getUserWallet(uid: String): AppUserWallet? {
@@ -58,7 +116,7 @@ class FirestoreRepository {
             )
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "getUserWallet err: ${e.message}")
-            throw e // TUYỆT ĐỐI không trả về null khi lỗi, phải báo lỗi để tránh mất dữ liệu!
+            throw e
         }
     }
 

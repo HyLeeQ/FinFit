@@ -30,11 +30,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
     buildFeatures {
         compose true
@@ -72,4 +72,10 @@ dependencies {
 
     // Google Activity Recognition API
     implementation 'com.google.android.gms:play-services-location:21.2.0'
+
+    // UI & Animations
+    implementation libs.lottie.compose
+    implementation libs.coil.compose
+    implementation libs.vico.compose.m3
+    implementation libs.vico.views
 }

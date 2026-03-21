@@ -93,6 +93,9 @@ data class SavingsGoal(
     val goalName: String = "",
     val targetAmount: Double = 0.0,
     val currentAmount: Double = 0.0,
+    val targetDate: Timestamp? = null,
+    val iconEmoji: String = "🎯",
+    val colorHex: Long = 0xFF3B82F6L, // Blue default
     val createdAt: Timestamp = Timestamp.now()
 )
 

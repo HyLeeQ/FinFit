@@ -38,11 +38,13 @@ fun DashboardWithData(
     firestoreRepository: FirestoreRepository,
     refreshTrigger: Int,
     onLogout: () -> Unit,
-    onAction: (TransactionType?) -> Unit
+    onAction: (TransactionType?) -> Unit,
+    onNavigate: (String) -> Unit
 ) {
     val user = AuthRepository().getCurrentUser()
     var wallet by remember { mutableStateOf<AppUserWallet?>(null) }
     var transactions by remember { mutableStateOf<List<FinanceTransaction>>(emptyList()) }
+    var goals by remember { mutableStateOf<List<SavingsGoal>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -56,9 +58,11 @@ fun DashboardWithData(
                 // Chạy song song để tăng tốc độ (giảm "đơ" khi chuyển trang)
                 val walletDeferred = async { firestoreRepository.getUserWallet(user.uid) }
                 val txDeferred = async { firestoreRepository.getTransactions(user.uid) }
+                val goalsDeferred = async { firestoreRepository.getSavingsGoals(user.uid) }
                 
                 val walletData = walletDeferred.await()
                 transactions = txDeferred.await()
+                goals = goalsDeferred.await()
                 
                 wallet = if (walletData != null) {
                     if (walletData.accounts.isEmpty() && (walletData.savingsAmount > 0 || walletData.card1Name != "THẺ CHÍNH")) {
@@ -96,13 +100,7 @@ fun DashboardWithData(
             userEmail = userEmail,
             wallet = wallet,
             transactions = transactions,
-            onSaveWallet = { updated ->
-                wallet = updated
-                scope.launch {
-                    try { firestoreRepository.saveUserWallet(updated); Toast.makeText(context, "Đã cập nhật!", Toast.LENGTH_SHORT).show() }
-                    catch (e: Exception) { Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show() }
-                }
-            },
+            goals = goals,
             onSilentSave = { updated ->
                 wallet = updated
                 scope.launch { try { firestoreRepository.saveUserWallet(updated) } catch (e: Exception) { Log.e("SilentSave", e.message ?: "") } }
@@ -141,8 +139,50 @@ fun DashboardWithData(
                     }
                 }
             },
-            onLogout = onLogout,
-            onAction = onAction
+            onAction = onAction,
+            onNavigate = onNavigate
+        )
+    }
+}
+
+@Composable
+fun WalletManagementWithData(
+    firestoreRepository: FirestoreRepository,
+    onNavigate: (String) -> Unit
+) {
+    val user = AuthRepository().getCurrentUser()
+    var wallet by remember { mutableStateOf<AppUserWallet?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    LaunchedEffect(user?.uid) {
+        if (user != null) {
+            try {
+                wallet = firestoreRepository.getUserWallet(user.uid)
+            } catch (e: Exception) {
+                Log.e("WalletManagement", "Error fetching data: ${e.message}")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    if (isLoading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = PrimaryBlue)
+        }
+    } else {
+        WalletManagementScreen(
+            wallet = wallet,
+            onSaveWallet = { updated ->
+                wallet = updated
+                scope.launch {
+                    try { firestoreRepository.saveUserWallet(updated); Toast.makeText(context, "Đã cập nhật!", Toast.LENGTH_SHORT).show() }
+                    catch (e: Exception) { Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show() }
+                }
+            },
+            onNavigate = onNavigate
         )
     }
 }
@@ -228,5 +268,57 @@ fun AddTransactionWithData(
                 }
             }
         }
+    }
+}
+@Composable
+fun SavingsGoalWithData(
+    firestoreRepository: FirestoreRepository,
+    onBack: () -> Unit
+) {
+    val user = AuthRepository().getCurrentUser()
+    var goals by remember { mutableStateOf<List<SavingsGoal>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    LaunchedEffect(user?.uid) {
+        if (user != null) {
+            goals = firestoreRepository.getSavingsGoals(user.uid)
+            isLoading = false
+        }
+    }
+
+    if (isLoading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = PrimaryBlue)
+        }
+    } else {
+        SavingsGoalScreen(
+            uid = user?.uid ?: "",
+            goals = goals,
+            onSaveGoal = { goal ->
+                scope.launch {
+                    try {
+                        firestoreRepository.saveSavingsGoal(user?.uid ?: "", goal)
+                        goals = firestoreRepository.getSavingsGoals(user?.uid ?: "")
+                        Toast.makeText(context, "Mục tiêu đã được lưu!", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+            onDeleteGoal = { id ->
+                scope.launch {
+                    try {
+                        firestoreRepository.deleteSavingsGoal(user?.uid ?: "", id)
+                        goals = firestoreRepository.getSavingsGoals(user?.uid ?: "")
+                        Toast.makeText(context, "Đã xóa mục tiêu!", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+            onBack = onBack
+        )
     }
 }

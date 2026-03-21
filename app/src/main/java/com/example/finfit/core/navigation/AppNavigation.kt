@@ -1,7 +1,10 @@
 package com.example.finfit.core.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -12,25 +15,39 @@ import androidx.compose.ui.graphics.vector.ImageVector
 object Routes {
     const val AUTH = "auth"
     const val MAIN = "main"
-    const val DASHBOARD = "dashboard"
-    const val FINANCE = "finance"
-    const val HEALTH = "health"
     const val ADD = "add"
-    const val PROFILE = "profile"
-    const val ASSISTANT = "assistant" // Màn hình trợ lý AI mới
-    // Sub-routes for Health
-    const val HEALTH_DASHBOARD = "health_dashboard"
-    const val STEP_COUNTER = "stepCounter" // Phân hệ đếm bước mới bằng Sensor/Room
+    // Finance Routes
+    const val DASHBOARD = "dashboard" // Trang chủ tài chính
+    const val FINANCE_WALLET = "finance_wallet" // Quản lý ví
+    const val FINANCE_PLAN = "finance_plan" // Kế hoạch chi tiêu
+    const val SAVINGS_GOALS = "savings_goals"
+    const val PROFILE = "profile" // Cá nhân chung
+    const val ASSISTANT = "assistant"
+
+    // Health Routes
+    const val HEALTH_DASHBOARD = "health_dashboard" // Y tế cơ bản
+    const val STEP_COUNTER = "stepCounter"
     const val FOOD_SCANNER = "food_scanner"
     const val HEALTH_STATS = "health_stats"
     const val HEALTH_PREDICTION = "health_prediction"
     const val HEALTH_LOG = "health_log"
 }
 
+enum class AppMode {
+    FINANCE, HEALTH
+}
+
+// Bottom Navigation items based on mode
 sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: String) {
-    object Home : BottomNavItem(Routes.DASHBOARD, Icons.Default.Home, "Trang chủ")
-    object Assistant : BottomNavItem(Routes.ASSISTANT, Icons.Default.SmartToy, "Trợ lý AI")
-    object Add : BottomNavItem(Routes.ADD, Icons.Default.Add, "Thêm")
-    object Health : BottomNavItem(Routes.HEALTH_DASHBOARD, Icons.Default.Favorite, "Sức khỏe")
+    // Finance
+    object FinanceHome : BottomNavItem(Routes.DASHBOARD, Icons.Default.Home, "Trang chủ")
+    object FinanceWallet : BottomNavItem(Routes.FINANCE_WALLET, Icons.Default.AccountBalanceWallet, "Quản lý ví")
+    object FinancePlan : BottomNavItem(Routes.FINANCE_PLAN, Icons.AutoMirrored.Filled.List, "Sắp xếp")
+    
+    // Health 
+    object HealthHome : BottomNavItem(Routes.HEALTH_DASHBOARD, Icons.Default.Favorite, "Sức khỏe")
+    object HealthFeatures : BottomNavItem(Routes.HEALTH_STATS, Icons.Default.BarChart, "Chức năng")
+    
+    // Common
     object Profile : BottomNavItem(Routes.PROFILE, Icons.Default.Person, "Cá nhân")
 }
