@@ -47,26 +47,30 @@ class BankNotificationListener : NotificationListenerService() {
 
         Log.d("BankNoti", "Nhận thông báo từ $bankCode: $content")
 
-        // Parse số tiền và loại giao dịch
+        // Parse số tiền, loại giao dịch và phát hiện chuyển khoản tự động
         val result = parseBankingContent(content) ?: return
         val amount = result.first
         val type = result.second
+        val detectedTransferTo = result.third
 
-        processTransaction(bankCode, amount, type, content)
+        processTransaction(bankCode, amount, type, content, detectedTransferTo)
     }
 
-    private fun parseBankingContent(content: String): Pair<Double, TransactionType>? {
-        // Regex tìm số tiền có dấu + hoặc - hoặc các từ khóa biến động
-        // Ví dụ: +100,000VND, -50.000đ, "Số dư thay đổi +200,000"
+    private fun parseBankingContent(content: String): Triple<Double, TransactionType, String?>? {
         val cleanContent = content.replace(",", "")
         
-        // Tìm số tiền (chuỗi số liên tục)
         val amountRegex = """(?:\+|\-| biến động |GD: )(\d+)(?:\s?VND|\s?đ| đ)?""".toRegex(RegexOption.IGNORE_CASE)
         val match = amountRegex.find(cleanContent) ?: return null
         
         val value = match.groups[1]?.value?.toDoubleOrNull() ?: return null
-        if (value < 1000) return null // Bỏ qua các giao dịch quá nhỏ
+        if (value < 1000) return null
 
+        // Phân hệ nhận diện chuyển khoản nội bộ (tự nạp ví của mình)
+        // VD: "MOMO-CASHIN-..." là nạp vào ví của mình. "MOMO-TRANSFER" là chuyển cho người khác.
+        val isMomoTransfer = content.contains("MOMO-CASHIN", ignoreCase = true) || content.contains("NAP TIEN MOMO", ignoreCase = true)
+        val isZaloTransfer = content.contains("ZALOPAY-CASHIN", ignoreCase = true) || content.contains("NAP TIEN ZALOPAY", ignoreCase = true)
+        val isAtmTransfer = content.contains("ATM", ignoreCase = true) || content.contains("RUT TIEN", ignoreCase = true)
+        
         val isIncome = content.contains("+") || 
                        content.contains("nhận", ignoreCase = true) || 
                        content.contains("vào", ignoreCase = true) ||
@@ -75,55 +79,78 @@ class BankNotificationListener : NotificationListenerService() {
         val isExpense = content.contains("-") || 
                         content.contains("trừ", ignoreCase = true) || 
                         content.contains("thanh toán", ignoreCase = true) ||
-                        content.contains("chuyển tiền", ignoreCase = true)
+                        content.contains("chuyển tiền", ignoreCase = true) ||
+                        isMomoTransfer || isZaloTransfer || isAtmTransfer
 
-        return when {
-            isIncome -> Pair(value, TransactionType.INCOME)
-            isExpense -> Pair(value, TransactionType.EXPENSE)
-            else -> Pair(value, TransactionType.EXPENSE) // Mặc định là chi tiêu nếu không rõ
+        val type = when {
+            (isMomoTransfer || isZaloTransfer || isAtmTransfer) && isExpense -> TransactionType.TRANSFER
+            isIncome -> TransactionType.INCOME
+            else -> TransactionType.EXPENSE
         }
+        
+        val targetBankCode = when {
+            isMomoTransfer -> "MOMO"
+            isZaloTransfer -> "ZALOPAY"
+            isAtmTransfer -> "CASH"
+            else -> null
+        }
+
+        return Triple(value, type, targetBankCode)
     }
 
-    private fun processTransaction(bankCode: String, amount: Double, type: TransactionType, note: String) {
+    private fun processTransaction(bankCode: String, amount: Double, type: TransactionType, note: String, transferTo: String?) {
         val user = authRepository.getCurrentUser() ?: return
         
         serviceScope.launch {
             try {
                 val wallet = firestoreRepository.getUserWallet(user.uid) ?: return@launch
                 
-                // Tìm tài khoản phù hợp với bankCode trong ví
-                val targetAccount = wallet.accounts.find { it.bankCode == bankCode } 
-                                     ?: wallet.accounts.firstOrNull() // Nếu không khớp bankCode, lấy TK đầu tiên
+                // Tìm tài khoản nguồn (của bank nào nhận thông báo)
+                val sourceAccount = wallet.accounts.find { it.bankCode == bankCode } 
+                                     ?: wallet.accounts.firstOrNull()
                                      ?: return@launch
                 
+                // Tìm tài khoản đích (nếu là chuyển khoản tự động)
+                val destinationAccount = if (type == TransactionType.TRANSFER && transferTo != null) {
+                    wallet.accounts.find { it.bankCode == transferTo }
+                } else null
+
                 val updatedAccounts = wallet.accounts.map {
-                    if (it.id == targetAccount.id) {
-                        val newAmount = if (type == TransactionType.INCOME) it.amount + amount else it.amount - amount
-                        it.copy(amount = newAmount)
-                    } else it
+                    when (it.id) {
+                        sourceAccount.id -> {
+                            val newAmount = if (type == TransactionType.INCOME) it.amount + amount else it.amount - amount
+                            it.copy(amount = newAmount)
+                        }
+                        destinationAccount?.id -> {
+                            // Nếu nguồn là EXPENSE (TRANSFER OUT), đích sẽ nhận được tiền (+ amount)
+                            it.copy(amount = it.amount + amount)
+                        }
+                        else -> it
+                    }
                 }
                 
                 val updatedWallet = wallet.copy(accounts = updatedAccounts)
-                
-                // 1. Lưu ví mới
                 firestoreRepository.saveUserWallet(updatedWallet)
                 
-                // 2. Tạo record giao dịch vào lịch sử
+                // Tạo record giao dịch
                 val transaction = FinanceTransaction(
                     id = UUID.randomUUID().toString(),
                     amount = amount,
                     type = type,
-                    category = if (type == TransactionType.INCOME) "Thu nhập khác" else "Chi tiêu khác",
+                    category = when(type) {
+                        TransactionType.INCOME -> "Thu nhập tự động"
+                        TransactionType.TRANSFER -> "Chuyển khoản tự động"
+                        else -> "Chi tiêu tự động"
+                    },
                     note = "[Tự động] $note",
-                    paymentMethod = com.example.finfit.finance.model.PaymentMethod.BANKING
+                    paymentMethod = PaymentMethod.BANKING,
+                    accountId = sourceAccount.id,
+                    toAccountId = destinationAccount?.id
                 )
                 
-                // Sử dụng đoạn mã bạn cung cấp để lưu giao dịch
-                if (user != null) {
-                    firestoreRepository.addTransaction(user.uid, transaction)
-                }
+                firestoreRepository.addTransaction(user.uid, transaction)
                 
-                Log.d("BankNoti", "Tự động cập nhật thành công: ${targetAccount.name} | $type $amount")
+                Log.d("BankNoti", "Tự động xử lý: Source=${sourceAccount.name} | Dest=${destinationAccount?.name} | $type $amount")
             } catch (e: Exception) {
                 Log.e("BankNoti", "Lỗi xử lý tự động: ${e.message}")
             }

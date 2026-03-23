@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
                                 navController.popBackStack() 
                             },
                             onBack = { navController.popBackStack() },
+                            onHome = { navController.popBackStack() },
                             initialTypeArg = typeArg
                         )
                     }

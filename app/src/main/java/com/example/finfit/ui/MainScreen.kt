@@ -32,15 +32,9 @@ import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
 import com.example.finfit.finance.model.TransactionType
 import com.example.finfit.finance.repository.FirestoreRepository
-import com.example.finfit.finance.ui.DashboardWithData
-import com.example.finfit.finance.ui.SavingsGoalWithData
-import com.example.finfit.finance.ui.WalletManagementWithData
-import com.example.finfit.health.ui.HealthDashboardScreen
-import com.example.finfit.health.ui.StepCounterScreen
-import com.example.finfit.health.ui.FoodScannerScreen
-import com.example.finfit.health.ui.HealthStatsScreen
-import com.example.finfit.health.ui.HealthPredictionScreen
-import com.example.finfit.health.ui.HealthLogScreen
+import com.example.finfit.finance.ui.*
+import com.example.finfit.health.ui.*
+import com.example.finfit.ui.theme.PrimaryBlue
 import kotlin.math.roundToInt
 
 @Composable
@@ -104,35 +98,21 @@ fun MainScreen(
                 modifier = Modifier.padding(innerPadding)
             ) {
                 // Finance Routes
-                composable(Routes.DASHBOARD) {
-                    DashboardWithData(
-                        userEmail = userEmail,
-                        firestoreRepository = firestoreRepository,
-                        refreshTrigger = refreshTrigger,
-                        onLogout = onLogout,
-                        onAction = onAction,
-                        onNavigate = { route -> navController.navigate(route) }
-                    )
-                }
-                composable(Routes.FINANCE_WALLET) {
-                    WalletManagementWithData(
-                        firestoreRepository = firestoreRepository,
-                        onNavigate = { route -> navController.navigate(route) }
-                    )
-                }
-                composable(Routes.FINANCE_PLAN) {
-                    // Placeholder for future feature
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Tính năng Kế hoạch chi tiêu sẽ phát triển sau", color = MaterialTheme.colorScheme.onBackground)
-                    }
-                }
-                composable(Routes.SAVINGS_GOALS) {
-                    SavingsGoalWithData(
-                        firestoreRepository = firestoreRepository,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
+                financeNavGraph(
+                    navController = navController,
+                    userEmail = userEmail,
+                    firestoreRepository = firestoreRepository,
+                    refreshTrigger = refreshTrigger,
+                    onLogout = onLogout,
+                    onAction = onAction
+                )
                 
+                // Health Routes
+                healthNavGraph(
+                    navController = navController,
+                    userEmail = userEmail
+                )
+
                 // Assistant screen
                 composable(Routes.ASSISTANT) {
                     Box(
@@ -149,31 +129,6 @@ fun MainScreen(
                             Text("Tính năng hội thoại đang được phát triển...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                }
-
-                // Health Routes
-                composable(Routes.HEALTH_DASHBOARD) {
-                    HealthDashboardScreen(
-                        userEmail = userEmail,
-                        onNavigate = { route ->
-                            navController.navigate(route) { launchSingleTop = true }
-                        }
-                    )
-                }
-                composable(Routes.STEP_COUNTER) {
-                    StepCounterScreen(userEmail) { navController.popBackStack() }
-                }
-                composable(Routes.FOOD_SCANNER) {
-                    FoodScannerScreen(userEmail) { navController.popBackStack() }
-                }
-                composable(Routes.HEALTH_STATS) {
-                    HealthStatsScreen(userEmail) { navController.popBackStack() }
-                }
-                composable(Routes.HEALTH_PREDICTION) {
-                    HealthPredictionScreen(userEmail) { navController.popBackStack() }
-                }
-                composable(Routes.HEALTH_LOG) {
-                    HealthLogScreen(userEmail) { navController.popBackStack() }
                 }
                 
                 // Common

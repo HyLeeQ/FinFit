@@ -66,7 +66,8 @@ fun AddTransactionScreen(
     wallet: AppUserWallet?,
     initialType: TransactionType = TransactionType.EXPENSE,
     onSave: (FinanceTransaction, AppUserWallet) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onHome: () -> Unit = onBack
 ) {
     if (wallet == null) { onBack(); return }
 
@@ -119,7 +120,10 @@ fun AddTransactionScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground)
                 }
-                Text("Thêm giao dịch", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Thêm giao dịch", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                IconButton(onClick = onHome) {
+                    Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.onBackground)
+                }
             }
         }
 
@@ -136,7 +140,6 @@ fun AddTransactionScreen(
             ) {
                 TxTypeTab("Chi tiêu",    txType == TransactionType.EXPENSE,  Color(0xFFEF4444)) { txType = TransactionType.EXPENSE  }
                 TxTypeTab("Thu nhập",    txType == TransactionType.INCOME,   Color(0xFF10B981)) { txType = TransactionType.INCOME   }
-                TxTypeTab("Chuyển tiền", txType == TransactionType.TRANSFER, Color(0xFF6366F1)) { txType = TransactionType.TRANSFER }
             }
         }
 
@@ -230,7 +233,9 @@ fun AddTransactionScreen(
                         type      = txType,
                         category  = category.ifBlank { if (txType == TransactionType.EXPENSE) "Khác" else "Khác" },
                         note      = note,
-                        timestamp = Timestamp.now()
+                        timestamp = Timestamp.now(),
+                        accountId = fromAccount?.id ?: wallet.accounts.firstOrNull()?.id,
+                        toAccountId = if (txType == TransactionType.TRANSFER) (toAccount?.id ?: wallet.accounts.lastOrNull()?.id) else null
                     )
 
                     // Cập nhật số dư tài khoản

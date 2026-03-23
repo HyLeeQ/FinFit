@@ -21,6 +21,12 @@ object Routes {
     const val FINANCE_WALLET = "finance_wallet" // Quản lý ví
     const val FINANCE_PLAN = "finance_plan" // Kế hoạch chi tiêu
     const val SAVINGS_GOALS = "savings_goals"
+    const val HELD_FUNDS = "held_funds"
+    const val GENERAL_SAVINGS = "general_savings"
+    const val TRANSFER = "transfer"
+    const val BUDGET = "budget"
+    const val ANALYTICS = "analytics"
+    const val DEBT_LOAN = "debt_loan"
     const val PROFILE = "profile" // Cá nhân chung
     const val ASSISTANT = "assistant"
 

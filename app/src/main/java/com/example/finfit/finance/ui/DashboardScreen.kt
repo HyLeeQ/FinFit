@@ -26,6 +26,16 @@ import com.example.finfit.ui.theme.*
 import java.text.*
 import java.util.*
 
+// ─── Data Helper ─────────────────────────────────────────────
+data class CalculatedFunds(
+    val personal: Double,
+    val goal: Double,
+    val general: Double,
+    val held: Double,
+    val total: Double,
+    val spendable: Double
+)
+
 // ─── Routes nội bộ ───────────────────────────────────────────
 private sealed class Screen {
     object Home : Screen()
@@ -60,13 +70,15 @@ fun DashboardScreen(
                 onSilentSave = onSilentSave,
                 onAction = onAction,
                 onEditTransaction = { tx -> screen = Screen.EditTransaction(tx) },
-                onNavigate = onNavigate
+                onNavigate = onNavigate,
+                onSavingsAction = { /* This callback is not strictly necessary if handled in HomeContent */ }
             )
             is Screen.EditTransaction -> EditTransactionScreen(
                 transaction = s.transaction,
                 onSave = { updated -> onUpdateTransaction(updated); screen = Screen.Home },
                 onDelete = { id -> onDeleteTransaction(id); screen = Screen.Home },
-                onBack = { screen = Screen.Home }
+                onBack = { screen = Screen.Home },
+                onHome = { screen = Screen.Home }
             )
         }
     }
@@ -82,8 +94,11 @@ fun HomeContent(
     onSilentSave: (AppUserWallet) -> Unit,
     onAction: (TransactionType?) -> Unit,
     onEditTransaction: (FinanceTransaction) -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onSavingsAction: (() -> Unit)? = null
 ) {
+    var isDashboardHidden by remember { mutableStateOf(true) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -91,67 +106,53 @@ fun HomeContent(
         item { HeaderSection(userEmail) }
         item { Spacer(Modifier.height(20.dp)) }
 
-        // Tổng số dư
+        // Fund Distribution Section (4-part Money Management)
         item {
-            var isTotalHidden by remember { mutableStateOf(true) }
-            val total = wallet?.accounts?.sumOf { it.amount } ?: 0.0
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 16.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-                    .padding(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Tổng tài chính",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 0.3.sp
-                    )
-                    IconButton(
-                        onClick = { isTotalHidden = !isTotalHidden },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isTotalHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = "Toggle Balance",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = if (isTotalHidden) "****" else formatCurrency(total),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = (-1).sp
-                )
+            // Tính toán bằng remember để tránh jank khi scroll
+            val funds = remember(wallet, goals) {
+                val personal = wallet?.totalBalance ?: 0.0
+                val goal = goals.sumOf { it.currentAmount }
+                val general = wallet?.generalSavings ?: 0.0
+                val held = wallet?.totalHeldFunds ?: 0.0
+                val total = personal + held
+                val spend = (personal - goal - general).coerceAtLeast(0.0)
+                
+                CalculatedFunds(personal, goal, general, held, total, spend)
             }
+
+            FundDistributionSection(
+                totalManaged = funds.total,
+                personalMoney = funds.personal,
+                spendable = funds.spendable,
+                goalCommitted = funds.goal,
+                generalSaved = funds.general,
+                heldFunds = funds.held,
+                onAdjustGeneral = { onNavigate(Routes.GENERAL_SAVINGS) },
+                isHiddenGlobal = isDashboardHidden,
+                onToggleVisible = { isDashboardHidden = !isDashboardHidden }
+            )
         }
 
         item { Spacer(Modifier.height(16.dp)) }
 
         // Danh sách thẻ tài khoản (cuộn ngang)
         item {
+            val accounts = remember(wallet?.accounts) { wallet?.accounts ?: emptyList() }
+            
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 0.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (wallet != null) {
-                    items(wallet.accounts) { account ->
-                        AccountCard(
-                            account = account,
-                            onToggle = {
+                items(
+                    items = accounts,
+                    key = { it.id } // Quan trọng để LazyRow scroll mượt
+                ) { account ->
+                    AccountCard(
+                        account = account,
+                        isHiddenGlobal = isDashboardHidden,
+                        onToggle = {
+                            if (wallet != null) {
                                 val updated = wallet.copy(
                                     accounts = wallet.accounts.map {
                                         if (it.id == account.id) it.copy(isHidden = !it.isHidden) else it
@@ -159,14 +160,22 @@ fun HomeContent(
                                 )
                                 onSilentSave(updated)
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
         }
 
         item { Spacer(Modifier.height(24.dp)) }
-        item { QuickActionsSection(onAction) }
+        item { 
+            QuickActionsSection(
+                onAction = onAction,
+                onSavingsAction = { onNavigate(Routes.GENERAL_SAVINGS) },
+                onHeldFundsAction = { onNavigate(Routes.HELD_FUNDS) },
+                onTransferAction = { onNavigate(Routes.TRANSFER) },
+                onNavigate = onNavigate
+            )
+        }
         item { Spacer(Modifier.height(32.dp)) }
 
         // Mới: Mục tiêu tiết kiệm của bạn
@@ -184,6 +193,15 @@ fun RecentTransactionsSection(
     transactions: List<FinanceTransaction>,
     onEditTransaction: (FinanceTransaction) -> Unit
 ) {
+    var showAll by remember { mutableStateOf(false) }
+    
+    // Sắp xếp giảm dần theo thời gian và lấy dữ liệu
+    val sortedTransactions = remember(transactions) {
+        transactions.sortedByDescending { it.timestamp }
+    }
+    
+    val transactionsToDisplay = if (showAll) sortedTransactions else sortedTransactions.take(3)
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -213,10 +231,25 @@ fun RecentTransactionsSection(
                 Text("Chưa có giao dịch nào", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
         } else {
-            transactions.forEach { tx ->
+            transactionsToDisplay.forEach { tx ->
                 TransactionListItem(
                     transaction = tx,
                     onClick = { onEditTransaction(tx) }
+                )
+            }
+            
+            if (transactions.size > 3) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = if (showAll) "Thu gọn" else "Xem thêm ${transactions.size - 3} giao dịch",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAll = !showAll }
+                        .padding(vertical = 8.dp),
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -344,10 +377,9 @@ fun EditTransactionScreen(
     transaction: FinanceTransaction,
     onSave: (FinanceTransaction) -> Unit,
     onDelete: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onHome: () -> Unit = onBack
 ) {
-    var editAmount by remember { mutableStateOf(if (transaction.amount % 1 == 0.0) transaction.amount.toLong().toString() else transaction.amount.toString()) }
-    var editNote   by remember { mutableStateOf(transaction.note) }
     var selectedCategory by remember { mutableStateOf(transaction.category) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -366,63 +398,132 @@ fun EditTransactionScreen(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onBackground)
             }
-            Text("Chỉnh sửa giao dịch", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
+            Text("Chi tiết giao dịch", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onHome) {
+                Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.onBackground)
+            }
+            Spacer(Modifier.width(8.dp))
             IconButton(onClick = { showDeleteDialog = true }) {
                 Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
             }
         }
+        
         Spacer(Modifier.height(24.dp))
-
-        // Số tiền
+        
+        // --- Hiển thị thông tin nguyên bản (Khóa chỉnh sửa) ---
+        Text(
+            "THÔNG TIN GIAO DỊCH",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
         OutlinedTextField(
-            value = editAmount,
-            onValueChange = { editAmount = it },
+            value = formatCurrency(transaction.amount),
+            onValueChange = {},
             label = { Text("Số tiền") },
-            suffix = { Text("đ", color = MaterialTheme.colorScheme.onBackground) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            readOnly = true,
             modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onBackground, unfocusedTextColor = MaterialTheme.colorScheme.onBackground)
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(14.dp)
         )
-        Spacer(Modifier.height(16.dp))
-
-        // Ghi chú
+        
+        Spacer(Modifier.height(12.dp))
+        
         OutlinedTextField(
-            value = editNote,
-            onValueChange = { editNote = it },
-            label = { Text("Ghi chú") },
-            placeholder = { Text("Mô tả giao dịch...") },
+            value = transaction.note.ifBlank { "Không có nội dung" },
+            onValueChange = {},
+            label = { Text("Nội dung gốc") },
+            readOnly = true,
             modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = MaterialTheme.colorScheme.onBackground, unfocusedTextColor = MaterialTheme.colorScheme.onBackground)
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(14.dp)
         )
-        Spacer(Modifier.height(16.dp))
         
-        // Hạng mục (Tạm thời là TextField hiển thị, có thể làm picker sau)
-        Text("Hạng mục: $selectedCategory", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        Spacer(Modifier.height(24.dp))
         
-        Spacer(Modifier.weight(1f))
+        // --- Chỉnh sửa hạng mục ---
+        Text(
+            "PHÂN LOẠI",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        // Sử dụng CategoryPicker từ logic tương đương AddTransactionScreen
+        val categories = if (transaction.type == TransactionType.INCOME) INCOME_CATEGORIES else EXPENSE_CATEGORIES
+        categories.chunked(5).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                row.forEach { cat ->
+                    val isSelected = selectedCategory == cat.label
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) cat.color.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface)
+                            .border(
+                                if (isSelected) 1.5.dp else 0.dp,
+                                if (isSelected) cat.color else Color.Transparent,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable { selectedCategory = cat.label }
+                            .padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(cat.color.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) { Icon(cat.icon, null, tint = cat.color, modifier = Modifier.size(18.dp)) }
+                        Spacer(Modifier.height(4.dp))
+                        Text(cat.label, color = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, textAlign = TextAlign.Center)
+                    }
+                }
+                repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
+        Spacer(Modifier.height(32.dp))
 
         Button(
             onClick = {
-                val amountText = editAmount.replace(".", "").replace(",", "")
-                val amount = amountText.toDoubleOrNull() ?: 0.0
-                val updated = transaction.copy(
-                    amount = amount,
-                    note = editNote,
-                    category = selectedCategory
-                )
+                val updated = transaction.copy(category = selectedCategory)
                 onSave(updated)
             },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Xác nhận phân loại", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -436,13 +537,18 @@ fun getCategoryIcon(category: String): ImageVector {
 // ─── Thẻ tài khoản ───────────────────────────────────────────
 @Composable
 fun AccountCard(
-    account: AppBankAccount,
+    account: AppBankAccount, 
+    isHiddenGlobal: Boolean,
     onToggle: () -> Unit
 ) {
-    val bankInfo = SUPPORTED_BANKS.find { it.code == account.bankCode }
-        ?: SUPPORTED_BANKS.last()
-
-    val gradientColors = cardGradient(account.colorIndex, bankInfo.primaryColorHex)
+    val bankInfo = remember(account.bankCode) {
+        SUPPORTED_BANKS.find { it.code == account.bankCode } ?: SUPPORTED_BANKS.last()
+    }
+    
+    val isActuallyHidden = isHiddenGlobal || account.isHidden
+    val gradientColors = remember(account.colorIndex, bankInfo.primaryColorHex) {
+        cardGradient(account.colorIndex, bankInfo.primaryColorHex)
+    }
 
     Box(
         modifier = Modifier
@@ -478,7 +584,7 @@ fun AccountCard(
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
-                    imageVector = if (account.isHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    imageVector = if (isActuallyHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     contentDescription = "Toggle Balance",
                     tint = Color.White.copy(alpha = 0.8f),
                     modifier = Modifier.size(20.dp)
@@ -498,7 +604,7 @@ fun AccountCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = if (account.isHidden) "********" else formatCurrency(account.amount),
+                text = if (isActuallyHidden) "********" else formatCurrency(account.amount),
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
@@ -556,56 +662,85 @@ fun HeaderSection(userEmail: String) {
 
 // ─── Quick Actions ──────────────────────────
 @Composable
-fun QuickActionsSection(onAction: (TransactionType?) -> Unit) {
-    val actions = listOf(
-        Triple("Thu nhập", Icons.Default.TrendingUp, Color(0xFF10B981)),
-        Triple("Chi tiêu", Icons.Default.TrendingDown, Color(0xFFEF4444)),
-        Triple("Chuyển tiền", Icons.AutoMirrored.Filled.CompareArrows, Color(0xFF6366F1)),
-        Triple("Thống kê", Icons.Default.PieChart, Color(0xFFF59E0B))
-    )
+fun QuickActionsSection(
+    onAction: (TransactionType?) -> Unit,
+    onSavingsAction: () -> Unit,
+    onHeldFundsAction: () -> Unit,
+    onTransferAction: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    val actions = remember {
+        listOf(
+            Triple("Giao dịch", Icons.Default.Add, PrimaryBlue),
+            Triple("Tiết kiệm", Icons.Default.Savings, Color(0xFF10B981)),
+            Triple("Ví nhóm", Icons.Default.Groups, Color(0xFFF59E0B)),
+            Triple("Chuyển tiền", Icons.Default.SwapHoriz, Color(0xFF6366F1)),
+            Triple("Thống kê", Icons.Default.BarChart, Color(0xFFEC4899)),
+            Triple("Kế hoạch", Icons.Default.EventNote, Color(0xFF8B5CF6)),
+            Triple("Nợ/Vay", Icons.Default.AccountBalance, Color(0xFF9333EA))
+        )
+    }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        actions.forEach { (label, icon, color) ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { 
-                        val type = when(label) {
-                            "Thu nhập" -> TransactionType.INCOME
-                            "Chi tiêu" -> TransactionType.EXPENSE
-                            "Chuyển tiền" -> TransactionType.TRANSFER
-                            else -> null
-                        }
-                        onAction(type)
-                    }
-                    .padding(vertical = 4.dp)
+        actions.chunked(4).forEach { rowActions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(58.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(color.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = label,
-                        tint = color,
-                        modifier = Modifier.size(26.dp)
-                    )
+                rowActions.forEach { (label, icon, color) ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { 
+                                when(label) {
+                                    "Giao dịch" -> onAction(null)
+                                    "Tiết kiệm" -> onSavingsAction()
+                                    "Ví nhóm" -> onHeldFundsAction()
+                                    "Chuyển tiền" -> onTransferAction()
+                                    "Thống kê" -> onNavigate(Routes.ANALYTICS)
+                                    "Kế hoạch" -> onNavigate(Routes.BUDGET)
+                                    "Nợ/Vay" -> onNavigate(Routes.DEBT_LOAN) // Assuming a new route for Debt/Loan
+                                }
+                            }
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(58.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(color.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label,
+                                tint = color,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = label,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = label,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                
+                // Thêm các ô trống nếu hàng không đủ 4 phần tử để giữ layout cân đối
+                if (rowActions.size < 4) {
+                    repeat(4 - rowActions.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
@@ -714,37 +849,158 @@ fun TransactionListItem(transaction: FinanceTransaction, onClick: () -> Unit) {
     }
 }
 
-// ─── Helper functions ─────────────────────────────────────────
-fun formatCurrency(amount: Double): String {
-    val fmt = NumberFormat.getInstance(Locale("vi", "VN"))
-    fmt.maximumFractionDigits = 0
-    return "${fmt.format(amount)} đ"
-}
+// ─── Sections ───────────────────────────────────────────────
 
-/** Trả về danh sách màu gradient tương ứng với chỉ số màu */
-fun cardGradient(colorIndex: Int, bankColorHex: Long): List<Color> {
-    val presets = listOf(
-        listOf(Color(0xFF2D82FE), Color(0xFF1E40AF)),
-        listOf(Color(0xFF10C67F), Color(0xFF065F46)),
-        listOf(Color(0xFFF59E0B), Color(0xFFB45309)),
-        listOf(Color(0xFF8B5CF6), Color(0xFF5B21B6)),
-        listOf(Color(0xFFEF4444), Color(0xFF991B1B)),
-        listOf(Color(0xFF0EA5E9), Color(0xFF0369A1)),
-    )
-    return presets.getOrElse(colorIndex) {
-        val base = Color(bankColorHex)
-        listOf(base, base.copy(red = (base.red * 0.7f).coerceIn(0f, 1f)))
+@Composable
+fun FundDistributionSection(
+    totalManaged: Double,
+    personalMoney: Double,
+    spendable: Double,
+    goalCommitted: Double,
+    generalSaved: Double,
+    heldFunds: Double,
+    onAdjustGeneral: () -> Unit,
+    isHiddenGlobal: Boolean,
+    onToggleVisible: () -> Unit
+) {
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        "TÀI SẢN CÁ NHÂN",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = if (isHiddenGlobal) "********" else formatCurrency(personalMoney),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    if (!isHiddenGlobal && heldFunds > 0) {
+                        Text(
+                            "Tổng tiền đang quản lý: ${formatCurrency(totalManaged)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+                IconButton(onClick = onToggleVisible) {
+                    Icon(
+                        if (isHiddenGlobal) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Distribution Progress Bar: Tính tỷ lệ dựa trên TỔNG TIỀN ĐANG QUẢN LÝ
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            ) {
+                val base = totalManaged.coerceAtLeast(1.0)
+                val spendWeight = (spendable / base).toFloat()
+                val goalWeight = (goalCommitted / base).toFloat()
+                val generalWeight = (generalSaved / base).toFloat()
+                val heldWeight = (heldFunds / base).toFloat()
+
+                if (spendWeight > 0) Box(Modifier.fillMaxHeight().weight(spendWeight).background(PrimaryBlue))
+                if (goalWeight > 0) Box(Modifier.fillMaxHeight().weight(goalWeight).background(Color(0xFFF59E0B)))
+                if (generalWeight > 0) Box(Modifier.fillMaxHeight().weight(generalWeight).background(AccentGreen))
+                if (heldWeight > 0) Box(Modifier.fillMaxHeight().weight(heldWeight).background(Color(0xFF8B5CF6)))
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Breakdown items
+            FundItem(
+                label = "Sử dụng thoải mái",
+                amount = spendable,
+                color = PrimaryBlue,
+                icon = Icons.Default.AccountBalanceWallet,
+                isHidden = isHiddenGlobal
+            )
+            Spacer(Modifier.height(12.dp))
+            FundItem(
+                label = "Tiết kiệm mục tiêu",
+                amount = goalCommitted,
+                color = Color(0xFFF59E0B),
+                icon = Icons.Default.TrendingUp,
+                isHidden = isHiddenGlobal
+            )
+            Spacer(Modifier.height(12.dp))
+            FundItem(
+                label = "Tiết kiệm chung (Dự phòng)",
+                amount = generalSaved,
+                color = AccentGreen,
+                icon = Icons.Default.Lock,
+                isHidden = isHiddenGlobal
+            )
+            Spacer(Modifier.height(12.dp))
+            FundItem(
+                label = "Tiền giữ hộ (Quỹ nhóm)",
+                amount = heldFunds,
+                color = Color(0xFF8B5CF6),
+                icon = Icons.Default.Groups,
+                isHidden = isHiddenGlobal
+            )
+        }
     }
 }
 
-/** Chuyển màu hex ngân hàng → chỉ số thẻ màu gần nhất */
-fun cardGradientIndex(bankColorHex: Long): Int {
-    return when (bankColorHex) {
-        0xFF059669L, 0xFF007A33L, 0xFF006838L, 0xFF00A651L, 0xFF009B4DL -> 1 // green
-        0xFFF59E0B -> 2   // orange
-        0xFFAE1F7EL, 0xFF6B21A8L -> 3  // purple
-        0xFFE31837L, 0xFFDC2626L -> 4  // red
-        0xFF0068FFL -> 5  // light blue
-        else -> 0         // default blue
+@Composable
+fun FundItem(
+    label: String,
+    amount: Double,
+    color: Color,
+    icon: ImageVector,
+    isHidden: Boolean,
+    onAction: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(32.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+        }
+        
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (isHidden) "****" else formatCurrency(amount),
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
     }
 }

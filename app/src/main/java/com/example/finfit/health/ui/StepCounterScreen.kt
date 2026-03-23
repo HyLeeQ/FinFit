@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -20,7 +21,7 @@ import com.example.finfit.health.repository.StepCounterManager
 import com.example.finfit.health.repository.StepCounterService
 
 @Composable
-fun StepCounterScreen(userEmail: String, onBack: () -> Unit) {
+fun StepCounterScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) {
     val context = LocalContext.current
 
     // StepCounterManager chỉ dùng để đọc StateFlow hiển thị UI
@@ -72,12 +73,13 @@ fun StepCounterScreen(userEmail: String, onBack: () -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HealthHeaderSection(
             title = "Đếm bước chân",
             userEmail = userEmail,
             showBackButton = true,
-            onBackClick = onBack
+            onBackClick = onBack,
+            onHomeClick = onHome
         )
         
         Box(

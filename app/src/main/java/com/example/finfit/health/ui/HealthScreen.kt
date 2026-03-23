@@ -30,7 +30,8 @@ fun HealthHeaderSection(
     title: String,
     userEmail: String,
     showBackButton: Boolean = false,
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onHomeClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -79,6 +80,9 @@ fun HealthHeaderSection(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onHomeClick) {
+                Icon(Icons.Default.Home, contentDescription = "Home", tint = MaterialTheme.colorScheme.onBackground)
+            }
             IconButton(onClick = {}) {
                 Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground)
             }
@@ -89,13 +93,14 @@ fun HealthHeaderSection(
 
 // Common Placeholder Screen cho các module tính năng
 @Composable
-fun HealthPlaceholderScreen(userEmail: String, title: String, onBack: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
+fun HealthPlaceholderScreen(userEmail: String, title: String, onBack: () -> Unit, onHome: () -> Unit = onBack) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HealthHeaderSection(
             title = title,
             userEmail = userEmail,
             showBackButton = true,
-            onBackClick = onBack
+            onBackClick = onBack,
+            onHomeClick = onHome
         )
         Box(
             modifier = Modifier
@@ -122,12 +127,11 @@ fun HealthPlaceholderScreen(userEmail: String, title: String, onBack: () -> Unit
     }
 }
 
-// 5 Màn hình con
-@Composable fun StepTrackerScreen(userEmail: String, onBack: () -> Unit) = HealthPlaceholderScreen(userEmail, "Theo dõi bước chân", onBack)
-@Composable fun FoodScannerScreen(userEmail: String, onBack: () -> Unit) = HealthPlaceholderScreen(userEmail, "AI quét món ăn", onBack)
-@Composable fun HealthStatsScreen(userEmail: String, onBack: () -> Unit) = HealthPlaceholderScreen(userEmail, "Thống kê sức khỏe", onBack)
-@Composable fun HealthPredictionScreen(userEmail: String, onBack: () -> Unit) = HealthPlaceholderScreen(userEmail, "Dự báo sức khỏe", onBack)
-@Composable fun HealthLogScreen(userEmail: String, onBack: () -> Unit) = HealthPlaceholderScreen(userEmail, "Nhật ký sức khỏe", onBack)
+// ── Màn hình con
+@Composable fun FoodScannerScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "AI quét món ăn", onBack, onHome)
+@Composable fun HealthStatsScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Thống kê sức khỏe", onBack, onHome)
+@Composable fun HealthPredictionScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Dự báo sức khỏe", onBack, onHome)
+@Composable fun HealthLogScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Nhật ký sức khỏe", onBack, onHome)
 
 // Dữ liệu cho Card
 data class HealthCardItem(
@@ -284,7 +288,7 @@ fun HealthStatCard(
             Spacer(modifier = Modifier.weight(1f))
             Box(contentAlignment = Alignment.Center, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 CircularProgressIndicator(
-                    progress = progress,
+                    progress = { progress },
                     modifier = Modifier.size(70.dp),
                     color = accentColor,
                     strokeWidth = 10.dp,
