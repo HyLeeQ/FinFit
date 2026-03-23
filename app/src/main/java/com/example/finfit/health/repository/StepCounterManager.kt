@@ -59,6 +59,17 @@ class StepCounterManager private constructor(private val context: Context) : Sen
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps: StateFlow<Int> = _todaySteps.asStateFlow()
 
+    private val _calories = MutableStateFlow(0)
+    val calories: StateFlow<Int> = _calories.asStateFlow()
+
+    private val _activeMinutes = MutableStateFlow(0)
+    val activeMinutes: StateFlow<Int> = _activeMinutes.asStateFlow()
+
+    // ====== State: Active Time Tracking ======
+    private var activeTimeAccumulatedMs: Long = 0L
+    private var lastActiveCheckTimeMs: Long = 0L
+    private var isListening: Boolean = false
+
     // ====== State: Step Tracker (STEP_COUNTER) ======
     private var inMemorySavedDate: String = ""
     private var inMemorySensorBaseline: Int = -1
@@ -88,7 +99,9 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         inMemorySensorBaseline = prefs.getInt("sensor_baseline", -1)
         inMemoryAccumulatedSteps = prefs.getInt("accumulated_steps", 0)
         inMemoryLastSensorValue = prefs.getInt("last_sensor_value", -1)
+        activeTimeAccumulatedMs = prefs.getLong("active_time_ms", 0L)
         lastDbWriteTimeMillis = System.currentTimeMillis()
+        lastActiveCheckTimeMs = System.currentTimeMillis()
 
         if (inMemorySavedDate != date) {
             inMemorySavedDate = date
@@ -96,9 +109,13 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             inMemoryAccumulatedSteps = 0
             inMemoryLastSensorValue = -1
             _todaySteps.value = 0
+            _calories.value = 0
+            _activeMinutes.value = 0
+            activeTimeAccumulatedMs = 0L
             lastConfirmedSteps = 0
             saveStateToPrefs()
         } else {
+            _activeMinutes.value = (activeTimeAccumulatedMs / 60_000L).toInt()
             loadStepsFromDb()
         }
     }
@@ -155,7 +172,9 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             ActivityRecognition.getClient(context).removeActivityUpdates(pendingIntent)
         } catch (_: SecurityException) { }
 
-        flushToDatabase()
+        CoroutineScope(Dispatchers.IO).launch {
+            flushToDatabase()
+        }
     }
 
     // ====== SENSOR EVENT HANDLER ======
@@ -278,6 +297,19 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         lastConfirmedSteps = todayStepsCalculated
         pendingDetectorSteps = 0
         _todaySteps.value = todayStepsCalculated
+        _calories.value = (todayStepsCalculated * 0.04).toInt()
+
+        // Tích lũy Active Time khi isUserWalking == true
+        val now2 = System.currentTimeMillis()
+        val isUserWalking = prefs.getBoolean("isUserWalking", true)
+        if (isUserWalking && lastActiveCheckTimeMs > 0L) {
+            val delta = now2 - lastActiveCheckTimeMs
+            if (delta in 1..10_000L) { // chỉ tích lũy delta hợp lý (< 10s)
+                activeTimeAccumulatedMs += delta
+                _activeMinutes.value = (activeTimeAccumulatedMs / 60_000L).toInt()
+            }
+        }
+        lastActiveCheckTimeMs = now2
 
         saveStateToPrefs()
 
@@ -286,7 +318,14 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         val timeSinceLastWrite = currentTime - lastDbWriteTimeMillis
         if (stepsSinceLastDbWrite >= DB_WRITE_STEP_THRESHOLD || timeSinceLastWrite >= DB_WRITE_TIME_THRESHOLD) {
             CoroutineScope(Dispatchers.IO).launch {
-                stepDao.insertSteps(StepEntity(currentDate, todayStepsCalculated))
+                stepDao.insertSteps(StepEntity(
+                    date = currentDate,
+                    steps = todayStepsCalculated,
+                    calories = _calories.value,
+                    activeMinutes = _activeMinutes.value,
+                    syncStatus = 0,
+                    lastUpdated = System.currentTimeMillis()
+                ))
             }
             stepsSinceLastDbWrite = 0
             lastDbWriteTimeMillis = currentTime
@@ -299,15 +338,23 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             .putInt("sensor_baseline", inMemorySensorBaseline)
             .putInt("accumulated_steps", inMemoryAccumulatedSteps)
             .putInt("last_sensor_value", inMemoryLastSensorValue)
+            .putLong("active_time_ms", activeTimeAccumulatedMs)
             .apply()
     }
 
-    private fun flushToDatabase() {
+    suspend fun flushToDatabase() {
         val currentSteps = _todaySteps.value
         if (currentSteps > 0) {
             val snapDate = getCurrentDate()
-            CoroutineScope(Dispatchers.IO).launch {
-                stepDao.insertSteps(StepEntity(snapDate, currentSteps))
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                stepDao.insertSteps(StepEntity(
+                    date = snapDate,
+                    steps = currentSteps,
+                    calories = _calories.value,
+                    activeMinutes = _activeMinutes.value,
+                    syncStatus = 0,
+                    lastUpdated = System.currentTimeMillis()
+                ))
             }
             stepsSinceLastDbWrite = 0
             lastDbWriteTimeMillis = System.currentTimeMillis()

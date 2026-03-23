@@ -9,12 +9,6 @@ fun NavGraphBuilder.healthNavGraph(
     navController: NavHostController,
     userEmail: String
 ) {
-    val onHome = { 
-        navController.navigate(Routes.HEALTH_DASHBOARD) {
-            popUpTo(Routes.HEALTH_DASHBOARD) { inclusive = true }
-        }
-    }
-
     composable(Routes.HEALTH_DASHBOARD) {
         HealthDashboardScreen(
             userEmail = userEmail,
@@ -24,18 +18,18 @@ fun NavGraphBuilder.healthNavGraph(
         )
     }
     composable(Routes.STEP_COUNTER) {
-        StepCounterScreen(userEmail, onBack = { navController.popBackStack() }, onHome = onHome)
+        StepCounterScreen(userEmail, onBack = { navController.popBackStack() })
     }
     composable(Routes.FOOD_SCANNER) {
-        FoodScannerScreen(userEmail, onBack = { navController.popBackStack() }, onHome = onHome)
+        FoodScannerScreen(userEmail, onBack = { navController.popBackStack() })
     }
     composable(Routes.HEALTH_STATS) {
-        HealthStatsScreen(userEmail, onBack = { navController.popBackStack() }, onHome = onHome)
+        HealthStatsScreen(userEmail, onBack = { navController.popBackStack() })
     }
     composable(Routes.HEALTH_PREDICTION) {
-        HealthPredictionScreen(userEmail, onBack = { navController.popBackStack() }, onHome = onHome)
+        HealthPredictionScreen(userEmail, onBack = { navController.popBackStack() })
     }
     composable(Routes.HEALTH_LOG) {
-        HealthLogScreen(userEmail, onBack = { navController.popBackStack() }, onHome = onHome)
+        HealthLogScreen(userEmail, onBack = { navController.popBackStack() })
     }
 }

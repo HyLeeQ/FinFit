@@ -6,9 +6,13 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.finfit.health.repository.HealthViewModel
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,7 +35,11 @@ fun HealthHeaderSection(
     userEmail: String,
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
-    onHomeClick: () -> Unit = {}
+    onHomeClick: () -> Unit = {},
+    actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onActionClick: () -> Unit = {},
+    actionIcon2: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onActionClick2: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -79,7 +87,28 @@ fun HealthHeaderSection(
                 )
             }
         }
+        
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (actionIcon2 != null) {
+                IconButton(onClick = onActionClick2) {
+                    Icon(
+                        actionIcon2,
+                        contentDescription = "Action 2",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+            if (actionIcon != null) {
+                IconButton(onClick = onActionClick) {
+                    Icon(
+                        actionIcon,
+                        contentDescription = "Action",
+                        tint = PrimaryBlue
+                    )
+                }
+            }
+            
+            // Các icon gốc luôn xuất hiện
             IconButton(onClick = onHomeClick) {
                 Icon(Icons.Default.Home, contentDescription = "Home", tint = MaterialTheme.colorScheme.onBackground)
             }
@@ -142,8 +171,14 @@ data class HealthCardItem(
 )
 
 @Composable
-fun HealthDashboardScreen(userEmail: String, onNavigate: (String) -> Unit) {
+fun HealthDashboardScreen(
+    userEmail: String,
+    onNavigate: (String) -> Unit,
+    healthViewModel: HealthViewModel = viewModel()
+) {
     val userName = userEmail.split("@")[0]
+    val todaySteps by healthViewModel.todaySteps.collectAsStateWithLifecycle()
+    val stepGoal = healthViewModel.stepGoal
     
     LazyColumn(
         modifier = Modifier
@@ -200,12 +235,11 @@ fun HealthDashboardScreen(userEmail: String, onNavigate: (String) -> Unit) {
 
         item {
             Row(modifier = Modifier.fillMaxWidth()) {
-                // Vận động (Steps)
-                HealthChartCard(
+                // Vận động (Steps) — hiển thị bước chân thực tế
+                HealthStepLiveCard(
                     modifier = Modifier.weight(1f),
-                    title = "Vận động",
-                    icon = Icons.Rounded.Timeline,
-                    accentColor = Color(0xFF22C55E),
+                    currentSteps = todaySteps,
+                    stepGoal = stepGoal,
                     onClick = { onNavigate("stepCounter") }
                 )
                 Spacer(modifier = Modifier.width(16.dp))
@@ -378,6 +412,58 @@ fun HealthChartCard(
     }
 }
 
+/**
+ * Card hiển thị bước chân thực tế trên Health Dashboard.
+ * Sử dụng mini CircularStepProgress từ MovementCard.kt
+ */
+@Composable
+fun HealthStepLiveCard(
+    modifier: Modifier = Modifier,
+    currentSteps: Int,
+    stepGoal: Int,
+    onClick: () -> Unit
+) {
+    val safeGoal = if (stepGoal <= 0) 1 else stepGoal
+    val percentage = ((currentSteps.toFloat() / safeGoal.toFloat()) * 100).toInt()
+
+    Card(
+        modifier = modifier
+            .height(180.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.DirectionsWalk, contentDescription = null, tint = Color(0xFF22C55E), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Vận động", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+            ) {
+                CircularStepProgress(
+                    currentSteps = currentSteps,
+                    stepGoal = stepGoal,
+                    modifier = Modifier.size(85.dp)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "$percentage%",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (currentSteps >= stepGoal) Color(0xFFF44336) else Color(0xFF22C55E),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
 @Composable
 fun HealthStatusCard(
     modifier: Modifier = Modifier,

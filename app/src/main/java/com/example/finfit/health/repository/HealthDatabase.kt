@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.finfit.health.model.StepEntity
 
-@Database(entities = [StepEntity::class], version = 1, exportSchema = false)
+@Database(entities = [StepEntity::class], version = 3, exportSchema = false)
 abstract class HealthDatabase : RoomDatabase() {
     abstract fun stepDao(): StepDao
 
