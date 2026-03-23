@@ -13,7 +13,7 @@ import com.example.finfit.data.local.ThemeMode
 import com.example.finfit.data.local.ThemePreferences
 import com.example.finfit.data.repository.AuthRepository
 import com.example.finfit.finance.repository.FirestoreRepository
-import com.example.finfit.finance.ui.AddTransactionWithData
+import com.example.finfit.finance.ui.wrappers.AddTransactionWithData
 import com.example.finfit.ui.AuthScreen
 import com.example.finfit.ui.MainScreen
 import com.example.finfit.ui.theme.FinFitTheme

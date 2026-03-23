@@ -1,4 +1,7 @@
-package com.example.finfit.finance.ui
+package com.example.finfit.finance.ui.wrappers
+
+import com.example.finfit.finance.ui.screens.*
+import com.example.finfit.finance.ui.utils.*
 
 import android.util.Log
 import android.widget.Toast
@@ -379,11 +382,20 @@ fun BudgetWrapper(
     val repository = remember { FirestoreRepository() }
     val budgets by repository.observeBudgets(uid).collectAsState(initial = emptyList())
     val transactions by repository.observeTransactions(uid).collectAsState(initial = emptyList())
+    val wallet by repository.observeUserWallet(uid).collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     
-    BudgetScreen(
+    BudgetScreen( // Explicitly passing all 7 parameters
         budgets = budgets,
         transactions = transactions,
+        autoSaveSurplus = wallet?.autoSaveWeeklySurplus ?: false,
+        onToggleAutoSave = { enabled ->
+            wallet?.let { 
+                scope.launch { 
+                    repository.saveUserWallet(it.copy(autoSaveWeeklySurplus = enabled)) 
+                }
+            }
+        },
         onSaveBudget = { budget ->
             scope.launch {
                 repository.saveBudget(uid, budget)

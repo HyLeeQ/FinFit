@@ -73,7 +73,9 @@ data class AppUserWallet(
         // === Mới: danh sách tài khoản đa năng ===
         val accounts: List<AppBankAccount> = emptyList(),
         val generalSavings: Double = 0.0, // Tiết kiệm không mục đích (Dự phòng)
-        val heldFunds: List<HeldFundItem> = emptyList() // Tiền giữ hộ / Quỹ nhóm
+        val heldFunds: List<HeldFundItem> = emptyList(), // Tiền giữ hộ / Quỹ nhóm
+        val isTotalBalanceHidden: Boolean = true, // Ẩn biểu đồ tròn phân bổ ở Dashobard
+        val autoSaveWeeklySurplus: Boolean = false // Tự động chuyển tiền thừa sang Tiết kiệm
 ) {
     val totalBalance: Double
         get() = accounts.sumOf { it.amount }

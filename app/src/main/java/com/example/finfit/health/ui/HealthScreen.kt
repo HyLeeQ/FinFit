@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.*
 
 import com.example.finfit.ui.theme.PrimaryBlue
@@ -44,7 +45,7 @@ fun HealthHeaderSection(
             if (showBackButton) {
                 IconButton(onClick = onBackClick) {
                     Icon(
-                        Icons.Default.ArrowBack,
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onBackground
                     )
@@ -143,8 +144,6 @@ data class HealthCardItem(
 
 @Composable
 fun HealthDashboardScreen(userEmail: String, onNavigate: (String) -> Unit) {
-    val userName = userEmail.split("@")[0]
-    
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()

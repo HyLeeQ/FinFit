@@ -1,4 +1,7 @@
-package com.example.finfit.finance.ui
+package com.example.finfit.finance.ui.screens
+
+import com.example.finfit.finance.ui.utils.*
+import com.example.finfit.finance.ui.wrappers.*
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column

@@ -32,7 +32,7 @@ import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
 import com.example.finfit.finance.model.TransactionType
 import com.example.finfit.finance.repository.FirestoreRepository
-import com.example.finfit.finance.ui.*
+import com.example.finfit.finance.ui.navigation.financeNavGraph
 import com.example.finfit.health.ui.*
 import com.example.finfit.ui.theme.PrimaryBlue
 import kotlin.math.roundToInt
