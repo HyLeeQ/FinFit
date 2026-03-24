@@ -87,7 +87,7 @@ fun HealthHeaderSection(
                 )
             }
         }
-        
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (actionIcon2 != null) {
                 IconButton(onClick = onActionClick2) {
@@ -107,7 +107,7 @@ fun HealthHeaderSection(
                     )
                 }
             }
-            
+
             // Các icon gốc luôn xuất hiện
             IconButton(onClick = onHomeClick) {
                 Icon(Icons.Default.Home, contentDescription = "Home", tint = MaterialTheme.colorScheme.onBackground)
@@ -179,7 +179,7 @@ fun HealthDashboardScreen(
     val userName = userEmail.split("@")[0]
     val todaySteps by healthViewModel.todaySteps.collectAsStateWithLifecycle()
     val stepGoal = healthViewModel.stepGoal
-    
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -230,7 +230,7 @@ fun HealthDashboardScreen(
                 )
             }
         }
-        
+
         item { Spacer(modifier = Modifier.height(16.dp)) }
 
         item {
@@ -275,7 +275,7 @@ fun HealthDashboardScreen(
                 }
             }
         }
-        
+
         // Mock Insight Items
         item {
             InsightItem(
