@@ -64,11 +64,6 @@ fun SavingsGoalScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                         }
                     },
-                    actions = {
-                        IconButton(onClick = onHome) {
-                            Icon(Icons.Default.Home, "Home")
-                        }
-                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background
                     )

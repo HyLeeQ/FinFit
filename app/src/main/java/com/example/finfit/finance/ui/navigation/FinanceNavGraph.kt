@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import com.example.finfit.core.navigation.Routes
 import com.example.finfit.finance.model.TransactionType
@@ -86,5 +88,33 @@ fun NavGraphBuilder.financeNavGraph(
         if (user != null) {
             DebtLoanWrapper(uid = user.uid, onBack = { navController.popBackStack() })
         }
+    }
+    composable(Routes.TRANSACTION_HISTORY) {
+        TransactionHistoryWithData(
+            firestoreRepository = firestoreRepository,
+            onBack = { navController.popBackStack() }
+        )
+    }
+    composable(
+        Routes.ADD + "?type={type}",
+        arguments = listOf(
+            navArgument("type") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }
+        )
+    ) { backStackEntry ->
+        val typeArg = backStackEntry.arguments?.getString("type")
+        AddTransactionWithData(
+            firestoreRepository = firestoreRepository,
+            onTransactionSaved = { 
+                // refreshTrigger handle refresh
+                navController.popBackStack() 
+            },
+            onBack = { navController.popBackStack() },
+            onHome = { navController.popBackStack() },
+            initialTypeArg = typeArg
+        )
     }
 }

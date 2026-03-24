@@ -55,6 +55,7 @@ fun DashboardScreen(
     wallet: AppUserWallet?,
     transactions: List<FinanceTransaction>,
     goals: List<SavingsGoal>,
+    budgets: List<FinanceBudget> = emptyList(),
     onSilentSave: (AppUserWallet) -> Unit,
     onDeleteTransaction: (String) -> Unit,
     onUpdateTransaction: (FinanceTransaction) -> Unit,
@@ -73,6 +74,7 @@ fun DashboardScreen(
                 wallet = wallet,
                 transactions = transactions,
                 goals = goals,
+                budgets = budgets,
                 onSilentSave = onSilentSave,
                 onAction = onAction,
                 onEditTransaction = { tx -> screen = DashboardScreenState.EditTransaction(tx) },
@@ -91,7 +93,7 @@ fun DashboardScreen(
 }
 
 // Renamed to avoid conflicts with other 'Screen' names if any
-private sealed class DashboardScreenState {
+sealed class DashboardScreenState {
     object Home : DashboardScreenState()
     data class EditTransaction(val transaction: FinanceTransaction) : DashboardScreenState()
 }
@@ -102,6 +104,7 @@ fun HomeContent(
     wallet: AppUserWallet?,
     transactions: List<FinanceTransaction>,
     goals: List<SavingsGoal>,
+    budgets: List<FinanceBudget>,
     onSilentSave: (AppUserWallet) -> Unit,
     onAction: (TransactionType?) -> Unit,
     onEditTransaction: (FinanceTransaction) -> Unit,
@@ -200,13 +203,125 @@ fun HomeContent(
                 onNavigate = onNavigate
             )
         }
+        item { Spacer(Modifier.height(24.dp)) }
+
+        // Mới: Tiến độ kế hoạch (Budget)
+        item {
+            PlanProgressSection(transactions, budgets, onNavigate)
+        }
         item { Spacer(Modifier.height(32.dp)) }
 
         item { SavingsGoalsSection(goals, onNavigate) }
         item { Spacer(Modifier.height(32.dp)) }
         
-        item { RecentTransactionsSection(transactions, onEditTransaction) }
+        item { RecentTransactionsSection(transactions, onEditTransaction, onNavigate) }
         item { Spacer(Modifier.height(100.dp)) }
+    }
+}
+
+@Composable
+fun PlanProgressSection(transactions: List<FinanceTransaction>, budgets: List<FinanceBudget>, onNavigate: (String) -> Unit) {
+    val now = remember { java.util.Calendar.getInstance() }
+    val currentMonthExpenditure = remember(transactions) {
+        transactions.filter { tx ->
+            val txCal = java.util.Calendar.getInstance().apply { time = tx.timestamp.toDate() }
+            tx.type == TransactionType.EXPENSE && 
+            txCal.get(java.util.Calendar.MONTH) == now.get(java.util.Calendar.MONTH) &&
+            txCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR)
+        }.sumOf { it.amount }
+    }
+    
+    val currentTotalBudget = remember(budgets) {
+        budgets.filter { it.period == BudgetPeriod.MONTHLY && it.category == "Tất cả" }.sumOf { it.amount }
+    }
+
+    if (currentTotalBudget > 0) {
+        val progress = (currentMonthExpenditure / currentTotalBudget).coerceIn(0.0, 1.0).toFloat()
+        val remaining = (currentTotalBudget - currentMonthExpenditure).coerceAtLeast(0.0)
+        
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Tiến độ kế hoạch", fontWeight = FontWeight.Black, fontSize = 20.sp)
+                TextButton(onClick = { onNavigate(Routes.BUDGET) }) {
+                    Text("Chi tiết", color = PrimaryBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                        )
+                    )
+                    .clickable { onNavigate(Routes.BUDGET) }
+                    .padding(24.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Hạn mức tháng này", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            Text(formatCurrency(currentTotalBudget), color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (progress > 0.9f) Color.Red.copy(alpha = 0.2f) else Color.Green.copy(alpha = 0.2f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                if (progress > 0.9f) "Sắp vượt hạn mức" else "Đang kiểm soát tốt",
+                                color = if (progress > 0.9f) Color(0xFFFF4D4D) else Color(0xFF4ADE80),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(20.dp))
+                    
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(CircleShape),
+                        color = if (progress > 0.9f) Color(0xFFFF4D4D) else Color(0xFF3B82F6),
+                        trackColor = Color.White.copy(alpha = 0.1f),
+                        strokeCap = StrokeCap.Round
+                    )
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Đã chi: ${formatCurrency(currentMonthExpenditure)}",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            "Còn lại: ${formatCurrency(remaining)}",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -255,10 +370,23 @@ fun SavingsGoalsSection(goals: List<SavingsGoal>, onNavigate: (String) -> Unit) 
 }
 
 @Composable
-fun RecentTransactionsSection(transactions: List<FinanceTransaction>, onEditTransaction: (FinanceTransaction) -> Unit) {
+fun RecentTransactionsSection(
+    transactions: List<FinanceTransaction>,
+    onEditTransaction: (FinanceTransaction) -> Unit,
+    onNavigate: (String) -> Unit
+) {
     Column {
-        Text("Giao dịch gần đây", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Giao dịch gần đây", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            TextButton(onClick = { onNavigate(Routes.TRANSACTION_HISTORY) }) {
+                Text("Xem tất cả", color = PrimaryBlue, fontSize = 13.sp)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         if (transactions.isEmpty()) {
             Text("Chưa có giao dịch nào", color = Color.Gray, fontStyle = FontStyle.Italic)
         } else {
@@ -290,8 +418,8 @@ fun EditTransactionScreen(transaction: FinanceTransaction, onSave: (FinanceTrans
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-            Text("Chi tiết giao dịch", modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            IconButton(onClick = onHome) { Icon(Icons.Default.Home, null) }
+            Text("Chi tiết giao dịch", modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Spacer(Modifier.width(48.dp))
         }
         Spacer(Modifier.height(24.dp))
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {

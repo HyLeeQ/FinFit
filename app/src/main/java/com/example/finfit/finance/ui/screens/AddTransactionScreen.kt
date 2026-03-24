@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -95,7 +96,7 @@ fun AddTransactionScreen(
                             fontWeight = FontWeight.Black,
                             fontSize = 20.sp
                         )
-                        IconButton(onClick = onHome) { Icon(Icons.Default.Home, null) }
+                        Spacer(Modifier.width(48.dp)) // Maintain balance for center alignment
                     }
                 }
 
@@ -205,13 +206,49 @@ fun AddTransactionScreen(
                 item { Spacer(Modifier.height(32.dp)) }
 
                 item {
+                    val isValid = amount.isNotBlank() && (amount.toDoubleOrNull() ?: 0.0) > 0 && (
+                        (txType == TransactionType.TRANSFER && fromAccount != null && toAccount != null && fromAccount?.id != toAccount?.id) ||
+                        (txType != TransactionType.TRANSFER && category.isNotBlank() && fromAccount != null)
+                    )
+
                     Button(
                         onClick = {
                             val amt = amount.toDoubleOrNull() ?: 0.0
-                            if (amt > 0 && (txType == TransactionType.TRANSFER || category.isNotBlank())) {
-                                // Logic to save...
-                                // Simplified for this UI update
-                                onBack() 
+                            if (isValid) {
+                                val txId = UUID.randomUUID().toString()
+                                val newTx = FinanceTransaction(
+                                    id = txId,
+                                    amount = amt,
+                                    type = txType,
+                                    category = if (txType == TransactionType.TRANSFER) "Chuyển tiền" else category,
+                                    note = note,
+                                    timestamp = Timestamp.now(),
+                                    accountId = fromAccount?.id,
+                                    toAccountId = if (txType == TransactionType.TRANSFER) toAccount?.id else null,
+                                    paymentMethod = if (fromAccount?.bankCode == "CASH") PaymentMethod.CASH else PaymentMethod.BANKING
+                                )
+
+                                // Cập nhật số dư trong ví
+                                val updatedAccounts = wallet.accounts.map { acc ->
+                                    when (txType) {
+                                        TransactionType.INCOME -> {
+                                            if (acc.id == fromAccount?.id) acc.copy(amount = acc.amount + amt) else acc
+                                        }
+                                        TransactionType.EXPENSE -> {
+                                            if (acc.id == fromAccount?.id) acc.copy(amount = acc.amount - amt) else acc
+                                        }
+                                        TransactionType.TRANSFER -> {
+                                            when (acc.id) {
+                                                fromAccount?.id -> acc.copy(amount = acc.amount - amt)
+                                                toAccount?.id -> acc.copy(amount = acc.amount + amt)
+                                                else -> acc
+                                            }
+                                        }
+                                    }
+                                }
+                                val updatedWallet = wallet.copy(accounts = updatedAccounts)
+                                
+                                onSave(newTx, updatedWallet)
                             }
                         },
                         modifier = Modifier
@@ -220,7 +257,7 @@ fun AddTransactionScreen(
                             .graphicsLayer { shadowElevation = 8.dp.toPx() },
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                        enabled = amount.isNotBlank() && (txType == TransactionType.TRANSFER || category.isNotBlank())
+                        enabled = isValid
                     ) {
                         Text("Xác nhận ${if (txType == TransactionType.EXPENSE) "Chi" else if (txType == TransactionType.INCOME) "Thu" else "Chuyển"}", fontWeight = FontWeight.Black, fontSize = 16.sp)
                     }
@@ -259,7 +296,7 @@ fun SingleAccountSelector(account: AppBankAccount?, onClick: () -> Unit) {
                 Text("Từ tài khoản", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(account?.name ?: "Chưa chọn tài khoản", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
-            Icon(Icons.Default.KeyboardArrowRight, null, tint = Color.LightGray)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.LightGray)
         }
     }
 }

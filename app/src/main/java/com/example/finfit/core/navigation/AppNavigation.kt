@@ -27,6 +27,7 @@ object Routes {
     const val BUDGET = "budget"
     const val ANALYTICS = "analytics"
     const val DEBT_LOAN = "debt_loan"
+    const val TRANSACTION_HISTORY = "transaction_history"
     const val PROFILE = "profile" // Cá nhân chung
     const val ASSISTANT = "assistant"
 

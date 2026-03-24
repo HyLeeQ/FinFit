@@ -23,6 +23,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.navigation.*
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -44,7 +49,6 @@ fun MainScreen(
     refreshTrigger: Int,
     onTransactionSaved: () -> Unit,
     onLogout: () -> Unit,
-    onAction: (TransactionType?) -> Unit,
     themeMode: com.example.finfit.data.local.ThemeMode,
     onThemeChange: (com.example.finfit.data.local.ThemeMode) -> Unit,
     initialTab: String = Routes.DASHBOARD,
@@ -79,7 +83,7 @@ fun MainScreen(
         floatingActionButton = {
             if (appMode == AppMode.FINANCE) {
                 FloatingActionButton(
-                    onClick = { onAction(null) },
+                    onClick = { navController.navigate(Routes.ADD) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = CircleShape,
@@ -104,7 +108,12 @@ fun MainScreen(
                     firestoreRepository = firestoreRepository,
                     refreshTrigger = refreshTrigger,
                     onLogout = onLogout,
-                    onAction = onAction
+                    onAction = { actionType ->
+                        val route = if (actionType != null) "${Routes.ADD}?type=${actionType.name}" else Routes.ADD
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
                 
                 // Health Routes
@@ -158,35 +167,63 @@ fun MainScreen(
 
 @Composable
 fun TopModeSwitcher(appMode: AppMode, onModeChange: (AppMode) -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
-        modifier = Modifier.fillMaxWidth()
+    // Smaller, elegant pill switcher with sliding animation
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .height(42.dp)
+                .width(220.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), CircleShape)
         ) {
+            // Sliding indicator with spring physics
+            val indicatorOffset by animateDpAsState(
+                targetValue = if (appMode == AppMode.FINANCE) 2.dp else 110.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "IndicatorOffset"
+            )
+
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(4.dp)
-            ) {
-                Row {
-                    ModeSwitchButton(
-                        text = "Tài chính",
-                        isSelected = appMode == AppMode.FINANCE,
-                        onClick = { onModeChange(AppMode.FINANCE) }
+                    .padding(vertical = 3.dp)
+                    .offset(x = indicatorOffset)
+                    .width(108.dp)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                            )
+                        )
                     )
-                    Space()
-                    ModeSwitchButton(
-                        text = "Sức khỏe",
-                        isSelected = appMode == AppMode.HEALTH,
-                        onClick = { onModeChange(AppMode.HEALTH) }
-                    )
-                }
+                    .shadow(4.dp, CircleShape)
+            )
+
+            Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                ModeSwitchButton(
+                    modifier = Modifier.weight(1f),
+                    text = "Tài chính",
+                    isSelected = appMode == AppMode.FINANCE,
+                    onClick = { onModeChange(AppMode.FINANCE) }
+                )
+                ModeSwitchButton(
+                    modifier = Modifier.weight(1f),
+                    text = "Sức khỏe",
+                    isSelected = appMode == AppMode.HEALTH,
+                    onClick = { onModeChange(AppMode.HEALTH) }
+                )
             }
         }
     }
@@ -196,20 +233,28 @@ fun TopModeSwitcher(appMode: AppMode, onModeChange: (AppMode) -> Unit) {
 fun Space() { Spacer(modifier = Modifier.width(4.dp)) }
 
 @Composable
-fun ModeSwitchButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
+fun ModeSwitchButton(modifier: Modifier = Modifier, text: String, isSelected: Boolean, onClick: () -> Unit) {
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(400),
+        label = "ContentColor"
+    )
+
     Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null 
+            ) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp
+            color = contentColor,
+            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+            fontSize = 13.sp,
+            letterSpacing = 0.5.sp
         )
     }
 }

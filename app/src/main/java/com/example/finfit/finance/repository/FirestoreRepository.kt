@@ -424,7 +424,7 @@ class FirestoreRepository {
     }
 
     /** Lấy danh sách giao dịch gần nhất */
-    suspend fun getTransactions(uid: String, limit: Long = 20): List<FinanceTransaction> {
+    suspend fun getTransactions(uid: String, limit: Long = 50): List<FinanceTransaction> {
         return try {
             val snapshot = usersCollection
                 .document(uid)
@@ -461,7 +461,7 @@ class FirestoreRepository {
     }
 
     /** Quan sát danh sách giao dịch thời gian thực */
-    fun observeTransactions(uid: String, limit: Long = 20): Flow<List<FinanceTransaction>> = callbackFlow {
+    fun observeTransactions(uid: String, limit: Long = 50): Flow<List<FinanceTransaction>> = callbackFlow {
         val query = usersCollection.document(uid).collection("transactions")
             .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(limit)

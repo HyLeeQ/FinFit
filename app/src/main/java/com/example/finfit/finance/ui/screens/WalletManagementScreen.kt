@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import com.example.finfit.finance.model.*
 import com.example.finfit.ui.theme.*
@@ -301,8 +302,8 @@ fun AddAccountScreen(
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-            Text("Thêm tài khoản", fontWeight = FontWeight.Black, fontSize = 20.sp, modifier = Modifier.weight(1f))
-            IconButton(onClick = onHome) { Icon(Icons.Default.Home, null) }
+            Text("Thêm tài khoản", fontWeight = FontWeight.Black, fontSize = 20.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            Spacer(Modifier.width(48.dp))
         }
         Spacer(Modifier.height(24.dp))
         
@@ -388,8 +389,8 @@ fun EditAccountScreen(
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-            Text("Chỉnh sửa tài khoản", fontWeight = FontWeight.Black, fontSize = 20.sp, modifier = Modifier.weight(1f))
-            IconButton(onClick = onHome) { Icon(Icons.Default.Home, null) }
+            Text("Chỉnh sửa tài khoản", fontWeight = FontWeight.Black, fontSize = 20.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            Spacer(Modifier.width(48.dp))
         }
         Spacer(Modifier.height(24.dp))
 

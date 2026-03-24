@@ -60,16 +60,10 @@ class MainActivity : ComponentActivity() {
                                 firestoreRepository = firestoreRepository,
                                 refreshTrigger = refreshTrigger,
                                 onTransactionSaved = { refreshTrigger++ },
-                                onLogout = {
+                    onLogout = {
                                     authRepository.signOut()
                                     navController.navigate(Routes.AUTH) {
                                         popUpTo(Routes.MAIN) { inclusive = true }
-                                    }
-                                },
-                                onAction = { actionType ->
-                                    val route = if (actionType != null) "add?type=${actionType.name}" else Routes.ADD
-                                    navController.navigate(route) {
-                                        launchSingleTop = true
                                     }
                                 },
                                 themeMode = themeMode,
@@ -81,28 +75,6 @@ class MainActivity : ComponentActivity() {
                                 onTabSelected = { tab -> themePrefs.setLastTab(tab) }
                             )
                         }
-                    }
-                    composable(
-                        Routes.ADD + "?type={type}",
-                        arguments = listOf(
-                            navArgument("type") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        )
-                    ) { backStackEntry ->
-                        val typeArg = backStackEntry.arguments?.getString("type")
-                        AddTransactionWithData(
-                            firestoreRepository = firestoreRepository,
-                            onTransactionSaved = { 
-                                refreshTrigger++ 
-                                navController.popBackStack() 
-                            },
-                            onBack = { navController.popBackStack() },
-                            onHome = { navController.popBackStack() },
-                            initialTypeArg = typeArg
-                        )
                     }
                 }
             }
