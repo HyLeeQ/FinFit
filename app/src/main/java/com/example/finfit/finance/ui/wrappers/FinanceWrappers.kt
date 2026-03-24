@@ -1,4 +1,7 @@
-package com.example.finfit.finance.ui
+package com.example.finfit.finance.ui.wrappers
+
+import com.example.finfit.finance.ui.screens.*
+import com.example.finfit.finance.ui.utils.*
 
 import android.util.Log
 import android.widget.Toast
@@ -7,6 +10,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material3.*
+import com.google.firebase.Timestamp
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.*
@@ -54,6 +58,12 @@ fun DashboardWithData(
         remember { mutableStateOf<List<SavingsGoal>>(emptyList()) }
     }
 
+    val budgetsSource by if (user != null) {
+        firestoreRepository.observeBudgets(user.uid).collectAsState(initial = emptyList())
+    } else {
+        remember { mutableStateOf<List<FinanceBudget>>(emptyList()) }
+    }
+
     // Migration logic nếu user chưa có accounts sau bản cập nhật mới
     LaunchedEffect(walletSource) {
         val w = walletSource ?: return@LaunchedEffect
@@ -89,6 +99,7 @@ fun DashboardWithData(
             wallet = walletSource,
             transactions = transactionsSource,
             goals = goalsSource,
+            budgets = budgetsSource,
             onSilentSave = { updated ->
                 scope.launch { try { firestoreRepository.saveUserWallet(updated) } catch (e: Exception) { Log.e("SilentSave", e.message ?: "") } }
             },
@@ -294,6 +305,122 @@ fun AddTransactionWithData(
 }
 
 @Composable
+fun TransactionHistoryWithData(
+    firestoreRepository: FirestoreRepository,
+    onBack: () -> Unit
+) {
+    val user = AuthRepository().getCurrentUser()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    
+    // Sử dụng s trạng thái màn hình để hỗ trợ Sửa giao dịch từ Lịch sử
+    var screenState by remember { mutableStateOf<DashboardScreenState>(DashboardScreenState.Home) }
+
+    val transactions by if (user != null) {
+        firestoreRepository.observeTransactions(user.uid).collectAsState(initial = emptyList())
+    } else {
+        remember { mutableStateOf<List<FinanceTransaction>>(emptyList()) }
+    }
+
+    val wallet by if (user != null) {
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+    } else {
+        remember { mutableStateOf<AppUserWallet?>(null) }
+    }
+
+    when (val s = screenState) {
+        is DashboardScreenState.Home -> {
+            TransactionHistoryScreen(
+                transactions = transactions,
+                onEditTransaction = { tx -> screenState = DashboardScreenState.EditTransaction(tx) },
+                onBack = onBack
+            )
+        }
+        is DashboardScreenState.EditTransaction -> {
+            EditTransactionScreen(
+                transaction = s.transaction,
+                onSave = { updatedTx ->
+                    if (user != null) {
+                        scope.launch {
+                            try {
+                                // Tự động điều chỉnh tiền trong ví khi sửa giao dịch (logic tương tự Dashboard)
+                                val oldTx = transactions.find { it.id == updatedTx.id }
+                                if (oldTx != null && wallet != null) {
+                                    var tempAccounts = wallet!!.accounts.map { acc ->
+                                        when (oldTx.type) {
+                                            TransactionType.INCOME -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount - oldTx.amount) else acc
+                                            TransactionType.EXPENSE -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount + oldTx.amount) else acc
+                                            TransactionType.TRANSFER -> {
+                                                when (acc.id) {
+                                                    oldTx.accountId -> acc.copy(amount = acc.amount + oldTx.amount)
+                                                    oldTx.toAccountId -> acc.copy(amount = acc.amount - oldTx.amount)
+                                                    else -> acc
+                                                }
+                                            }
+                                        }
+                                    }
+                                    val finalAccounts = tempAccounts.map { acc ->
+                                        when (updatedTx.type) {
+                                            TransactionType.INCOME -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount + updatedTx.amount) else acc
+                                            TransactionType.EXPENSE -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount - updatedTx.amount) else acc
+                                            TransactionType.TRANSFER -> {
+                                                when (acc.id) {
+                                                    updatedTx.accountId -> acc.copy(amount = acc.amount - updatedTx.amount)
+                                                    updatedTx.toAccountId -> acc.copy(amount = acc.amount + updatedTx.amount)
+                                                    else -> acc
+                                                }
+                                            }
+                                        }
+                                    }
+                                    firestoreRepository.saveUserWallet(wallet!!.copy(accounts = finalAccounts))
+                                }
+                                firestoreRepository.updateTransaction(user.uid, updatedTx)
+                                Toast.makeText(context, "Đã cập nhật!", Toast.LENGTH_SHORT).show()
+                                screenState = DashboardScreenState.Home
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                },
+                onDelete = { txId ->
+                    if (user != null) {
+                        scope.launch {
+                            try {
+                                val txToDelete = transactions.find { it.id == txId }
+                                if (txToDelete != null && wallet != null) {
+                                    val updatedAccounts = wallet!!.accounts.map { acc ->
+                                        when (txToDelete.type) {
+                                            TransactionType.INCOME -> if (acc.id == txToDelete.accountId) acc.copy(amount = acc.amount - txToDelete.amount) else acc
+                                            TransactionType.EXPENSE -> if (acc.id == txToDelete.accountId) acc.copy(amount = acc.amount + txToDelete.amount) else acc
+                                            TransactionType.TRANSFER -> {
+                                                when (acc.id) {
+                                                    txToDelete.accountId -> acc.copy(amount = acc.amount + txToDelete.amount)
+                                                    txToDelete.toAccountId -> acc.copy(amount = acc.amount - txToDelete.amount)
+                                                    else -> acc
+                                                }
+                                            }
+                                        }
+                                    }
+                                    firestoreRepository.saveUserWallet(wallet!!.copy(accounts = updatedAccounts))
+                                }
+                                firestoreRepository.deleteTransaction(user.uid, txId)
+                                Toast.makeText(context, "Đã xóa giao dịch!", Toast.LENGTH_SHORT).show()
+                                screenState = DashboardScreenState.Home
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                },
+                onBack = { screenState = DashboardScreenState.Home },
+                onHome = { screenState = DashboardScreenState.Home }
+            )
+        }
+    }
+}
+
+@Composable
 fun SavingsGoalWithData(
     firestoreRepository: FirestoreRepository,
     onBack: () -> Unit
@@ -379,11 +506,20 @@ fun BudgetWrapper(
     val repository = remember { FirestoreRepository() }
     val budgets by repository.observeBudgets(uid).collectAsState(initial = emptyList())
     val transactions by repository.observeTransactions(uid).collectAsState(initial = emptyList())
+    val wallet by repository.observeUserWallet(uid).collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     
-    BudgetScreen(
+    BudgetScreen( // Explicitly passing all 7 parameters
         budgets = budgets,
         transactions = transactions,
+        autoSaveSurplus = wallet?.autoSaveWeeklySurplus ?: false,
+        onToggleAutoSave = { enabled ->
+            wallet?.let { 
+                scope.launch { 
+                    repository.saveUserWallet(it.copy(autoSaveWeeklySurplus = enabled)) 
+                }
+            }
+        },
         onSaveBudget = { budget ->
             scope.launch {
                 repository.saveBudget(uid, budget)
@@ -505,9 +641,21 @@ fun InternalTransferWithDataFixed(
                         val updatedWallet = currentWallet.copy(accounts = updatedAccounts)
                         firestoreRepository.saveUserWallet(updatedWallet)
                         
-                        // Ooptional: Record individual transactions for history
-                        // For now we just update the balances as Requested
-                        
+                        // Thêm bản ghi giao dịch cho lịch sử
+                        val txId = UUID.randomUUID().toString()
+                        val transferTx = FinanceTransaction(
+                            id = txId,
+                            amount = amount,
+                            type = TransactionType.TRANSFER,
+                            category = "Chuyển tiền nội bộ",
+                            note = note,
+                            timestamp = Timestamp.now(),
+                            accountId = fromId,
+                            toAccountId = toId,
+                            paymentMethod = PaymentMethod.BANKING // Mặc định cho chuyển khoản nội bộ
+                        )
+                        firestoreRepository.addTransaction(user!!.uid, transferTx)
+
                         Toast.makeText(context, "Chuyển tiền thành công!", Toast.LENGTH_SHORT).show()
                         onBack()
                     } catch (e: Exception) {

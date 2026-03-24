@@ -1,6 +1,14 @@
-package com.example.finfit.finance.ui
+package com.example.finfit.finance.ui.utils
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -9,6 +17,40 @@ fun formatCurrency(amount: Double): String {
     val fmt = NumberFormat.getInstance(Locale("vi", "VN"))
     fmt.maximumFractionDigits = 0
     return "${fmt.format(amount)} đ"
+}
+
+/** 
+ * Một component hỗ trợ hiển thị số tiền có hiệu ứng nhảy số mượt mà 
+ */
+@Composable
+fun AnimatedAmountText(
+    amount: Double,
+    isHidden: Boolean,
+    color: Color,
+    fontSize: TextUnit,
+    fontWeight: FontWeight,
+    isMaskedAll: Boolean = false 
+) {
+    if (isHidden) {
+        Text(
+            text = if (isMaskedAll) "****" else "********",
+            color = color,
+            fontSize = fontSize,
+            fontWeight = fontWeight
+        )
+    } else {
+        val animatedAmount by animateFloatAsState(
+            targetValue = amount.toFloat(),
+            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+            label = "AmountAnimation"
+        )
+        Text(
+            text = formatCurrency(animatedAmount.toDouble()),
+            color = color,
+            fontSize = fontSize,
+            fontWeight = fontWeight
+        )
+    }
 }
 
 /** Trả về danh sách màu gradient tương ứng với chỉ số màu */

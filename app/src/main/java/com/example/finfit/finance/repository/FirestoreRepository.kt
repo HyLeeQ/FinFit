@@ -281,9 +281,13 @@ class FirestoreRepository {
                     name       = m["name"] as? String ?: "",
                     amount     = (m["amount"] as? Number)?.toDouble() ?: 0.0,
                     colorIndex = (m["colorIndex"] as? Number)?.toInt() ?: 0,
-                    isHidden   = m["isHidden"] as? Boolean ?: false
+                    isHidden   = m["isHidden"] as? Boolean ?: true
                 )
             }
+
+            // Đọc trạng thái ẩn/hiện và tự động lưu
+            val isTotalBalanceHidden = doc.getBoolean("isTotalBalanceHidden") ?: true
+            val autoSaveWeeklySurplus = doc.getBoolean("autoSaveWeeklySurplus") ?: false
 
             AppUserWallet(
                 uid = uid,
@@ -295,7 +299,9 @@ class FirestoreRepository {
                 card2Name = card2Name, card2Type = card2Type, card2Color = card2Color,
                 accounts = accounts,
                 generalSavings = generalSavings,
-                heldFunds = heldFunds
+                heldFunds = heldFunds,
+                isTotalBalanceHidden = isTotalBalanceHidden,
+                autoSaveWeeklySurplus = autoSaveWeeklySurplus
             )
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "getUserWallet err: ${e.message}")
@@ -348,9 +354,12 @@ class FirestoreRepository {
                         name       = m["name"] as? String ?: "",
                         amount     = (m["amount"] as? Number)?.toDouble() ?: 0.0,
                         colorIndex = (m["colorIndex"] as? Number)?.toInt() ?: 0,
-                        isHidden   = m["isHidden"] as? Boolean ?: false
+                        isHidden   = m["isHidden"] as? Boolean ?: true
                     )
                 }
+
+                val isTotalBalanceHidden = snapshot.getBoolean("isTotalBalanceHidden") ?: true
+                val autoSaveWeeklySurplus = snapshot.getBoolean("autoSaveWeeklySurplus") ?: false
 
                 trySend(AppUserWallet(
                     uid = uid,
@@ -362,7 +371,9 @@ class FirestoreRepository {
                     card2Name = card2Name, card2Type = card2Type, card2Color = card2Color,
                     accounts = accounts,
                     generalSavings = generalSavings,
-                    heldFunds = heldFunds
+                    heldFunds = heldFunds,
+                    isTotalBalanceHidden = isTotalBalanceHidden,
+                    autoSaveWeeklySurplus = autoSaveWeeklySurplus
                 ))
             } catch (e: Exception) {
                 android.util.Log.e("FirestoreError", "observeUserWallet parse err: ${e.message}")
@@ -400,10 +411,12 @@ class FirestoreRepository {
                 "generalSavings"     to wallet.generalSavings,
                 "heldFunds"          to wallet.heldFunds.map {
                     mapOf("id" to it.id, "name" to it.name, "amount" to it.amount)
-                }
+                },
+                "isTotalBalanceHidden" to wallet.isTotalBalanceHidden,
+                "autoSaveWeeklySurplus" to wallet.autoSaveWeeklySurplus
             )
-            usersCollection.document(wallet.uid).set(data)
-            android.util.Log.d("FirestoreSuccess", "Đã lưu UserWallet")
+            usersCollection.document(wallet.uid).set(data).await()
+            android.util.Log.d("FirestoreSuccess", "Đã lưu UserWallet thành công")
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "saveUserWallet: ${e.message}")
             throw e
@@ -411,7 +424,7 @@ class FirestoreRepository {
     }
 
     /** Lấy danh sách giao dịch gần nhất */
-    suspend fun getTransactions(uid: String, limit: Long = 20): List<FinanceTransaction> {
+    suspend fun getTransactions(uid: String, limit: Long = 50): List<FinanceTransaction> {
         return try {
             val snapshot = usersCollection
                 .document(uid)
@@ -448,7 +461,7 @@ class FirestoreRepository {
     }
 
     /** Quan sát danh sách giao dịch thời gian thực */
-    fun observeTransactions(uid: String, limit: Long = 20): Flow<List<FinanceTransaction>> = callbackFlow {
+    fun observeTransactions(uid: String, limit: Long = 50): Flow<List<FinanceTransaction>> = callbackFlow {
         val query = usersCollection.document(uid).collection("transactions")
             .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(limit)
@@ -508,6 +521,7 @@ class FirestoreRepository {
                 .collection("transactions")
                 .document(transaction.id.ifBlank { UUID.randomUUID().toString() })
                 .set(data)
+                .await()
             android.util.Log.d("FirestoreSuccess", "Đã thêm giao dịch mới: ${transaction.id}")
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "addTransaction err: ${e.message}")
@@ -534,6 +548,7 @@ class FirestoreRepository {
                 .collection("transactions")
                 .document(transaction.id)
                 .set(data, com.google.firebase.firestore.SetOptions.merge())
+                .await()
             android.util.Log.d("FirestoreSuccess", "Đã cập nhật giao dịch: ${transaction.id}")
         } catch (e: Exception) {
             android.util.Log.e("FirestoreError", "updateTransaction err: ${e.message}")
