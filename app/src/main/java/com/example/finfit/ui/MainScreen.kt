@@ -31,7 +31,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.navigation.*
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.finfit.core.navigation.AppMode
 import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
@@ -57,6 +60,27 @@ fun MainScreen(
     val navController = rememberNavController()
     var appMode by remember { mutableStateOf(AppMode.FINANCE) }
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Tự động đồng bộ appMode nếu người dùng nhấn nút Back hệ thống
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == Routes.DASHBOARD) {
+            appMode = AppMode.FINANCE
+        } else if (currentRoute == Routes.HEALTH_DASHBOARD) {
+            appMode = AppMode.HEALTH
+        }
+    }
+
+    // Xác định xem có đang ở trang con của Sức Khoẻ không (theo yêu cầu chỉ cập nhật Health)
+    val isHealthSubScreen = currentRoute in listOf(
+        Routes.STEP_COUNTER,
+        Routes.FOOD_SCANNER,
+        Routes.HEALTH_PREDICTION,
+        Routes.HEALTH_LOG
+    )
+    val showBars = !isHealthSubScreen
+
     // Make sure initial Tab syncs with app mode if needed
     LaunchedEffect(appMode) {
         val targetRoute = if (appMode == AppMode.FINANCE) Routes.DASHBOARD else Routes.HEALTH_DASHBOARD
@@ -71,14 +95,18 @@ fun MainScreen(
 
     Scaffold(
         topBar = {
-            TopModeSwitcher(appMode = appMode, onModeChange = { appMode = it })
+            if (showBars) {
+                TopModeSwitcher(appMode = appMode, onModeChange = { appMode = it })
+            }
         },
         bottomBar = {
-            BottomNavigationBar(
-                navController = navController, 
-                appMode = appMode,
-                onTabSelected = onTabSelected
-            )
+            if (showBars) {
+                BottomNavigationBar(
+                    navController = navController, 
+                    appMode = appMode,
+                    onTabSelected = onTabSelected
+                )
+            }
         },
         floatingActionButton = {
             if (appMode == AppMode.FINANCE) {

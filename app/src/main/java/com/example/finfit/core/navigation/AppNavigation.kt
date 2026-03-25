@@ -53,7 +53,7 @@ sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: 
     
     // Health 
     object HealthHome : BottomNavItem(Routes.HEALTH_DASHBOARD, Icons.Default.Favorite, "Sức khỏe")
-    object HealthFeatures : BottomNavItem(Routes.HEALTH_STATS, Icons.Default.BarChart, "Chức năng")
+    object HealthFeatures : BottomNavItem(Routes.HEALTH_STATS, Icons.Default.BarChart, "Phân tích")
     
     // Common
     object Profile : BottomNavItem(Routes.PROFILE, Icons.Default.Person, "Cá nhân")

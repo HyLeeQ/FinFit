@@ -67,6 +67,18 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         // Lên lịch đồng bộ nền tự động
         schedulePeriodicSync()
 
+        // Ticker theo dõi giao thừa (Rollover Tracker), tick mỗi 60s
+        viewModelScope.launch {
+            while (true) {
+                val rolledOver = stepCounterManager.checkAndResetDate()
+                if (rolledOver) {
+                    // Cú huých chót: Giao thừa cất sổ, bắt buộc đẩy Data hôm qua lên Firebase
+                    forceSync()
+                }
+                kotlinx.coroutines.delay(60_000L)
+            }
+        }
+
         viewModelScope.launch {
             val today = getCurrentDate()
 

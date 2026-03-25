@@ -104,16 +104,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         lastActiveCheckTimeMs = System.currentTimeMillis()
 
         if (inMemorySavedDate != date) {
-            inMemorySavedDate = date
-            inMemorySensorBaseline = -1
-            inMemoryAccumulatedSteps = 0
-            inMemoryLastSensorValue = -1
-            _todaySteps.value = 0
-            _calories.value = 0
-            _activeMinutes.value = 0
-            activeTimeAccumulatedMs = 0L
-            lastConfirmedSteps = 0
-            saveStateToPrefs()
+            checkAndResetDate()
         } else {
             _activeMinutes.value = (activeTimeAccumulatedMs / 60_000L).toInt()
             loadStepsFromDb()
@@ -243,17 +234,8 @@ class StepCounterManager private constructor(private val context: Context) : Sen
 
         val currentDate = getCurrentDate()
 
-        // ─── Đổi ngày ───
-        if (inMemorySavedDate != currentDate) {
-            inMemorySavedDate = currentDate
-            inMemorySensorBaseline = currentSensorSteps
-            inMemoryAccumulatedSteps = 0
-            inMemoryLastSensorValue = currentSensorSteps
-            lastConfirmedSteps = 0
-            pendingDetectorSteps = 0
-            _todaySteps.value = 0
-            saveStateToPrefs()
-        }
+        // ─── Đổi ngày (Hoặc App đã chạy lâu ngang qua midnight) ───
+        checkAndResetDate()
 
         // ─── Khởi tạo baseline lần đầu ───
         if (inMemorySensorBaseline == -1 || inMemoryLastSensorValue == -1) {
@@ -342,13 +324,75 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             .apply()
     }
 
+    /**
+     * Hàm cảnh vệ giờ Giao Thừa (Midnight Rollover).
+     * Kiểm tra xem ngày hiện tại có khác với ngày đang lưu trong RAM không.
+     * Trả về true nếu vừa thực hiện dọn dẹp chuyển ngày.
+     */
+    fun checkAndResetDate(): Boolean {
+        val currentDate = getCurrentDate()
+        var didRollover = false
+        
+        synchronized(this) {
+            if (inMemorySavedDate != currentDate) {
+                // 1. Lưu lại nốt số liệu của Ngày Cũ (nếu có) trước khi xóa
+                val stepsToSave = _todaySteps.value
+                val oldDate = inMemorySavedDate
+                if (stepsToSave > 0 && oldDate.isNotEmpty()) {
+                    val oldEntity = StepEntity(
+                        date = oldDate, // Bắt buộc dùng ngày cũ!
+                        steps = stepsToSave,
+                        calories = _calories.value,
+                        activeMinutes = _activeMinutes.value,
+                        syncStatus = 0,
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                    CoroutineScope(Dispatchers.IO).launch {
+                        stepDao.insertSteps(oldEntity)
+                    }
+                }
+
+                // 2. Refresh RAM cho Ngày mới
+                inMemorySavedDate = currentDate
+                inMemoryAccumulatedSteps = 0
+                // Giữ lại baseline để nối tiếp bước đi hiện hành của cảm biến
+                if (inMemoryLastSensorValue != -1) {
+                    inMemorySensorBaseline = inMemoryLastSensorValue
+                } else {
+                    inMemorySensorBaseline = -1 // Phục hồi ban đầu nếu chưa từng có
+                }
+                
+                lastConfirmedSteps = 0
+                pendingDetectorSteps = 0
+                
+                _todaySteps.value = 0
+                _calories.value = 0
+                _activeMinutes.value = 0
+                activeTimeAccumulatedMs = 0L
+                
+                lastDbWriteTimeMillis = System.currentTimeMillis()
+                stepsSinceLastDbWrite = 0
+                
+                saveStateToPrefs()
+                
+                // 3. Nạp lại liệu từ Room cho ngày mới (Trường hợp sync từ máy khác về)
+                loadStepsFromDb()
+                didRollover = true
+            }
+        }
+        return didRollover
+    }
+
     suspend fun flushToDatabase() {
+        // Đảm bảo không flush nhầm số liệu cũ vào ngày mới
+        checkAndResetDate()
+        
         val currentSteps = _todaySteps.value
         if (currentSteps > 0) {
-            val snapDate = getCurrentDate()
+            val strictDate = inMemorySavedDate // KHÔNG dùng getCurrentDate() ở đây!
             kotlinx.coroutines.withContext(Dispatchers.IO) {
                 stepDao.insertSteps(StepEntity(
-                    date = snapDate,
+                    date = strictDate,
                     steps = currentSteps,
                     calories = _calories.value,
                     activeMinutes = _activeMinutes.value,

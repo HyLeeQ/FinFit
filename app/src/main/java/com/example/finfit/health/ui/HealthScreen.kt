@@ -122,12 +122,18 @@ fun HealthHeaderSection(
 
 // Common Placeholder Screen cho các module tính năng
 @Composable
-fun HealthPlaceholderScreen(userEmail: String, title: String, onBack: () -> Unit, onHome: () -> Unit = onBack) {
+fun HealthPlaceholderScreen(
+    userEmail: String, 
+    title: String, 
+    showBackButton: Boolean = true,
+    onBack: () -> Unit = {}, 
+    onHome: () -> Unit = onBack
+) {
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HealthHeaderSection(
             title = title,
             userEmail = userEmail,
-            showBackButton = true,
+            showBackButton = showBackButton,
             onBackClick = onBack,
             onHomeClick = onHome
         )
@@ -157,10 +163,10 @@ fun HealthPlaceholderScreen(userEmail: String, title: String, onBack: () -> Unit
 }
 
 // ── Màn hình con
-@Composable fun FoodScannerScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "AI quét món ăn", onBack, onHome)
-@Composable fun HealthStatsScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Thống kê sức khỏe", onBack, onHome)
-@Composable fun HealthPredictionScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Dự báo sức khỏe", onBack, onHome)
-@Composable fun HealthLogScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Nhật ký sức khỏe", onBack, onHome)
+@Composable fun FoodScannerScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "AI quét món ăn", onBack = onBack, onHome = onHome)
+@Composable fun HealthStatsScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Phân tích sức khỏe", showBackButton = false, onBack = onBack, onHome = onHome)
+@Composable fun HealthPredictionScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Dự báo sức khỏe", onBack = onBack, onHome = onHome)
+@Composable fun HealthLogScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Nhật ký sức khỏe", onBack = onBack, onHome = onHome)
 
 // Dữ liệu cho Card
 data class HealthCardItem(
