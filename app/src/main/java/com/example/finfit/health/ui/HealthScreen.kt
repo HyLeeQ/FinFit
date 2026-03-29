@@ -186,7 +186,7 @@ fun HealthDashboardScreen(
     val userName = userEmail.split("@")[0]
     val todaySteps by healthViewModel.todaySteps.collectAsStateWithLifecycle()
     val uiState by healthViewModel.healthUiState.collectAsStateWithLifecycle()
-    val stepGoal = healthViewModel.stepGoal
+    val stepGoal = uiState.stepGoal
 
     LazyColumn(
         modifier = Modifier

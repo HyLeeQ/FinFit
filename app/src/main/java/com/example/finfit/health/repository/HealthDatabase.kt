@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.finfit.health.model.StepEntity
+import com.example.finfit.health.model.HealthEntity
 
-@Database(entities = [StepEntity::class], version = 3, exportSchema = false)
+@Database(entities = [HealthEntity::class], version = 5, exportSchema = false)
 abstract class HealthDatabase : RoomDatabase() {
-    abstract fun stepDao(): StepDao
+    abstract fun healthDao(): HealthDao
 
     companion object {
         @Volatile

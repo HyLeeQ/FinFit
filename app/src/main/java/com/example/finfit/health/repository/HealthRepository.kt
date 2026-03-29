@@ -5,16 +5,24 @@ import android.util.Log
 import android.provider.Settings
 import android.widget.Toast
 import com.example.finfit.data.repository.AuthRepository
-import com.example.finfit.health.model.StepEntity
+import com.example.finfit.health.model.HealthEntity
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.finfit.health.data.HealthSyncWorker
 
 class HealthRepository(private val context: Context) {
 
-    private val stepDao = HealthDatabase.getDatabase(context).stepDao()
+    private val healthDao = HealthDatabase.getDatabase(context).healthDao()
     private val firestore = FirebaseFirestore.getInstance()
     private val currentDeviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
     private val prefs = context.getSharedPreferences("HealthPrefs", Context.MODE_PRIVATE)
@@ -38,10 +46,10 @@ class HealthRepository(private val context: Context) {
                 // Đăng nhập máy mới -> Trở thành Primary Device
                 userDocRef.set(hashMapOf("primaryDeviceId" to currentDeviceId), SetOptions.merge()).await()
                 prefs.edit().putBoolean("hasClaimedPrimaryDevice_$uid", true).apply()
-                // Xoá trắng cữ trên Local để ăn 100% dữ liệu từ mây xuống (Nối tiếp bước chân mượt mà)
-                stepDao.deleteAllSteps()
+                // Xoá trắng Local để ăn 100% dữ liệu từ mây xuống
+                healthDao.deleteAll()
             } else {
-                // Đã claim trước đó. Kiểm tra xem có bị chiếm quyền không (tức là người dùng mua máy khác, đăng nhập)
+                // Đã claim trước đó. Kiểm tra xem có bị chiếm quyền không
                 if (cloudDeviceId != null && cloudDeviceId != currentDeviceId) {
                     forceLogoutAndWipeLocalData()
                     return
@@ -56,40 +64,52 @@ class HealthRepository(private val context: Context) {
             for (doc in snapshot.documents) {
                 val date = doc.id
                 val cloudSteps = doc.getLong("steps")?.toInt() ?: 0
-                val cloudCalories = doc.getLong("calories")?.toInt() ?: 0
+                val cloudCaloriesOut = doc.getLong("caloriesOut")?.toInt()
+                    ?: doc.getLong("calories")?.toInt() ?: 0  // Backward compat
+                val cloudCaloriesIn = doc.getLong("caloriesIn")?.toInt() ?: 0
                 val cloudActiveMinutes = doc.getLong("activeMinutes")?.toInt() ?: 0
+                val cloudWaterConsumed = doc.getLong("waterConsumed")?.toInt() ?: 0
+                val cloudWaterGoal = doc.getLong("waterGoal")?.toInt() ?: 0
+                val cloudSleepHours = doc.getDouble("sleepHours")?.toFloat() ?: 0f
+                val cloudStepGoal = doc.getLong("stepGoal")?.toInt() ?: 1000
 
-                val localStep = stepDao.getStepsByDate(date)
+                val localRecord = healthDao.getHealthByDate(date)
 
                 // Nếu Local chưa có -> Lưu vào ngay với trạng thái SYNCED
-                if (localStep == null) {
-                    stepDao.insertSteps(
-                        StepEntity(
+                if (localRecord == null) {
+                    healthDao.insertHealth(
+                        HealthEntity(
                             date = date,
                             steps = cloudSteps,
-                            calories = cloudCalories,
+                            stepGoal = cloudStepGoal,
+                            caloriesOut = cloudCaloriesOut,
+                            caloriesIn = cloudCaloriesIn,
                             activeMinutes = cloudActiveMinutes,
+                            waterConsumed = cloudWaterConsumed,
+                            waterGoal = cloudWaterGoal,
+                            sleepHours = cloudSleepHours,
                             syncStatus = 2, // Đã đồng bộ
                             lastUpdated = System.currentTimeMillis()
                         )
                     )
                 } else {
                     // Xung đột (Conflict Resolution)
-                    // Nếu Cloud lớn hơn Local -> Ghi đè Local
-                    if (cloudSteps > localStep.steps) {
-                        stepDao.insertSteps(
-                            localStep.copy(
+                    if (cloudSteps > localRecord.steps) {
+                        healthDao.insertHealth(
+                            localRecord.copy(
                                 steps = cloudSteps,
-                                calories = maxOf(cloudCalories, localStep.calories), // Tránh đè calo nhỏ hơn
-                                activeMinutes = maxOf(cloudActiveMinutes, localStep.activeMinutes),
-                                syncStatus = 2, // Ghi đè thành công nên bằng Cloud -> SYNCED
+                                caloriesOut = maxOf(cloudCaloriesOut, localRecord.caloriesOut),
+                                caloriesIn = maxOf(cloudCaloriesIn, localRecord.caloriesIn),
+                                activeMinutes = maxOf(cloudActiveMinutes, localRecord.activeMinutes),
+                                waterConsumed = maxOf(cloudWaterConsumed, localRecord.waterConsumed),
+                                waterGoal = maxOf(cloudWaterGoal, localRecord.waterGoal),
+                                sleepHours = maxOf(cloudSleepHours, localRecord.sleepHours),
+                                syncStatus = 2,
                                 lastUpdated = System.currentTimeMillis()
                             )
                         )
-                    } else if (cloudSteps < localStep.steps && localStep.syncStatus == 2) {
-                        // Nếu Local lớn hơn mà status vẫn là 2 (tức là offline chạy bộ thêm)
-                        // Thì đánh dấu UNSYNCED để worker đẩy ngược lên mây
-                        stepDao.updateSyncStatus(date, 0)
+                    } else if (cloudSteps < localRecord.steps && localRecord.syncStatus == 2) {
+                        healthDao.updateSyncStatus(date, 0)
                     }
                 }
             }
@@ -105,7 +125,7 @@ class HealthRepository(private val context: Context) {
             Toast.makeText(context, "Tài khoản đã đăng nhập ở thiết bị khác. Vui lòng đăng nhập lại.", Toast.LENGTH_LONG).show()
         }
         // Xoá Local DB
-        stepDao.deleteAllSteps()
+        healthDao.deleteAll()
         // Xoá các Preferences
         context.getSharedPreferences("StepTrackerPrefs", Context.MODE_PRIVATE).edit().clear().apply()
         prefs.edit().clear().apply()
@@ -122,7 +142,7 @@ class HealthRepository(private val context: Context) {
 
         try {
             // 1. Xoá DB Cục bộ + Xoá biến đếm vòng quay (SharedPrefs)
-            stepDao.deleteAllSteps()
+            healthDao.deleteAll()
             context.getSharedPreferences("StepTrackerPrefs", Context.MODE_PRIVATE).edit().clear().apply()
             prefs.edit().clear().apply()
 
@@ -148,5 +168,106 @@ class HealthRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("HealthRepo", "wipeAllHealthData failed: ${e.message}", e)
         }
+    }
+
+    /**
+     * Cập nhật lượng nước tiêu thụ và tự động tính toán mục tiêu
+     */
+    suspend fun updateWaterConsumption(amount: Int) {
+        val user = AuthRepository().getCurrentUser() ?: return
+        val uid = user.uid
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+        // 1. Calculate Goal based on weight
+        var baseGoal = 2000
+        try {
+            val userDoc = firestore.collection("users").document(uid).get().await()
+            val weight = userDoc.getDouble("weight")
+            if (weight != null && weight > 0) {
+                val localRecord = healthDao.getHealthByDate(date)
+                val steps = localRecord?.steps ?: 0
+                baseGoal = (weight * 35).toInt() + (steps / 1000 * 100)
+            }
+        } catch (e: Exception) {
+            Log.e("HealthRepo", "Failed to fetch weight from firestore, using default 2000", e)
+        }
+
+        // 2. Trực tiếp cập nhật Nước vào DB
+        val localRecord = healthDao.getHealthByDate(date)
+        if (localRecord == null) {
+            // Chưa có record ngày hôm nay thì tạo mới
+            healthDao.insertHealth(
+                HealthEntity(
+                    date = date,
+                    waterConsumed = amount,
+                    waterGoal = baseGoal,
+                    syncStatus = 0,
+                    lastUpdated = System.currentTimeMillis()
+                )
+            )
+        } else {
+            // Gọi updateWaterConsumption Partial Update
+            healthDao.updateWaterConsumption(date, amount, baseGoal)
+        }
+
+        // 3. Kích hoạt Worker đẩy lên Cloud
+        triggerOneTimeSync()
+    }
+
+    /**
+     * Cập nhật lượng calo nạp vào (cho module thực phẩm sau này)
+     */
+    suspend fun updateCaloriesIn(amount: Int) {
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val localRecord = healthDao.getHealthByDate(date)
+        if (localRecord == null) {
+            healthDao.insertHealth(
+                HealthEntity(
+                    date = date,
+                    caloriesIn = amount,
+                    syncStatus = 0,
+                    lastUpdated = System.currentTimeMillis()
+                )
+            )
+        } else {
+            healthDao.updateCaloriesIn(date, amount)
+        }
+        triggerOneTimeSync()
+    }
+
+    /**
+     * Kích hoạt Worker OneTime đẩy lên Cloud
+     */
+    private fun triggerOneTimeSync() {
+        val syncRequest = OneTimeWorkRequestBuilder<HealthSyncWorker>()
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "HealthOneTimeSync",
+            androidx.work.ExistingWorkPolicy.REPLACE,
+            syncRequest
+        )
+    }
+
+    /**
+     * Reset chỉ bước chân trong ngày, giữ nguyên nước/caloriesIn/sleep.
+     * Đồng thời reset lại sensor state trong StepCounterManager.
+     */
+    suspend fun resetTodaySteps() {
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        healthDao.resetStepData(date)
+        // Reset SharedPrefs sensor state để sensor đếm lại từ đầu
+        val stepPrefs = context.getSharedPreferences("StepTrackerPrefs", Context.MODE_PRIVATE)
+        stepPrefs.edit()
+            .putInt("accumulated_steps", 0)
+            .putInt("sensor_baseline", -1)
+            .putInt("last_sensor_value", -1)
+            .putLong("active_time_ms", 0L)
+            .apply()
+        triggerOneTimeSync()
     }
 }

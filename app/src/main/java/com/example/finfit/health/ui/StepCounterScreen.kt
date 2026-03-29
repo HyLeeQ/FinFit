@@ -35,9 +35,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.finfit.health.repository.HealthUiState
+import com.example.finfit.health.model.HealthUiState
 import com.example.finfit.health.repository.HealthViewModel
 import com.example.finfit.health.repository.StepCounterService
 import java.text.NumberFormat
@@ -99,83 +101,101 @@ fun StepCounterScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        HealthHeaderSection(
-            title = "Đếm bước chân",
-            userEmail = userEmail,
-            showBackButton = true,
-            onBackClick = onBack,
-            actionIcon = Icons.Rounded.Sync,
-            onActionClick = { healthViewModel.forceSync() },
-            actionIcon2 = Icons.Rounded.Delete,
-            onActionClick2 = { showWipeDialog = true }
-        )
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-        if (hasPermission) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                // ─── Hàng 1: MainProgressCard (Full width) ───
-                MainProgressCard(uiState)
-
-                Spacer(Modifier.height(16.dp))
-
-                // ─── Hàng 2: MoveCard + ExerciseCard (2 cột) ───
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MoveCard(
-                        steps = uiState.steps,
-                        calories = uiState.calories,
-                        modifier = Modifier.weight(1f)
-                    )
-                    ExerciseCard(
-                        activeMinutes = uiState.activeMinutes,
-                        goalMinutes = uiState.activeMinuteGoal,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // ─── Hàng 3: GoalStatusCard (Full width) ───
-                GoalStatusCard(uiState)
-            }
-        } else {
-            Box(
-                modifier = Modifier.fillMaxSize().weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Vui lòng cấp quyền theo dõi vận động để sử dụng tính năng này",
-                    modifier = Modifier.padding(32.dp),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        }
-
-        if (showWipeDialog) {
-            AlertDialog(
-                onDismissRequest = { showWipeDialog = false },
-                title = { Text("Xoá dữ liệu vận động") },
-                text = { Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử sức khỏe? Hành động này không thể hoàn tác.") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showWipeDialog = false
-                            healthViewModel.wipeData()
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            HealthHeaderSection(
+                title = "Đếm bước chân",
+                userEmail = userEmail,
+                showBackButton = true,
+                onBackClick = onBack,
+                actionIcon = Icons.Rounded.Sync,
+                onActionClick = {
+                    healthViewModel.forceSyncWithCallback {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("✅ Đồng bộ thành công!")
                         }
-                    ) {
-                        Text("Xoá", color = MaterialTheme.colorScheme.error)
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = { showWipeDialog = false }) {
-                        Text("Hủy")
-                    }
-                }
+                actionIcon2 = Icons.Rounded.Delete,
+                onActionClick2 = { showWipeDialog = true }
             )
+
+            if (hasPermission) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    // ─── Hàng 1: MainProgressCard (Full width) ───
+                    MainProgressCard(uiState)
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // ─── Hàng 2: MoveCard + ExerciseCard (2 cột) ───
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MoveCard(
+                            steps = uiState.steps,
+                            calories = uiState.caloriesOut,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ExerciseCard(
+                            activeMinutes = uiState.activeMinutes,
+                            goalMinutes = uiState.activeMinuteGoal,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // ─── Hàng 3: GoalStatusCard (Full width) ───
+                    GoalStatusCard(uiState)
+                }
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize().weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Vui lòng cấp quyền theo dõi vận động để sử dụng tính năng này",
+                        modifier = Modifier.padding(32.dp),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+
+            if (showWipeDialog) {
+                AlertDialog(
+                    onDismissRequest = { showWipeDialog = false },
+                    title = { Text("Xoá bước chân hôm nay") },
+                    text = { Text("Bạn có chắc chắn muốn xóa bước chân ngày hôm nay? Dữ liệu nước uống sẽ được giữ nguyên.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showWipeDialog = false
+                                healthViewModel.resetTodaySteps {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("🗑️ Đã xoá bước chân hôm nay!")
+                                    }
+                                }
+                            }
+                        ) {
+                            Text("Xoá", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showWipeDialog = false }) {
+                            Text("Hủy")
+                        }
+                    }
+                )
+            }
         }
     }
 }

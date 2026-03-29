@@ -11,6 +11,7 @@ import com.example.finfit.health.repository.HealthRepository
 import com.example.finfit.health.repository.StepCounterManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
 class HealthSyncWorker(
@@ -22,7 +23,7 @@ class HealthSyncWorker(
         val user = AuthRepository().getCurrentUser() ?: return Result.success()
         val uid = user.uid
 
-        val stepDao = HealthDatabase.getDatabase(applicationContext).stepDao()
+        val healthDao = HealthDatabase.getDatabase(applicationContext).healthDao()
         val firestore = FirebaseFirestore.getInstance()
         val currentDeviceId = Settings.Secure.getString(applicationContext.contentResolver, Settings.Secure.ANDROID_ID)
 
@@ -40,42 +41,47 @@ class HealthSyncWorker(
             }
 
             // 1. Lấy dữ liệu chưa được đồng bộ (UNSYNCED)
-            val unsyncedSteps = stepDao.getUnsyncedSteps()
-            if (unsyncedSteps.isEmpty()) {
+            val unsyncedRecords = healthDao.getUnsyncedRecords()
+            if (unsyncedRecords.isEmpty()) {
                 Log.d("HealthSyncWorker", "No unsynced data found.")
                 return Result.success()
             }
 
-            Log.d("HealthSyncWorker", "Syncing ${unsyncedSteps.size} records to Firestore...")
+            Log.d("HealthSyncWorker", "Syncing ${unsyncedRecords.size} records to Firestore...")
 
             // 2. Đánh dấu trạng thái đang đồng bộ (SYNCING = 1) để tránh overlap
-            unsyncedSteps.forEach {
-                stepDao.updateSyncStatus(it.date, 1) // SYNCING
+            unsyncedRecords.forEach {
+                healthDao.updateSyncStatus(it.date, 1) // SYNCING
             }
 
             // 3. Chuẩn bị Firebase Batch Write
             val batch = firestore.batch()
             
-            unsyncedSteps.forEach { stepEntity ->
+            unsyncedRecords.forEach { entity ->
                 val docRef = firestore.collection("users").document(uid)
-                    .collection("health_history").document(stepEntity.date)
+                    .collection("health_history").document(entity.date)
 
                 val data = hashMapOf(
-                    "steps" to stepEntity.steps,
-                    "calories" to stepEntity.calories,
-                    "activeMinutes" to stepEntity.activeMinutes,
+                    "steps" to entity.steps,
+                    "stepGoal" to entity.stepGoal,
+                    "caloriesOut" to entity.caloriesOut,
+                    "caloriesIn" to entity.caloriesIn,
+                    "activeMinutes" to entity.activeMinutes,
+                    "waterConsumed" to entity.waterConsumed,
+                    "waterGoal" to entity.waterGoal,
+                    "sleepHours" to entity.sleepHours,
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
 
-                batch.set(docRef, data, com.google.firebase.firestore.SetOptions.merge())
+                batch.set(docRef, data, SetOptions.merge())
             }
 
             // 4. Thực thi commit (nếu mất mạng ở đây sẽ throw exception)
             batch.commit().await()
 
             // 5. Đẩy thành công -> Cập nhật trạng thái thành SYNCED = 2
-            unsyncedSteps.forEach {
-                stepDao.updateSyncStatus(it.date, 2) // SYNCED
+            unsyncedRecords.forEach {
+                healthDao.updateSyncStatus(it.date, 2) // SYNCED
             }
 
             Log.d("HealthSyncWorker", "Sync successful.")
@@ -85,9 +91,9 @@ class HealthSyncWorker(
             Log.e("HealthSyncWorker", "Sync failed: ${e.message}", e)
             // Lỗi mạng hoặc Firebase -> Đặt lại thành UNSYNCED = 0 và return retry()
             try {
-                val stepDaoFallback = HealthDatabase.getDatabase(applicationContext).stepDao()
-                stepDaoFallback.getUnsyncedSteps().forEach {
-                    if (it.syncStatus == 1) stepDaoFallback.updateSyncStatus(it.date, 0)
+                val fallbackDao = HealthDatabase.getDatabase(applicationContext).healthDao()
+                fallbackDao.getUnsyncedRecords().forEach {
+                    if (it.syncStatus == 1) fallbackDao.updateSyncStatus(it.date, 0)
                 }
             } catch (fallbackE: Exception) {
                 // Ignore fallback error

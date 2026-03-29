@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
@@ -16,6 +15,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.finfit.health.data.HealthSyncWorker
+import com.example.finfit.health.model.HealthUiState
+import com.example.finfit.health.model.toUiState
 import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -23,35 +24,19 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Trạng thái UI tổng hợp cho Health StepCounter screen.
- */
-data class HealthUiState(
-    val steps: Int = 0,
-    val calories: Int = 0,
-    val activeMinutes: Int = 0,
-    val stepGoal: Int = 1000,
-    val activeMinuteGoal: Int = 60,
-    val waterConsumedMl: Int = 1600,
-    val waterGoalMl: Int = 2000
-)
-
-/**
  * HealthViewModel — Cung cấp dữ liệu sức khỏe reactive cho UI.
  *
  * Merge 2 nguồn dữ liệu:
  *   1. StepCounterManager (sensor realtime)
- *   2. StepDao.observeStepsByDate (Room persistent)
- * → Lấy giá trị max() → UI luôn hiển thị con số cao nhất.
+ *   2. HealthDao.observeHealthByDate (Room persistent)
+ * → Kết hợp qua extension function toUiState() → UI luôn hiển thị con số cao nhất.
  */
 class HealthViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val stepDao = HealthDatabase.getDatabase(application).stepDao()
+    private val healthDao = HealthDatabase.getDatabase(application).healthDao()
     private val stepCounterManager = StepCounterManager.getInstance(application)
     private val healthRepository = HealthRepository(application)
     private val workManager = WorkManager.getInstance(application)
-
-    /** Mục tiêu bước chân */
-    val stepGoal: Int = 1000
 
     private val _healthUiState = MutableStateFlow(HealthUiState())
     val healthUiState: StateFlow<HealthUiState> = _healthUiState.asStateFlow()
@@ -59,10 +44,6 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     // Giữ todaySteps riêng để HealthDashboard dùng (backward compatible)
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps: StateFlow<Int> = _todaySteps.asStateFlow()
-
-    // Mock Data: Cột Nước uống
-    private val _waterConsumed = MutableStateFlow(1600)
-    val waterGoalMl: Int = 2000
 
     init {
         // Đồng bộ Cloud -> Local ngay khi khởi tạo
@@ -88,25 +69,17 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val today = getCurrentDate()
 
-            // Combine tất cả nguồn sensor realtime + Room persistent + Nước (Mock)
+            // Combine tất cả nguồn sensor realtime + Room persistent
             combine(
                 stepCounterManager.todaySteps,
                 stepCounterManager.calories,
                 stepCounterManager.activeMinutes,
-                stepDao.observeStepsByDate(today).map { entity ->
-                    Triple(entity?.steps ?: 0, entity?.calories ?: 0, entity?.activeMinutes ?: 0)
-                },
-                _waterConsumed
-            ) { sensorSteps, sensorCal, sensorMinutes, dbTriple, waterVal ->
-                val (dbSteps, dbCal, dbMinutes) = dbTriple
-                HealthUiState(
-                    steps = maxOf(sensorSteps, dbSteps),
-                    calories = maxOf(sensorCal, dbCal),
-                    activeMinutes = maxOf(sensorMinutes, dbMinutes),
-                    stepGoal = stepGoal,
-                    activeMinuteGoal = 60,
-                    waterConsumedMl = waterVal,
-                    waterGoalMl = waterGoalMl
+                healthDao.observeHealthByDate(today)
+            ) { sensorSteps, sensorCal, sensorMinutes, dbEntity ->
+                dbEntity.toUiState(
+                    sensorSteps = sensorSteps,
+                    sensorCaloriesOut = sensorCal,
+                    sensorActiveMinutes = sensorMinutes
                 )
             }.collect { state ->
                 _healthUiState.value = state
@@ -160,19 +133,56 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Xoá sạch mọi dữ liệu sức khoẻ và reset giao diện
+     * Reset chỉ bước chân ngày hôm nay (giữ nguyên nước/calo/sleep)
      */
-    fun wipeData() {
+    fun resetTodaySteps(onComplete: () -> Unit = {}) {
         viewModelScope.launch(Dispatchers.IO) {
-            healthRepository.wipeAllHealthData()
+            healthRepository.resetTodaySteps()
+            // Reset lại sensor manager
+            stepCounterManager.resetInMemoryState()
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                onComplete()
+            }
         }
     }
 
     /**
-     * Thêm nước (Mock function, update tạm thời RAM)
+     * Đồng bộ thủ công với callback để hiển thị thông báo
+     */
+    fun forceSyncWithCallback(onComplete: () -> Unit = {}) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val syncRequest = OneTimeWorkRequestBuilder<HealthSyncWorker>()
+            .setConstraints(constraints)
+            .build()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            stepCounterManager.flushToDatabase()
+            healthRepository.syncCloudToLocal()
+            workManager.enqueue(syncRequest)
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                onComplete()
+            }
+        }
+    }
+
+    /**
+     * Thêm nước (Ghi trực tiếp vào DB thông qua Repository)
      */
     fun addWater(amount: Int) {
-        val current = _waterConsumed.value
-        _waterConsumed.value = current + amount
+        viewModelScope.launch(Dispatchers.IO) {
+            healthRepository.updateWaterConsumption(amount)
+        }
+    }
+
+    /**
+     * Thêm calo nạp vào (cho module thực phẩm sau này)
+     */
+    fun addCaloriesIn(amount: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            healthRepository.updateCaloriesIn(amount)
+        }
     }
 }

@@ -45,21 +45,25 @@ private class Bubble(
     var radius: Float = 0f,
     var speed: Float = 0f,
     var alpha: Float = 0f,
-    var active: Boolean = false
+    var active: Boolean = false,
+    var needsReset: Boolean = true
 ) {
     fun reset(canvasWidth: Float, canvasHeight: Float) {
         x = Random.nextFloat() * canvasWidth
-        y = canvasHeight + Random.nextFloat() * 20f
-        radius = Random.nextFloat() * 4f + 2f // 2 to 6
-        speed = Random.nextFloat() * 1.5f + 0.5f // 0.5 to 2.0
-        alpha = Random.nextFloat() * 0.3f + 0.1f // 0.1 to 0.4
+        y = canvasHeight + Random.nextFloat() * 50f
+        radius = Random.nextFloat() * 20f + 10f // 10 to 30 radius (will be multiplied by 2 in render)
+        speed = Random.nextFloat() * 15f + 10f // 10.0 to 25.0 speed per frame
+        alpha = Random.nextFloat() * 0.4f + 0.15f // 0.15 to 0.55 opacity
         active = true
+        needsReset = false
     }
     
     fun update() {
-        if (!active) return
+        if (!active || needsReset) return
         y -= speed
-        if (y < -10f) active = false
+        if (y < -100f) {
+            active = false
+        }
     }
 }
 
@@ -71,30 +75,101 @@ fun WaterTrackerScreen(
     healthViewModel: HealthViewModel = viewModel()
 ) {
     val uiState by healthViewModel.healthUiState.collectAsStateWithLifecycle()
+    
+    val percentage = uiState.waterConsumedMl.toFloat() / maxOf(1, uiState.waterGoalMl).toFloat()
+    val targetWaterColor = if (percentage > 1f) Color(0xFF50C878) else Color(0xFF0EA5E9)
+    val animatedBubbleColor by animateColorAsState(
+        targetValue = targetWaterColor, 
+        animationSpec = tween(500), 
+        label = "bubbleColorAnim"
+    )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        HealthHeaderSection(
-            title = "Theo dõi uống nước",
-            userEmail = userEmail,
-            showBackButton = true,
-            onBackClick = onBack
-        )
+    // Bubble management
+    val maxBubbles = 80
+    val bubbles = remember { List(maxBubbles) { Bubble() } }
+    
+    // Bubble Trigger
+    var previousConsumed by remember { mutableIntStateOf(uiState.waterConsumedMl) }
+    LaunchedEffect(uiState.waterConsumedMl) {
+        if (uiState.waterConsumedMl > previousConsumed) {
+            val spawnCount = 40
+            var spawned = 0
+            for (bubble in bubbles) {
+                if (!bubble.active) {
+                    bubble.active = true // Mark active
+                    bubble.needsReset = true // Guarantee it hits the Canvas reset condition
+                    spawned++
+                    if (spawned >= spawnCount) break
+                }
+            }
+            // Nếu người dùng bấm quá nhanh (spam) và dùng hết quota 80 hạt, ta tái chế luôn các hạt đang bay
+            if (spawned < spawnCount) {
+                for (bubble in bubbles) {
+                    bubble.active = true
+                    bubble.needsReset = true // Ép Canvas reset lại hạt này xuống đáy
+                    spawned++
+                    if (spawned >= spawnCount) break
+                }
+            }
+        }
+        previousConsumed = uiState.waterConsumedMl
+    }
 
+    val animationFrame = remember { mutableStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            withFrameNanos { time ->
+                animationFrame.value = time
+                for (b in bubbles) {
+                    if (b.active) b.update()
+                }
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            WaterTrackerWidget(
-                consumedMl = uiState.waterConsumedMl,
-                goalMl = uiState.waterGoalMl,
-                onAddWater = { amount -> healthViewModel.addWater(amount) }
+            HealthHeaderSection(
+                title = "Theo dõi uống nước",
+                userEmail = userEmail,
+                showBackButton = true,
+                onBackClick = onBack
             )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                WaterTrackerWidget(
+                    consumedMl = uiState.waterConsumedMl,
+                    goalMl = uiState.waterGoalMl,
+                    onAddWater = { amount -> healthViewModel.addWater(amount) }
+                )
+            }
+        }
+        
+        // Full screen bubbles overlay
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            animationFrame.value.let {
+                for (b in bubbles) {
+                    if (b.active) {
+                        if (b.needsReset) {
+                            b.reset(size.width, size.height)
+                        }
+                        drawCircle(
+                            color = animatedBubbleColor.copy(alpha = b.alpha),
+                            radius = b.radius * 2f,
+                            center = androidx.compose.ui.geometry.Offset(b.x, b.y)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -143,42 +218,6 @@ private fun WaterTrackerWidget(
         ),
         label = "wavePhase"
     )
-
-    // Bubble management
-    val maxBubbles = 25
-    val bubbles = remember { List(maxBubbles) { Bubble() } }
-    
-    // Bubble Trigger
-    var previousConsumed by remember { mutableIntStateOf(consumedMl) }
-    LaunchedEffect(consumedMl) {
-        if (consumedMl > previousConsumed) {
-            // Spawn new bubbles when water added
-            val spawnCount = 10
-            var spawned = 0
-            for (bubble in bubbles) {
-                if (!bubble.active) {
-                    bubble.active = true // Mark active
-                    spawned++
-                    if (spawned >= spawnCount) break
-                }
-            }
-        }
-        previousConsumed = consumedMl
-    }
-
-    // A frame ticker state used to trigger recomposition for bubble updates
-    var animationFrame by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(Unit) {
-        while (isActive) {
-            withFrameNanos { time ->
-                animationFrame = time
-                // Update active bubbles
-                for (b in bubbles) {
-                    if (b.active) b.update()
-                }
-            }
-        }
-    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -283,24 +322,6 @@ private fun WaterTrackerWidget(
                             wavePath.close()
 
                             drawPath(wavePath, color = animatedWaterColor)
-                            
-                            // 3. Draw Bubbles inside the clip area
-                            // Using animationFrame binds compose to update appropriately
-                            animationFrame.let {
-                                for (b in bubbles) {
-                                    if (b.active) {
-                                        // Initialize bubble positions on first active frame if they are not setup
-                                        if (b.y == 0f || b.y < -10f) {
-                                            b.reset(64f, 128f)
-                                        }
-                                        drawCircle(
-                                            color = Color.White.copy(alpha = b.alpha),
-                                            radius = b.radius,
-                                            center = androidx.compose.ui.geometry.Offset(b.x, b.y)
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }

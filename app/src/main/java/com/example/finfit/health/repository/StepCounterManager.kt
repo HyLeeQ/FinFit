@@ -7,7 +7,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import com.example.finfit.health.model.StepEntity
+import com.example.finfit.health.model.HealthEntity
 import com.google.android.gms.location.ActivityRecognition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +53,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
-    private val stepDao = HealthDatabase.getDatabase(context).stepDao()
+    private val healthDao = HealthDatabase.getDatabase(context).healthDao()
     private val prefs = context.getSharedPreferences("StepTrackerPrefs", Context.MODE_PRIVATE)
 
     private val _todaySteps = MutableStateFlow(0)
@@ -119,8 +119,8 @@ class StepCounterManager private constructor(private val context: Context) : Sen
     private fun loadStepsFromDb() {
         CoroutineScope(Dispatchers.IO).launch {
             val date = getCurrentDate()
-            val stepEntity = stepDao.getStepsByDate(date)
-            val steps = stepEntity?.steps ?: 0
+            val healthEntity = healthDao.getHealthByDate(date)
+            val steps = healthEntity?.steps ?: 0
             _todaySteps.value = steps
             lastConfirmedSteps = steps
         }
@@ -300,14 +300,12 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         val timeSinceLastWrite = currentTime - lastDbWriteTimeMillis
         if (stepsSinceLastDbWrite >= DB_WRITE_STEP_THRESHOLD || timeSinceLastWrite >= DB_WRITE_TIME_THRESHOLD) {
             CoroutineScope(Dispatchers.IO).launch {
-                stepDao.insertSteps(StepEntity(
+                safeUpsertStepData(
                     date = currentDate,
                     steps = todayStepsCalculated,
-                    calories = _calories.value,
-                    activeMinutes = _activeMinutes.value,
-                    syncStatus = 0,
-                    lastUpdated = System.currentTimeMillis()
-                ))
+                    caloriesOut = _calories.value,
+                    activeMinutes = _activeMinutes.value
+                )
             }
             stepsSinceLastDbWrite = 0
             lastDbWriteTimeMillis = currentTime
@@ -339,16 +337,13 @@ class StepCounterManager private constructor(private val context: Context) : Sen
                 val stepsToSave = _todaySteps.value
                 val oldDate = inMemorySavedDate
                 if (stepsToSave > 0 && oldDate.isNotEmpty()) {
-                    val oldEntity = StepEntity(
-                        date = oldDate, // Bắt buộc dùng ngày cũ!
-                        steps = stepsToSave,
-                        calories = _calories.value,
-                        activeMinutes = _activeMinutes.value,
-                        syncStatus = 0,
-                        lastUpdated = System.currentTimeMillis()
-                    )
                     CoroutineScope(Dispatchers.IO).launch {
-                        stepDao.insertSteps(oldEntity)
+                        safeUpsertStepData(
+                            date = oldDate,
+                            steps = stepsToSave,
+                            caloriesOut = _calories.value,
+                            activeMinutes = _activeMinutes.value
+                        )
                     }
                 }
 
@@ -391,18 +386,66 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         if (currentSteps > 0) {
             val strictDate = inMemorySavedDate // KHÔNG dùng getCurrentDate() ở đây!
             kotlinx.coroutines.withContext(Dispatchers.IO) {
-                stepDao.insertSteps(StepEntity(
+                safeUpsertStepData(
                     date = strictDate,
                     steps = currentSteps,
-                    calories = _calories.value,
-                    activeMinutes = _activeMinutes.value,
-                    syncStatus = 0,
-                    lastUpdated = System.currentTimeMillis()
-                ))
+                    caloriesOut = _calories.value,
+                    activeMinutes = _activeMinutes.value
+                )
             }
             stepsSinceLastDbWrite = 0
             lastDbWriteTimeMillis = System.currentTimeMillis()
         }
+    }
+
+    /**
+     * An toàn ghi step data vào DB mà KHÔNG ghi đè water/caloriesIn/sleep.
+     * - Nếu đã có record ngày đó: dùng Partial Update (chỉ sửa steps/caloriesOut/activeMinutes)
+     * - Nếu chưa có: Insert mới toàn bộ
+     */
+    private suspend fun safeUpsertStepData(date: String, steps: Int, caloriesOut: Int, activeMinutes: Int) {
+        val existing = healthDao.getHealthByDate(date)
+        if (existing != null) {
+            healthDao.updateStepData(
+                date = date,
+                steps = steps,
+                caloriesOut = caloriesOut,
+                activeMinutes = activeMinutes,
+                lastUpdated = System.currentTimeMillis()
+            )
+        } else {
+            healthDao.insertHealth(
+                HealthEntity(
+                    date = date,
+                    steps = steps,
+                    caloriesOut = caloriesOut,
+                    activeMinutes = activeMinutes,
+                    syncStatus = 0,
+                    lastUpdated = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    /**
+     * Reset toàn bộ bộ đếm trong RAM + UI (gọi sau khi DB đã reset step data)
+     */
+    fun resetInMemoryState() {
+        inMemoryAccumulatedSteps = 0
+        inMemorySensorBaseline = -1
+        inMemoryLastSensorValue = -1
+        lastConfirmedSteps = 0
+        pendingDetectorSteps = 0
+        activeTimeAccumulatedMs = 0L
+        lastActiveCheckTimeMs = System.currentTimeMillis()
+        stepsSinceLastDbWrite = 0
+        lastDbWriteTimeMillis = System.currentTimeMillis()
+
+        _todaySteps.value = 0
+        _calories.value = 0
+        _activeMinutes.value = 0
+
+        saveStateToPrefs()
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) { }
