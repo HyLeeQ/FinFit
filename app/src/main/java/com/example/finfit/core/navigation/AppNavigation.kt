@@ -33,6 +33,7 @@ object Routes {
 
     // Health Routes
     const val HEALTH_DASHBOARD = "health_dashboard" // Y tế cơ bản
+    const val WATER_TRACKER = "water_tracker"
     const val STEP_COUNTER = "stepCounter"
     const val FOOD_SCANNER = "food_scanner"
     const val HEALTH_STATS = "health_stats"

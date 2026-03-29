@@ -30,7 +30,9 @@ data class HealthUiState(
     val calories: Int = 0,
     val activeMinutes: Int = 0,
     val stepGoal: Int = 1000,
-    val activeMinuteGoal: Int = 60
+    val activeMinuteGoal: Int = 60,
+    val waterConsumedMl: Int = 1600,
+    val waterGoalMl: Int = 2000
 )
 
 /**
@@ -58,6 +60,10 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps: StateFlow<Int> = _todaySteps.asStateFlow()
 
+    // Mock Data: Cột Nước uống
+    private val _waterConsumed = MutableStateFlow(1600)
+    val waterGoalMl: Int = 2000
+
     init {
         // Đồng bộ Cloud -> Local ngay khi khởi tạo
         viewModelScope.launch(Dispatchers.IO) {
@@ -82,22 +88,25 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val today = getCurrentDate()
 
-            // Combine tất cả nguồn sensor realtime + Room persistent
+            // Combine tất cả nguồn sensor realtime + Room persistent + Nước (Mock)
             combine(
                 stepCounterManager.todaySteps,
                 stepCounterManager.calories,
                 stepCounterManager.activeMinutes,
                 stepDao.observeStepsByDate(today).map { entity ->
                     Triple(entity?.steps ?: 0, entity?.calories ?: 0, entity?.activeMinutes ?: 0)
-                }
-            ) { sensorSteps, sensorCal, sensorMinutes, dbTriple ->
+                },
+                _waterConsumed
+            ) { sensorSteps, sensorCal, sensorMinutes, dbTriple, waterVal ->
                 val (dbSteps, dbCal, dbMinutes) = dbTriple
                 HealthUiState(
                     steps = maxOf(sensorSteps, dbSteps),
                     calories = maxOf(sensorCal, dbCal),
                     activeMinutes = maxOf(sensorMinutes, dbMinutes),
                     stepGoal = stepGoal,
-                    activeMinuteGoal = 60
+                    activeMinuteGoal = 60,
+                    waterConsumedMl = waterVal,
+                    waterGoalMl = waterGoalMl
                 )
             }.collect { state ->
                 _healthUiState.value = state
@@ -157,5 +166,13 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             healthRepository.wipeAllHealthData()
         }
+    }
+
+    /**
+     * Thêm nước (Mock function, update tạm thời RAM)
+     */
+    fun addWater(amount: Int) {
+        val current = _waterConsumed.value
+        _waterConsumed.value = current + amount
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.*
 
 import com.example.finfit.ui.theme.PrimaryBlue
+import com.example.finfit.core.navigation.Routes
 
 // Màn hình HeaderSection chung cho Sức Khỏe
 @Composable
@@ -184,6 +185,7 @@ fun HealthDashboardScreen(
 ) {
     val userName = userEmail.split("@")[0]
     val todaySteps by healthViewModel.todaySteps.collectAsStateWithLifecycle()
+    val uiState by healthViewModel.healthUiState.collectAsStateWithLifecycle()
     val stepGoal = healthViewModel.stepGoal
 
     LazyColumn(
@@ -215,14 +217,15 @@ fun HealthDashboardScreen(
         item {
             Row(modifier = Modifier.fillMaxWidth()) {
                 // Theo dõi nước uống
+                val safeWaterGoal = if (uiState.waterGoalMl > 0) uiState.waterGoalMl else 2000
                 HealthStatCard(
                     modifier = Modifier.weight(1f),
                     title = "Theo dõi nước uống",
-                    value = "0.8L",
-                    progress = 0.4f,
+                    value = "${String.format(java.util.Locale.US, "%.1f", uiState.waterConsumedMl / 1000f)}L",
+                    progress = (uiState.waterConsumedMl.toFloat() / safeWaterGoal).coerceIn(0f, 1f),
                     icon = Icons.Rounded.WaterDrop,
                     accentColor = Color(0xFF0EA5E9),
-                    onClick = { /* Navigate */ }
+                    onClick = { onNavigate(Routes.WATER_TRACKER) }
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 // AI Food Scan

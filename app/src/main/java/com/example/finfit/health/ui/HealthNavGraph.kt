@@ -20,6 +20,9 @@ fun NavGraphBuilder.healthNavGraph(
     composable(Routes.STEP_COUNTER) {
         StepCounterScreen(userEmail, onBack = { navController.popBackStack() })
     }
+    composable(Routes.WATER_TRACKER) {
+        WaterTrackerScreen(userEmail, onBack = { navController.popBackStack() })
+    }
     composable(Routes.FOOD_SCANNER) {
         FoodScannerScreen(userEmail, onBack = { navController.popBackStack() })
     }

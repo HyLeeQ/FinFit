@@ -75,6 +75,7 @@ fun MainScreen(
     // Xác định xem có đang ở trang con của Sức Khoẻ không (theo yêu cầu chỉ cập nhật Health)
     val isHealthSubScreen = currentRoute in listOf(
         Routes.STEP_COUNTER,
+        Routes.WATER_TRACKER,
         Routes.FOOD_SCANNER,
         Routes.HEALTH_PREDICTION,
         Routes.HEALTH_LOG
