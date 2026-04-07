@@ -99,7 +99,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
             .setRequiresCharging(true)
             .build()
 
-        val syncRequest = PeriodicWorkRequestBuilder<HealthSyncWorker>(15, TimeUnit.MINUTES)
+        val syncRequest = PeriodicWorkRequestBuilder<HealthSyncWorker>(30, TimeUnit.MINUTES)
             .setConstraints(constraints)
             .build()
 

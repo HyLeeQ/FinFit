@@ -72,8 +72,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
 
     // ====== State: Step Tracker (STEP_COUNTER) ======
     private var inMemorySavedDate: String = ""
-    private var inMemorySensorBaseline: Int = -1
-    private var inMemoryAccumulatedSteps: Int = 0
+    private var sensorOffset: Int = -1
     private var inMemoryLastSensorValue: Int = -1
 
     // ====== State: Smooth UI Bridge (STEP_DETECTOR ↔ STEP_COUNTER) ======
@@ -96,8 +95,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
     init {
         val date = getCurrentDate()
         inMemorySavedDate = prefs.getString("saved_date", date) ?: date
-        inMemorySensorBaseline = prefs.getInt("sensor_baseline", -1)
-        inMemoryAccumulatedSteps = prefs.getInt("accumulated_steps", 0)
+        sensorOffset = prefs.getInt("sensor_offset", -1)
         inMemoryLastSensorValue = prefs.getInt("last_sensor_value", -1)
         activeTimeAccumulatedMs = prefs.getLong("active_time_ms", 0L)
         lastDbWriteTimeMillis = System.currentTimeMillis()
@@ -237,9 +235,9 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         // ─── Đổi ngày (Hoặc App đã chạy lâu ngang qua midnight) ───
         checkAndResetDate()
 
-        // ─── Khởi tạo baseline lần đầu ───
-        if (inMemorySensorBaseline == -1 || inMemoryLastSensorValue == -1) {
-            inMemorySensorBaseline = currentSensorSteps
+        // ─── Khởi tạo offset lần đầu ───
+        if (sensorOffset == -1 || inMemoryLastSensorValue == -1) {
+            sensorOffset = currentSensorSteps
             inMemoryLastSensorValue = currentSensorSteps
             saveStateToPrefs()
             return
@@ -247,11 +245,9 @@ class StepCounterManager private constructor(private val context: Context) : Sen
 
         // ─── Phát hiện Reboot ───
         if (currentSensorSteps < inMemoryLastSensorValue) {
-            val stepsBeforeReboot = inMemoryLastSensorValue - inMemorySensorBaseline
-            if (stepsBeforeReboot > 0) {
-                inMemoryAccumulatedSteps += stepsBeforeReboot
-            }
-            inMemorySensorBaseline = currentSensorSteps
+            // Reboot! Cảm biến bị reset về 0 (hoặc thấp). Ta cài đặt lại offset để bù trừ sao cho bước không bị mất.
+            val dbStepsRestored = lastConfirmedSteps
+            sensorOffset = currentSensorSteps - dbStepsRestored
             inMemoryLastSensorValue = currentSensorSteps
             saveStateToPrefs()
             return
@@ -261,7 +257,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         if (!isStepAllowed()) {
             val rejectedSteps = currentSensorSteps - inMemoryLastSensorValue
             if (rejectedSteps > 0) {
-                inMemorySensorBaseline += rejectedSteps
+                sensorOffset += rejectedSteps
             }
             inMemoryLastSensorValue = currentSensorSteps
             saveStateToPrefs()
@@ -270,7 +266,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
 
         // ─── Tính bước chính xác ───
         inMemoryLastSensorValue = currentSensorSteps
-        val todayStepsCalculated = inMemoryAccumulatedSteps + (currentSensorSteps - inMemorySensorBaseline)
+        val todayStepsCalculated = currentSensorSteps - sensorOffset
 
         if (todayStepsCalculated < 0) return
 
@@ -315,8 +311,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
     private fun saveStateToPrefs() {
         prefs.edit()
             .putString("saved_date", inMemorySavedDate)
-            .putInt("sensor_baseline", inMemorySensorBaseline)
-            .putInt("accumulated_steps", inMemoryAccumulatedSteps)
+            .putInt("sensor_offset", sensorOffset)
             .putInt("last_sensor_value", inMemoryLastSensorValue)
             .putLong("active_time_ms", activeTimeAccumulatedMs)
             .apply()
@@ -349,12 +344,11 @@ class StepCounterManager private constructor(private val context: Context) : Sen
 
                 // 2. Refresh RAM cho Ngày mới
                 inMemorySavedDate = currentDate
-                inMemoryAccumulatedSteps = 0
-                // Giữ lại baseline để nối tiếp bước đi hiện hành của cảm biến
+                // Bắt đầu ngày mới, coi số bước hiện tại là vạch xuất phát mới
                 if (inMemoryLastSensorValue != -1) {
-                    inMemorySensorBaseline = inMemoryLastSensorValue
+                    sensorOffset = inMemoryLastSensorValue
                 } else {
-                    inMemorySensorBaseline = -1 // Phục hồi ban đầu nếu chưa từng có
+                    sensorOffset = -1
                 }
                 
                 lastConfirmedSteps = 0
@@ -431,9 +425,14 @@ class StepCounterManager private constructor(private val context: Context) : Sen
      * Reset toàn bộ bộ đếm trong RAM + UI (gọi sau khi DB đã reset step data)
      */
     fun resetInMemoryState() {
-        inMemoryAccumulatedSteps = 0
-        inMemorySensorBaseline = -1
-        inMemoryLastSensorValue = -1
+        // Cập nhật lại điểm offset bằng đúng số bước hiện tại của cảm biến
+        // để màn hình nhảy về số 0 ngay lập tức (Nếu chưa có lastSensorValue thì chờ tới event tiếp theo)
+        if (inMemoryLastSensorValue != -1) {
+            sensorOffset = inMemoryLastSensorValue
+        } else {
+            sensorOffset = -1
+        }
+        
         lastConfirmedSteps = 0
         pendingDetectorSteps = 0
         activeTimeAccumulatedMs = 0L

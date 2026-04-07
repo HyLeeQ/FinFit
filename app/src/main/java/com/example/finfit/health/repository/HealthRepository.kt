@@ -6,6 +6,7 @@ import android.provider.Settings
 import android.widget.Toast
 import com.example.finfit.data.repository.AuthRepository
 import com.example.finfit.health.model.HealthEntity
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
@@ -260,14 +261,28 @@ class HealthRepository(private val context: Context) {
     suspend fun resetTodaySteps() {
         val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         healthDao.resetStepData(date)
-        // Reset SharedPrefs sensor state để sensor đếm lại từ đầu
-        val stepPrefs = context.getSharedPreferences("StepTrackerPrefs", Context.MODE_PRIVATE)
-        stepPrefs.edit()
-            .putInt("accumulated_steps", 0)
-            .putInt("sensor_baseline", -1)
-            .putInt("last_sensor_value", -1)
-            .putLong("active_time_ms", 0L)
-            .apply()
+        
+        // Reset ngầm định Firestore (Set steps = 0)
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                db.collection("users").document(user.uid)
+                    .collection("health_history").document(date)
+                    .update(
+                        mapOf(
+                            "steps" to 0,
+                            "caloriesOut" to 0,
+                            "activeMinutes" to 0,
+                            "syncStatus" to 0,
+                            "lastUpdated" to System.currentTimeMillis()
+                        )
+                    ).await()
+            } catch (e: Exception) {
+                // Ignore errors if document doesn't exist yet
+            }
+        }
+        
         triggerOneTimeSync()
     }
 }

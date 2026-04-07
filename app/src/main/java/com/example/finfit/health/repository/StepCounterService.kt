@@ -12,6 +12,9 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.finfit.MainActivity
 import com.example.finfit.R
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 class StepCounterService : Service() {
 
@@ -70,6 +73,24 @@ class StepCounterService : Service() {
         stepCounterManager?.stopListening()
         stepCounterManager = null
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        
+        // Silent Sync: Đẩy dữ liệu lần cuối khi user vuốt kill app
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            stepCounterManager?.flushToDatabase()
+            val constraints = androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                .build()
+            val syncRequest = androidx.work.OneTimeWorkRequestBuilder<com.example.finfit.health.data.HealthSyncWorker>()
+                .setConstraints(constraints)
+                .build()
+            
+            androidx.work.WorkManager.getInstance(applicationContext).enqueue(syncRequest)
+            stopSelf()
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

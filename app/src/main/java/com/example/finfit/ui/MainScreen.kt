@@ -28,6 +28,9 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.shadow
+import androidx.activity.compose.BackHandler
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.*
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -62,6 +65,45 @@ fun MainScreen(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    
+    val isRoot = currentRoute in listOf(
+        Routes.DASHBOARD, 
+        Routes.HEALTH_DASHBOARD, 
+        Routes.PROFILE
+    )
+
+    var showExitPopup by remember { mutableStateOf(false) }
+    
+    BackHandler(enabled = isRoot) {
+        showExitPopup = true
+    }
+
+    if (showExitPopup) {
+        val healthViewModel: com.example.finfit.health.repository.HealthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+        val activity = LocalContext.current as? ComponentActivity
+        
+        AlertDialog(
+            onDismissRequest = { showExitPopup = false },
+            title = { Text("Thoát ứng dụng", fontWeight = FontWeight.Bold) },
+            text = { Text("Bạn có muốn đồng bộ dữ liệu sức khoẻ lên đám mây trước khi thoát không?") },
+            confirmButton = {
+                TextButton(onClick = { 
+                    healthViewModel.forceSyncWithCallback {
+                        activity?.finish()
+                    }
+                }) {
+                    Text("Đồng bộ & Thoát")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    activity?.finish()
+                }) {
+                    Text("Thoát luôn")
+                }
+            }
+        )
+    }
 
     // Tự động đồng bộ appMode nếu người dùng nhấn nút Back hệ thống
     LaunchedEffect(currentRoute) {
