@@ -73,6 +73,7 @@ data class AppUserWallet(
         // === Mới: danh sách tài khoản đa năng ===
         val accounts: List<AppBankAccount> = emptyList(),
         val generalSavings: Double = 0.0, // Tiết kiệm không mục đích (Dự phòng)
+        val groupPrepaidAmount: Double = 0.0, // Số tiền đã trả trước cho nhóm (người khác nợ mình)
         val heldFunds: List<HeldFundItem> = emptyList(), // Tiền giữ hộ / Quỹ nhóm
         val isTotalBalanceHidden: Boolean = true, // Ẩn biểu đồ tròn phân bổ ở Dashobard
         val autoSaveWeeklySurplus: Boolean = false // Tự động chuyển tiền thừa sang Tiết kiệm
@@ -99,7 +100,11 @@ data class FinanceTransaction(
         val imageUrl: String? = null,
         val linkedGoalId: String? = null,
         val accountId: String? = null, // ID của tài khoản thực hiện (from)
-        val toAccountId: String? = null // ID của tài khoản nhận (cho chuyển khoản)
+        val toAccountId: String? = null, // ID của tài khoản nhận (cho chuyển khoản)
+        val isGroupPrepayment: Boolean = false, // Đánh dấu là trả trước cho nhóm
+        val personalAmount: Double = 0.0, // Phần tiền cá nhân chịu (trong giao dịch chia sẻ)
+        val groupAmount: Double = 0.0,    // Phần tiền người khác chịu (trả trước hộ)
+        val participantCount: Int = 1     // Số người tham gia chia tiền
 )
 
 data class SavingsGoal(
@@ -130,6 +135,7 @@ enum class BudgetPeriod {
     MONTHLY
 }
 
+// Thêm field categoryId hoặc group để dễ quản lý budget hơn nếu cần
 data class FinanceBudget(
         val id: String = "",
         val amount: Double = 0.0,
@@ -154,10 +160,42 @@ data class DebtLoan(
     val createdAt: Timestamp = Timestamp.now()
 )
 
+// ──────────────────────────────────────────────────────────────
+//  Lịch trình chi tiêu tuần (Weekly Schedule)
+// ──────────────────────────────────────────────────────────────
+data class SpendingScheduleItem(
+    val id: String = "",
+    val dayOfWeek: Int = 1, // 1: Thứ 2, ..., 7: Chủ Nhật
+    val amount: Double = 0.0,
+    val category: String = "Ăn uống",
+    val note: String = "",
+    val isAutoApply: Boolean = false // Tương lai có thể tự động trừ tiền
+)
+
+// ──────────────────────────────────────────────────────────────
+//  Thói quen & Lịch trình thông minh (AI Persona)
+// ──────────────────────────────────────────────────────────────
+data class RoutineSchedule(
+    val startDay: Int = 1, // 1: Thứ 2
+    val endDay: Int = 3,   // 3: Thứ 4
+    val location: String = "Trọ", // "Trọ" hoặc "Nhà"
+    val note: String = ""
+)
+
+data class UserHabit(
+    val minMealCost: Double = 0.0,
+    val maxMealCost: Double = 0.0,
+    val routineSchedules: List<RoutineSchedule> = emptyList(),
+    val fixedCosts: List<SpendingScheduleItem> = emptyList(),
+    val lastProactiveWeek: String = "", // Định dạng "yyyy-ww" để kiểm tra đã hỏi trong tuần chưa
+    val generalNotes: String = "" // "ở nhà = không tốn tiền ăn", v.v.
+)
+
 enum class TransactionType {
     EXPENSE,
     INCOME,
-    TRANSFER
+    TRANSFER,
+    GROUP_PREPAYMENT
 }
 
 enum class PaymentMethod {

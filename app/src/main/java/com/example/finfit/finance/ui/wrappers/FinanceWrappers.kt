@@ -19,12 +19,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.finfit.finance.model.*
 import com.example.finfit.data.repository.AuthRepository
-import com.example.finfit.finance.repository.FirestoreRepository
+import com.example.finfit.finance.repository.*
 import com.example.finfit.ui.theme.PrimaryBlue
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun DashboardWithData(
@@ -41,27 +43,27 @@ fun DashboardWithData(
     // Sử dụng collectAsState để lắng nghe thời gian thực các thay đổi từ Firestore
     // Điều này giải quyết vấn đề Thông báo ngân hàng không cập nhật UI ngay lập tức
     val walletSource by if (user != null) {
-        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     } else {
-        remember { mutableStateOf<AppUserWallet?>(null) }
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
 
     val transactionsSource by if (user != null) {
-        firestoreRepository.observeTransactions(user.uid).collectAsState(initial = emptyList())
+        firestoreRepository.observeTransactions(user.uid).collectAsState(initial = FirestoreRepository.cachedTransactions)
     } else {
-        remember { mutableStateOf<List<FinanceTransaction>>(emptyList()) }
+        remember { mutableStateOf<List<FinanceTransaction>>(FirestoreRepository.cachedTransactions) }
     }
 
     val goalsSource by if (user != null) {
-        firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = emptyList())
+        firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = FirestoreRepository.cachedGoals)
     } else {
-        remember { mutableStateOf<List<SavingsGoal>>(emptyList()) }
+        remember { mutableStateOf<List<SavingsGoal>>(FirestoreRepository.cachedGoals) }
     }
 
     val budgetsSource by if (user != null) {
-        firestoreRepository.observeBudgets(user.uid).collectAsState(initial = emptyList())
+        firestoreRepository.observeBudgets(user.uid).collectAsState(initial = FirestoreRepository.cachedBudgets)
     } else {
-        remember { mutableStateOf<List<FinanceBudget>>(emptyList()) }
+        remember { mutableStateOf<List<FinanceBudget>>(FirestoreRepository.cachedBudgets) }
     }
 
     // Migration logic nếu user chưa có accounts sau bản cập nhật mới
@@ -100,6 +102,7 @@ fun DashboardWithData(
             transactions = transactionsSource,
             goals = goalsSource,
             budgets = budgetsSource,
+            schedule = if (user != null) firestoreRepository.observeWeeklySchedule(user.uid).collectAsState(initial = FirestoreRepository.cachedWeeklySchedule).value else emptyList(),
             onSilentSave = { updated ->
                 scope.launch { try { firestoreRepository.saveUserWallet(updated) } catch (e: Exception) { Log.e("SilentSave", e.message ?: "") } }
             },
@@ -115,7 +118,7 @@ fun DashboardWithData(
                                 val updatedAccounts = currentWallet.accounts.map { acc ->
                                     when (txToDelete.type) {
                                         TransactionType.INCOME -> if (acc.id == accId) acc.copy(amount = acc.amount - txToDelete.amount) else acc
-                                        TransactionType.EXPENSE -> if (acc.id == accId) acc.copy(amount = acc.amount + txToDelete.amount) else acc
+                                        TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> if (acc.id == accId) acc.copy(amount = acc.amount + txToDelete.amount) else acc
                                         TransactionType.TRANSFER -> {
                                             when (acc.id) {
                                                 txToDelete.accountId -> acc.copy(amount = acc.amount + txToDelete.amount)
@@ -148,7 +151,7 @@ fun DashboardWithData(
                                 var tempAccounts = currentWallet.accounts.map { acc ->
                                     when (oldTx.type) {
                                         TransactionType.INCOME -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount - oldTx.amount) else acc
-                                        TransactionType.EXPENSE -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount + oldTx.amount) else acc
+                                        TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount + oldTx.amount) else acc
                                         TransactionType.TRANSFER -> {
                                             when (acc.id) {
                                                 oldTx.accountId -> acc.copy(amount = acc.amount + oldTx.amount)
@@ -163,7 +166,7 @@ fun DashboardWithData(
                                 val finalAccounts = tempAccounts.map { acc ->
                                     when (updatedTx.type) {
                                         TransactionType.INCOME -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount + updatedTx.amount) else acc
-                                        TransactionType.EXPENSE -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount - updatedTx.amount) else acc
+                                        TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount - updatedTx.amount) else acc
                                         TransactionType.TRANSFER -> {
                                             when (acc.id) {
                                                 updatedTx.accountId -> acc.copy(amount = acc.amount - updatedTx.amount)
@@ -177,7 +180,6 @@ fun DashboardWithData(
                             }
 
                             firestoreRepository.updateTransaction(user.uid, updatedTx)
-                            Toast.makeText(context, "Đã cập nhật giao dịch và ví!", Toast.LENGTH_SHORT).show()
                         } catch (e: Exception) {
                             Toast.makeText(context, "Lỗi khi cập nhật: ${e.message}", Toast.LENGTH_LONG).show()
                         }
@@ -199,9 +201,9 @@ fun WalletManagementWithData(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val walletSource by if (user != null) {
-        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     } else {
-        remember { mutableStateOf<AppUserWallet?>(null) }
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
 
     if (walletSource == null && user != null) {
@@ -213,7 +215,7 @@ fun WalletManagementWithData(
             wallet = walletSource,
             onSaveWallet = { updated ->
                 scope.launch {
-                    try { firestoreRepository.saveUserWallet(updated); Toast.makeText(context, "Đã cập nhật!", Toast.LENGTH_SHORT).show() }
+                    try { firestoreRepository.saveUserWallet(updated) }
                     catch (e: Exception) { Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show() }
                 }
             },
@@ -233,14 +235,18 @@ fun AddTransactionWithData(
     val initialType = try { initialTypeArg?.let { TransactionType.valueOf(it) } ?: TransactionType.EXPENSE } catch(e: Exception) { TransactionType.EXPENSE }
     val user = AuthRepository().getCurrentUser()
     var wallet by remember { mutableStateOf<AppUserWallet?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    val transactions by firestoreRepository.observeTransactions(user?.uid ?: "").collectAsState(initial = FirestoreRepository.cachedTransactions)
+    val budgets by firestoreRepository.observeBudgets(user?.uid ?: "").collectAsState(initial = FirestoreRepository.cachedBudgets)
+    var isLoading by remember { mutableStateOf(wallet == null && user != null) }
     var isSaving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     LaunchedEffect(user?.uid) {
         if (user != null) {
-            wallet = firestoreRepository.getUserWallet(user.uid)
+            val fetchedWallet = firestoreRepository.getUserWallet(user.uid)
+            wallet = fetchedWallet
+            FirestoreRepository.cachedWallet = fetchedWallet
             isLoading = false
         }
     }
@@ -253,18 +259,73 @@ fun AddTransactionWithData(
         Box(Modifier.fillMaxSize()) {
             AddTransactionScreen(
                 wallet = wallet,
+                budgets = budgets,
+                transactions = transactions,
                 initialType = initialType,
-                onSave = { transaction, updatedWallet ->
+                onSave = { transaction, updatedWallet, imageUri ->
                     if (isSaving) return@AddTransactionScreen
                     wallet = updatedWallet
                     isSaving = true
                     scope.launch {
                         try {
+                            // Upload ảnh lên Firebase Storage (nếu có)
+                            val finalImageUrl: String? = if (imageUri != null && user != null) {
+                                try {
+                                    val storageRef = FirebaseStorage.getInstance()
+                                        .reference
+                                        .child("transaction_photos/${user.uid}/${transaction.id}.jpg")
+                                    storageRef.putFile(imageUri).await()
+                                    storageRef.downloadUrl.await().toString()
+                                } catch (e: Exception) {
+                                    android.util.Log.e("PhotoUpload", "Lỗi upload ảnh: ${e.message}")
+                                    null
+                                }
+                            } else null
+
+                            val txWithImage = if (finalImageUrl != null) {
+                                transaction.copy(imageUrl = finalImageUrl)
+                            } else transaction
+
                             firestoreRepository.saveUserWallet(updatedWallet)
-                            if (user != null) firestoreRepository.addTransaction(user.uid, transaction)
-                            Toast.makeText(context, "Đã lưu giao dịch!", Toast.LENGTH_SHORT).show()
+                            if (user != null) firestoreRepository.addTransaction(user.uid, txWithImage)
+
+                            // ── Tự động trừ generalSavings khi chi vượt hạn mức budget ───────
+                            if (transaction.type == TransactionType.EXPENSE || transaction.type == TransactionType.GROUP_PREPAYMENT) {
+                                val currentWallet = firestoreRepository.getUserWallet(user?.uid ?: "")
+                                if (currentWallet != null && currentWallet.generalSavings > 0) {
+                                    val cal = java.util.Calendar.getInstance()
+                                    cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                                    cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                                    cal.set(java.util.Calendar.MINUTE, 0)
+                                    cal.set(java.util.Calendar.SECOND, 0)
+                                    val monthStart = cal.timeInMillis
+
+                                    val matchBudget = budgets.find { it.category == transaction.category }
+                                    if (matchBudget != null) {
+                                        val spentThisMonth = (transactions + transaction).filter {
+                                            it.category == transaction.category &&
+                                            it.type == TransactionType.EXPENSE &&
+                                            it.timestamp.toDate().time >= monthStart
+                                        }.sumOf { it.amount }
+
+                                        val excess = spentThisMonth - matchBudget.amount
+                                        if (excess > 0) {
+                                            val deduct = excess.coerceAtMost(currentWallet.generalSavings)
+                                            firestoreRepository.saveUserWallet(
+                                                currentWallet.copy(generalSavings = currentWallet.generalSavings - deduct)
+                                            )
+                                            Toast.makeText(
+                                                context,
+                                                "⚠️ Vượt hạn mức ${matchBudget.category}! Đã trừ ${formatCurrency(deduct)} từ quỹ dự phòng.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    }
+                                }
+                            }
+                            // ─────────────────────────────────────────────────────────────────
+
                             onTransactionSaved()
-                            // onBack() // Bỏ: Vì onTransactionSaved đã gọi popBackStack() trong MainActivity rồi
                         } catch (e: Exception) {
                             Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
                             isSaving = false
@@ -317,15 +378,15 @@ fun TransactionHistoryWithData(
     var screenState by remember { mutableStateOf<DashboardScreenState>(DashboardScreenState.Home) }
 
     val transactions by if (user != null) {
-        firestoreRepository.observeTransactions(user.uid).collectAsState(initial = emptyList())
+        firestoreRepository.observeTransactions(user.uid).collectAsState(initial = FirestoreRepository.cachedTransactions)
     } else {
-        remember { mutableStateOf<List<FinanceTransaction>>(emptyList()) }
+        remember { mutableStateOf<List<FinanceTransaction>>(FirestoreRepository.cachedTransactions) }
     }
 
     val wallet by if (user != null) {
-        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     } else {
-        remember { mutableStateOf<AppUserWallet?>(null) }
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
 
     when (val s = screenState) {
@@ -349,7 +410,7 @@ fun TransactionHistoryWithData(
                                     var tempAccounts = wallet!!.accounts.map { acc ->
                                         when (oldTx.type) {
                                             TransactionType.INCOME -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount - oldTx.amount) else acc
-                                            TransactionType.EXPENSE -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount + oldTx.amount) else acc
+                                            TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> if (acc.id == oldTx.accountId) acc.copy(amount = acc.amount + oldTx.amount) else acc
                                             TransactionType.TRANSFER -> {
                                                 when (acc.id) {
                                                     oldTx.accountId -> acc.copy(amount = acc.amount + oldTx.amount)
@@ -362,7 +423,7 @@ fun TransactionHistoryWithData(
                                     val finalAccounts = tempAccounts.map { acc ->
                                         when (updatedTx.type) {
                                             TransactionType.INCOME -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount + updatedTx.amount) else acc
-                                            TransactionType.EXPENSE -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount - updatedTx.amount) else acc
+                                            TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> if (acc.id == updatedTx.accountId) acc.copy(amount = acc.amount - updatedTx.amount) else acc
                                             TransactionType.TRANSFER -> {
                                                 when (acc.id) {
                                                     updatedTx.accountId -> acc.copy(amount = acc.amount - updatedTx.amount)
@@ -375,7 +436,6 @@ fun TransactionHistoryWithData(
                                     firestoreRepository.saveUserWallet(wallet!!.copy(accounts = finalAccounts))
                                 }
                                 firestoreRepository.updateTransaction(user.uid, updatedTx)
-                                Toast.makeText(context, "Đã cập nhật!", Toast.LENGTH_SHORT).show()
                                 screenState = DashboardScreenState.Home
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
@@ -392,7 +452,7 @@ fun TransactionHistoryWithData(
                                     val updatedAccounts = wallet!!.accounts.map { acc ->
                                         when (txToDelete.type) {
                                             TransactionType.INCOME -> if (acc.id == txToDelete.accountId) acc.copy(amount = acc.amount - txToDelete.amount) else acc
-                                            TransactionType.EXPENSE -> if (acc.id == txToDelete.accountId) acc.copy(amount = acc.amount + txToDelete.amount) else acc
+                                            TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> if (acc.id == txToDelete.accountId) acc.copy(amount = acc.amount + txToDelete.amount) else acc
                                             TransactionType.TRANSFER -> {
                                                 when (acc.id) {
                                                     txToDelete.accountId -> acc.copy(amount = acc.amount + txToDelete.amount)
@@ -429,9 +489,9 @@ fun SavingsGoalWithData(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val goals by if (user != null) {
-        firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = emptyList())
+        firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = FirestoreRepository.cachedGoals)
     } else {
-        remember { mutableStateOf<List<SavingsGoal>>(emptyList()) }
+        remember { mutableStateOf<List<SavingsGoal>>(FirestoreRepository.cachedGoals) }
     }
     
     // Ở mục tiêu tiết kiệm, nếu danh sách rỗng vẫn cho vào màn hình (không hiện xoay)
@@ -472,7 +532,7 @@ fun DebtLoanWrapper(
     onBack: () -> Unit
 ) {
     val repository = remember { FirestoreRepository() }
-    val items by repository.observeDebtLoans(uid).collectAsState(initial = emptyList())
+    val items by repository.observeDebtLoans(uid).collectAsState(initial = FirestoreRepository.cachedDebtLoans)
     val scope = rememberCoroutineScope()
     
     DebtLoanScreen(
@@ -490,7 +550,7 @@ fun AnalyticsWrapper(
     onBack: () -> Unit
 ) {
     val repository = remember { FirestoreRepository() }
-    val transactions by repository.observeTransactions(uid).collectAsState(initial = emptyList())
+    val transactions by repository.observeTransactions(uid).collectAsState(initial = FirestoreRepository.cachedTransactions)
     
     AnalyticsScreen(
         transactions = transactions,
@@ -504,9 +564,9 @@ fun BudgetWrapper(
     onNavigateBack: () -> Unit
 ) {
     val repository = remember { FirestoreRepository() }
-    val budgets by repository.observeBudgets(uid).collectAsState(initial = emptyList())
-    val transactions by repository.observeTransactions(uid).collectAsState(initial = emptyList())
-    val wallet by repository.observeUserWallet(uid).collectAsState(initial = null)
+    val budgets by repository.observeBudgets(uid).collectAsState(initial = FirestoreRepository.cachedBudgets)
+    val transactions by repository.observeTransactions(uid).collectAsState(initial = FirestoreRepository.cachedTransactions)
+    val wallet by repository.observeUserWallet(uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     val scope = rememberCoroutineScope()
     
     BudgetScreen( // Explicitly passing all 7 parameters
@@ -543,11 +603,17 @@ fun GeneralSavingsWithData(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val walletSource by if (user != null) {
-        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     } else {
-        remember { mutableStateOf<AppUserWallet?>(null) }
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
-    
+    // Quan sát mục tiêu tiết kiệm cá nhân để hiển thị và trích tiền
+    val goals by if (user != null) {
+        firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = FirestoreRepository.cachedGoals)
+    } else {
+        remember { mutableStateOf<List<SavingsGoal>>(FirestoreRepository.cachedGoals) }
+    }
+
     if (walletSource == null && user != null) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = PrimaryBlue)
@@ -555,12 +621,19 @@ fun GeneralSavingsWithData(
     } else {
         GeneralSavingsScreen(
             wallet = walletSource,
+            goals = goals,
             onSaveWallet = { updated ->
                 scope.launch {
+                    try { firestoreRepository.saveUserWallet(updated) }
+                    catch (e: Exception) { Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show() }
+                }
+            },
+            onSaveGoal = { goal ->
+                scope.launch {
                     try {
-                        firestoreRepository.saveUserWallet(updated);
-                   } catch (e: Exception) {
-                        Toast.makeText(context, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                        if (user != null) firestoreRepository.saveSavingsGoal(user.uid, goal)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Lỗi cập nhật mục tiêu: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 }
             },
@@ -578,9 +651,9 @@ fun HeldFundsWithData(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val walletSource by if (user != null) {
-        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     } else {
-        remember { mutableStateOf<AppUserWallet?>(null) }
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
     
     if (walletSource == null && user != null) {
@@ -613,9 +686,9 @@ fun InternalTransferWithDataFixed(
     val context = LocalContext.current
     
     val walletSource by if (user != null) {
-        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     } else {
-        remember { mutableStateOf<AppUserWallet?>(null) }
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
     
     if (walletSource == null && user != null) {
@@ -665,4 +738,40 @@ fun InternalTransferWithDataFixed(
             }
         )
     }
+}
+@Composable
+fun WeeklyScheduleWrapper(
+    uid: String,
+    firestoreRepository: FirestoreRepository,
+    onBack: () -> Unit
+) {
+    val items by firestoreRepository.observeWeeklySchedule(uid).collectAsState(initial = FirestoreRepository.cachedWeeklySchedule)
+    val scope = rememberCoroutineScope()
+    
+    WeeklyScheduleScreen(
+        items = items,
+        onSave = { item -> scope.launch { firestoreRepository.saveWeeklyScheduleItem(uid, item) } },
+        onDelete = { id -> scope.launch { firestoreRepository.deleteWeeklyScheduleItem(uid, id) } },
+        onBack = onBack
+    )
+}
+
+@Composable
+fun PhotoDiaryWithData(
+    firestoreRepository: FirestoreRepository,
+    onBack: () -> Unit,
+    onNavigateToAddTransaction: () -> Unit
+) {
+    val user = AuthRepository().getCurrentUser()
+    val transactions by if (user != null) {
+        firestoreRepository.observeTransactions(user.uid, limit = 200).collectAsState(initial = FirestoreRepository.cachedTransactions)
+    } else {
+        remember { mutableStateOf<List<FinanceTransaction>>(FirestoreRepository.cachedTransactions) }
+    }
+
+    PhotoDiaryScreen(
+        transactions = transactions,
+        onBack = onBack,
+        onAddClick = onNavigateToAddTransaction
+    )
 }

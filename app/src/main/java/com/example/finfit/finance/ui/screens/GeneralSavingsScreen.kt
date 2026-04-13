@@ -7,33 +7,37 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.finfit.finance.model.AppUserWallet
+import com.example.finfit.finance.model.SavingsGoal
+import com.example.finfit.ui.theme.AccentGreen
 import com.example.finfit.ui.theme.PrimaryBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GeneralSavingsScreen(
     wallet: AppUserWallet?,
+    goals: List<SavingsGoal>,             // Mục tiêu cá nhân để trích tiền vào
     onSaveWallet: (AppUserWallet) -> Unit,
+    onSaveGoal: (SavingsGoal) -> Unit,    // Lưu mục tiêu sau khi trích tiền
     onBack: () -> Unit
 ) {
     if (wallet == null) return
@@ -41,8 +45,8 @@ fun GeneralSavingsScreen(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
-    var showAdjustDialog by remember { mutableStateOf(false) }
-    var adjustMode by remember { mutableStateOf(true) } // true = Add, false = Subtract/Reset
+    var showAdjustDialog  by remember { mutableStateOf(false) }
+    var showTransferToGoal by remember { mutableStateOf(false) } // Trích sang mục tiêu cá nhân
 
     Scaffold(
         topBar = {
@@ -71,182 +75,334 @@ fun GeneralSavingsScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(30.dp))
-                
-                // Icon & Summary with pulsing scale effect
-                val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
-                val scale by infiniteTransition.animateFloat(
-                    initialValue = 1f,
-                    targetValue = 1.05f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1500, easing = LinearEasing),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "PulseScale"
-                )
+                Spacer(Modifier.height(24.dp))
 
+                // ── Hero card ──────────────────────────────────────────────────
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
-                        .scale(scale)
-                        .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(40.dp)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(32.dp))
+                        .background(
+                            Brush.linearGradient(listOf(PrimaryBlue, PrimaryBlue.copy(alpha = 0.75f)))
+                        )
+                        .padding(28.dp),
                 ) {
-                    Icon(Icons.Default.Savings, null, tint = PrimaryBlue, modifier = Modifier.size(60.dp))
+                    Column {
+                        Text(
+                            "SỐ DƯ TIẾT KIỆM CHUNG",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        AnimatedAmountText(
+                            amount = wallet.generalSavings,
+                            isHidden = false,
+                            color = Color.White,
+                            fontSize = 42.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        // Tiến trình tổng góp từ mục tiêu cá nhân
+                        val totalGoalTarget = goals.sumOf { it.targetAmount }.coerceAtLeast(1.0)
+                        val totalGoalCurrent = goals.sumOf { it.currentAmount }
+                        val progress = (totalGoalCurrent / totalGoalTarget).coerceIn(0.0, 1.0).toFloat()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Bao gồm ${goals.size} mục tiêu cá nhân", color = Color.White.copy(0.7f), fontSize = 11.sp)
+                            Text("${(progress * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height(6.dp)
+                                .clip(CircleShape).background(Color.White.copy(0.2f))
+                        ) {
+                            val animProg by animateFloatAsState(progress, tween(1000, easing = FastOutSlowInEasing), label = "")
+                            Box(
+                                Modifier.fillMaxWidth(animProg).fillMaxHeight()
+                                    .clip(CircleShape).background(Color.White.copy(0.9f))
+                            )
+                        }
+                    }
                 }
-                
-                Spacer(Modifier.height(32.dp))
-                
-                Text(
-                    "SỐ DƯ TIẾT KIỆM",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                
-                AnimatedAmountText(
-                    amount = wallet.generalSavings,
-                    isHidden = false,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Black
-                )
-                
-                Spacer(Modifier.height(48.dp))
-                
-                // Info Row
+
+                Spacer(Modifier.height(24.dp))
+
+                // ── Tiền chi hộ nhóm ────────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Default.Info, null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Group, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text("ĐÃ TRẢ TRƯỚC CHO NHÓM", fontSize = 10.sp, fontWeight = FontWeight.Black, color = PrimaryBlue, letterSpacing = 0.5.sp)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(formatCurrency(wallet.groupPrepaidAmount), fontSize = 18.sp, fontWeight = FontWeight.Black)
+                            if (wallet.groupPrepaidAmount > 0) {
+                                TextButton(onClick = { onSaveWallet(wallet.copy(groupPrepaidAmount = 0.0)) }) {
+                                    Text("Đã thu hồi ✓", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AccentGreen)
+                                }
+                            }
+                        }
+                        Text("Số tiền bạn chi hộ nhóm, đang chờ thu hồi.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── Danh sách mục tiêu liên kết ─────────────────────────────
+                if (goals.isNotEmpty()) {
+                    Text(
+                        "MỤC TIÊU TIẾT KIỆM CÁ NHÂN",
+                        fontSize = 11.sp, fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 8.dp)
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        goals.forEach { goal ->
+                            LinkedGoalRow(goal = goal)
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                // ── Info card ───────────────────────────────────────────────
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Default.Info, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(10.dp))
                         Text(
-                            "Quỹ dự phòng chung là số tiền bạn trích ra từ tài khoản để dành cho các việc đột xuất. Số tiền này sẽ được trừ khỏi 'Số dư khả dụng' để bạn không lỡ tay tiêu mất.",
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp,
+                            "Khi chi tiêu vượt hạn mức, FinFit tự động khấu trừ từ quỹ này. Bạn cũng có thể trích một phần sang mục tiêu tiết kiệm cá nhân.",
+                            fontSize = 12.sp, lineHeight = 18.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                
-                Spacer(Modifier.height(48.dp))
-                
-                // Action Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+
+                Spacer(Modifier.height(32.dp))
+
+                // ── Action Buttons ──────────────────────────────────────────
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(
-                        onClick = { adjustMode = true; showAdjustDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(64.dp),
-                        shape = RoundedCornerShape(20.dp),
+                        onClick = { showAdjustDialog = true },
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(18.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                     ) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Tiết kiệm thêm", fontWeight = FontWeight.Bold)
-                    }
-                    
-                    OutlinedButton(
-                        onClick = { adjustMode = false; showAdjustDialog = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(64.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                    ) {
-                        Icon(Icons.Default.Remove, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Rút tiền", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Chỉnh sửa quỹ", fontWeight = FontWeight.Bold)
                     }
                 }
-                
-                Spacer(Modifier.height(50.dp))
+
+                Spacer(Modifier.height(12.dp))
+
+                // Trích sang mục tiêu cá nhân
+                if (goals.isNotEmpty()) {
+                    Button(
+                        onClick = { showTransferToGoal = true },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
+                    ) {
+                        Icon(Icons.Default.SwapHoriz, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Trích sang Mục tiêu cá nhân", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(Modifier.height(60.dp))
             }
         }
 
+        // Dialogs
         if (showAdjustDialog) {
             AdjustSavingsDialog(
-                mode = adjustMode,
                 currentAmount = wallet.generalSavings,
                 onDismiss = { showAdjustDialog = false },
                 onConfirm = { amount ->
-                    val updatedAmount = if (adjustMode) {
-                        wallet.generalSavings + amount
-                    } else {
-                        (wallet.generalSavings - amount).coerceAtLeast(0.0)
-                    }
-                    onSaveWallet(wallet.copy(generalSavings = updatedAmount))
+                    onSaveWallet(wallet.copy(generalSavings = amount.coerceAtLeast(0.0)))
                     showAdjustDialog = false
+                }
+            )
+        }
+
+        if (showTransferToGoal) {
+            TransferToGoalDialog(
+                generalSavings = wallet.generalSavings,
+                goals = goals,
+                onDismiss = { showTransferToGoal = false },
+                onConfirm = { goal, amount ->
+                    // Trừ khỏi quỹ chung, cộng vào mục tiêu cá nhân
+                    val newGeneral = (wallet.generalSavings - amount).coerceAtLeast(0.0)
+                    onSaveWallet(wallet.copy(generalSavings = newGeneral))
+                    onSaveGoal(goal.copy(currentAmount = goal.currentAmount + amount))
+                    showTransferToGoal = false
                 }
             )
         }
     }
 }
 
+// ─── Hiển thị 1 mục tiêu liên kết ────────────────────────────────────────────
 @Composable
-fun AdjustSavingsDialog(
-    mode: Boolean,
-    currentAmount: Double,
+fun LinkedGoalRow(goal: SavingsGoal) {
+    val progress = (goal.currentAmount / goal.targetAmount.coerceAtLeast(1.0)).coerceIn(0.0, 1.0).toFloat()
+    val goalColor = Color(goal.colorHex)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(goal.iconEmoji, fontSize = 24.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(goal.goalName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(goalColor.copy(0.12f))) {
+                    val animProg by animateFloatAsState(progress, tween(800, easing = FastOutSlowInEasing), label = "")
+                    Box(Modifier.fillMaxWidth(animProg).fillMaxHeight().clip(CircleShape).background(goalColor))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(formatCurrency(goal.currentAmount), color = goalColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("/ ${formatCurrency(goal.targetAmount)}", fontSize = 10.sp, color = Color.Gray)
+            }
+        }
+    }
+}
+
+// ─── Dialog trích tiền sang mục tiêu cá nhân ─────────────────────────────────
+@Composable
+fun TransferToGoalDialog(
+    generalSavings: Double,
+    goals: List<SavingsGoal>,
     onDismiss: () -> Unit,
-    onConfirm: (Double) -> Unit
+    onConfirm: (SavingsGoal, Double) -> Unit
 ) {
-    var amountText by remember { mutableStateOf("") }
-    
+    var selectedGoal by remember { mutableStateOf(goals.first()) }
+    var amountText   by remember { mutableStateOf("") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (mode) "Tiết kiệm thêm" else "Rút tiền dự phòng") },
+        title = { Text("Trích sang Mục tiêu cá nhân", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(
-                    if (mode) "Nhập số tiền bạn muốn trích thêm vào quỹ dự phòng." 
-                    else "Nhập số tiền bạn muốn rút từ quỹ về số dư khả dụng.",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "Số dư quỹ chung hiện có: ${formatCurrency(generalSavings)}",
+                    fontSize = 13.sp, color = PrimaryBlue, fontWeight = FontWeight.SemiBold
                 )
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) amountText = it },
-                    label = { Text("Số tiền (đ)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+
+                // Chọn mục tiêu
+                Text("Chọn mục tiêu nhận tiền", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                LazyColumn(modifier = Modifier.heightIn(max = 200.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(goals) { goal ->
+                        val isSelected = goal.id == selectedGoal.id
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { selectedGoal = goal },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) Color(goal.colorHex).copy(0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(0.3f)
+                            ),
+                            border = if (isSelected) BorderStroke(1.5.dp, Color(goal.colorHex)) else null
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(goal.iconEmoji, fontSize = 20.sp)
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(goal.goalName, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    val remaining = (goal.targetAmount - goal.currentAmount).coerceAtLeast(0.0)
+                                    Text("Còn thiếu ${formatCurrency(remaining)}", fontSize = 11.sp, color = Color.Gray)
+                                }
+                                if (isSelected) Icon(Icons.Default.CheckCircle, null, tint = Color(goal.colorHex), modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+
+                VnAmountTextField(
+                    rawValue = amountText,
+                    onValueChange = { amountText = it },
+                    label = "Số tiền trích (đ)",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
                     singleLine = true
                 )
-                if (!mode) {
-                    Text(
-                        "Tối đa: ${formatCurrency(currentAmount)}",
-                        fontSize = 12.sp,
-                        color = PrimaryBlue,
-                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-                    )
+
+                val amount = amountText.toDoubleOrNull() ?: 0.0
+                if (amount > generalSavings) {
+                    Text("⚠️ Vượt quá số dư quỹ chung", color = Color.Red, fontSize = 11.sp)
                 }
             }
         },
         confirmButton = {
+            val amount = amountText.toDoubleOrNull() ?: 0.0
             Button(
-                onClick = { 
-                    val value = amountText.toDoubleOrNull() ?: 0.0
-                    onConfirm(value)
-                },
-                enabled = amountText.isNotBlank() && amountText.toDoubleOrNull() != null
-            ) {
-                Text("Xác nhận")
+                onClick = { onConfirm(selectedGoal, amount) },
+                enabled = amount > 0 && amount <= generalSavings,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen)
+            ) { Text("Trích tiền") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } },
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
+// ─── Dialog nạp / rút quỹ chung ──────────────────────────────────────────────
+@Composable
+fun AdjustSavingsDialog(
+    currentAmount: Double,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit
+) {
+    var amountText by remember { mutableStateOf(currentAmount.toLong().toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Chỉnh sửa Quỹ Dự Phòng", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    "Nhập số dư chính xác của quỹ dự phòng hiện tại.",
+                    fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                VnAmountTextField(
+                    rawValue = amountText,
+                    onValueChange = { amountText = it },
+                    label = "Số dư hiện tại (đ)",
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Hủy")
-            }
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(amountText.toDoubleOrNull() ?: 0.0) },
+                enabled = amountText.isNotBlank(),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Cập nhật") }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } },
         shape = RoundedCornerShape(24.dp)
     )
 }

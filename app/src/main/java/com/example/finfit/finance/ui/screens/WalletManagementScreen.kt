@@ -248,7 +248,12 @@ fun ManagementAccountCard(
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(account.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatCurrency(account.amount), color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                // Hiển thị số dư hoặc ẩn nếu isHidden
+                if (account.isHidden) {
+                    Text("•••••• đ", color = Color.Gray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                } else {
+                    Text(formatCurrency(account.amount), color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
             }
             
             IconButton(onClick = onToggleVisibility) {
@@ -334,12 +339,11 @@ fun AddAccountScreen(
         )
         Spacer(Modifier.height(16.dp))
         
-        OutlinedTextField(
-            value = amount, onValueChange = { if (it.all { c -> c.isDigit() }) amount = it },
-            label = { Text("Số dư hiện tại (đ)") },
+        VnAmountTextField(
+            rawValue = amount,
+            onValueChange = { amount = it },
+            label = "Số dư hiện tại (đ)",
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true
         )
         
@@ -406,7 +410,12 @@ fun EditAccountScreen(
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Tên gợi nhớ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(value = amount, onValueChange = { if (it.all { c -> c.isDigit() }) amount = it }, label = { Text("Số dư (đ)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        VnAmountTextField(
+            rawValue = amount,
+            onValueChange = { amount = it },
+            label = "Số dư (đ)",
+            modifier = Modifier.fillMaxWidth()
+        )
         
         Spacer(Modifier.height(32.dp))
         Button(

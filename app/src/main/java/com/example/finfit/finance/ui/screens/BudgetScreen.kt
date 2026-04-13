@@ -303,13 +303,12 @@ fun AddEditBudgetDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = limitText,
-                    onValueChange = { if (it.all { c -> c.isDigit() }) limitText = it },
-                    label = { Text("Hạn mức tháng (đ)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                VnAmountTextField(
+                    rawValue = limitText,
+                    onValueChange = { limitText = it },
+                    label = "Hạn mức tháng (đ)",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
+                    suffix = ""
                 )
 
                 if (budget != null) {
@@ -322,7 +321,7 @@ fun AddEditBudgetDialog(
         confirmButton = {
             Button(
                 onClick = { 
-                    onSave(FinanceBudget(
+                onSave(FinanceBudget(
                         id = budget?.id ?: UUID.randomUUID().toString(),
                         category = category,
                         amount = limitText.toDoubleOrNull() ?: 0.0

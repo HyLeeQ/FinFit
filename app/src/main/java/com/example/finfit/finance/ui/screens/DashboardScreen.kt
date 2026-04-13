@@ -34,6 +34,7 @@ import com.example.finfit.finance.model.*
 import com.example.finfit.ui.theme.*
 import java.text.*
 import java.util.*
+import com.example.finfit.finance.ui.utils.formatAmountInput
 
 // ─── Data Helper ─────────────────────────────────────────────
 data class CalculatedFunds(
@@ -44,6 +45,8 @@ data class CalculatedFunds(
     val total: Double,
     val spendable: Double
 )
+
+private val transactionDateFormat = java.text.SimpleDateFormat("HH:mm • dd/MM", java.util.Locale.getDefault())
 
 // Categories (EXPENSE_CATEGORIES, INCOME_CATEGORIES, TRANSFER_CATEGORIES, TxCategory) 
 // are now centrally defined in FinanceCategories.kt in the same package.
@@ -60,7 +63,8 @@ fun DashboardScreen(
     onDeleteTransaction: (String) -> Unit,
     onUpdateTransaction: (FinanceTransaction) -> Unit,
     onAction: (TransactionType?) -> Unit = {},
-    onNavigate: (String) -> Unit = {}
+    onNavigate: (String) -> Unit = {},
+    schedule: List<SpendingScheduleItem> = emptyList()
 ) {
     var screen by remember { mutableStateOf<DashboardScreenState>(DashboardScreenState.Home) }
 
@@ -79,7 +83,8 @@ fun DashboardScreen(
                 onAction = onAction,
                 onEditTransaction = { tx -> screen = DashboardScreenState.EditTransaction(tx) },
                 onNavigate = onNavigate,
-                onSavingsAction = { /* handled in HomeContent */ }
+                onSavingsAction = { /* handled in HomeContent */ },
+                schedule = schedule
             )
             is DashboardScreenState.EditTransaction -> EditTransactionScreen(
                 transaction = s.transaction,
@@ -109,7 +114,8 @@ fun HomeContent(
     onAction: (TransactionType?) -> Unit,
     onEditTransaction: (FinanceTransaction) -> Unit,
     onNavigate: (String) -> Unit,
-    onSavingsAction: (() -> Unit)? = null
+    onSavingsAction: (() -> Unit)? = null,
+    schedule: List<SpendingScheduleItem> = emptyList()
 ) {
     val context = LocalContext.current
     val isDashboardHidden = wallet?.isTotalBalanceHidden ?: true
@@ -176,7 +182,6 @@ fun HomeContent(
                     items(items = accounts, key = { it.id }) { account ->
                         AccountCard(
                             account = account,
-                            isHiddenGlobal = isDashboardHidden,
                             onToggle = {
                                 if (wallet != null) {
                                     val updated = wallet.copy(
@@ -203,7 +208,56 @@ fun HomeContent(
                 onNavigate = onNavigate
             )
         }
-        item { Spacer(Modifier.height(24.dp)) }
+
+        // --- Mới: Lịch trình chi tiêu hôm nay ---
+        val today = ((Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7) + 1
+        val todayPlannedItems = schedule.filter { it.dayOfWeek == today }
+        
+        if (todayPlannedItems.isNotEmpty()) {
+            item {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Kế hoạch hôm nay", fontSize = 16.sp, fontWeight = FontWeight.Black)
+                        TextButton(onClick = { onNavigate(Routes.FINANCE_PLAN) }) {
+                            Text("Xem lịch trình", fontSize = 12.sp, color = PrimaryBlue)
+                        }
+                    }
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 8.dp)
+                    ) {
+                        items(todayPlannedItems) { plan ->
+                            val cat = EXPENSE_CATEGORIES.find { it.label == plan.category } ?: EXPENSE_CATEGORIES.last()
+                            Card(
+                                modifier = Modifier.width(160.dp).clickable { onNavigate("${Routes.ADD}?type=${TransactionType.EXPENSE.name}") },
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = cat.color.copy(alpha = 0.08f)),
+                                border = BorderStroke(1.dp, cat.color.copy(alpha = 0.2f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(cat.icon, null, tint = cat.color, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(cat.label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = cat.color)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(formatCurrency(plan.amount), fontSize = 15.sp, fontWeight = FontWeight.Black)
+                                    if (plan.note.isNotBlank()) {
+                                        Text(plan.note, fontSize = 10.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(12.dp)) }
 
         // Mới: Tiến độ kế hoạch (Budget)
         item {
@@ -222,13 +276,17 @@ fun HomeContent(
 @Composable
 fun PlanProgressSection(transactions: List<FinanceTransaction>, budgets: List<FinanceBudget>, onNavigate: (String) -> Unit) {
     val now = remember { java.util.Calendar.getInstance() }
+    val currentMonth = now.get(java.util.Calendar.MONTH)
+    val currentYear = now.get(java.util.Calendar.YEAR)
+    
     val currentMonthExpenditure = remember(transactions) {
+        val tempCal = java.util.Calendar.getInstance()
         transactions.filter { tx ->
-            val txCal = java.util.Calendar.getInstance().apply { time = tx.timestamp.toDate() }
-            tx.type == TransactionType.EXPENSE && 
-            txCal.get(java.util.Calendar.MONTH) == now.get(java.util.Calendar.MONTH) &&
-            txCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR)
-        }.sumOf { it.amount }
+            if (tx.type == TransactionType.EXPENSE || tx.type == TransactionType.GROUP_PREPAYMENT) {
+                tempCal.time = tx.timestamp.toDate()
+                tempCal.get(java.util.Calendar.MONTH) == currentMonth && tempCal.get(java.util.Calendar.YEAR) == currentYear
+            } else false
+        }.sumOf { if (it.isGroupPrepayment) it.personalAmount else it.amount }
     }
     
     val currentTotalBudget = remember(budgets) {
@@ -400,7 +458,8 @@ fun RecentTransactionsSection(
 
 @Composable
 fun EditTransactionScreen(transaction: FinanceTransaction, onSave: (FinanceTransaction) -> Unit, onDelete: (String) -> Unit, onBack: () -> Unit, onHome: () -> Unit) {
-    var amountText by remember { mutableStateOf(transaction.amount.toLong().toString()) }
+    // Lưu raw digits, hiển thị formatted
+    var amountRaw by remember { mutableStateOf(transaction.amount.toLong().toString()) }
     var noteText by remember { mutableStateOf(transaction.note) }
     var selectedCategory by remember { mutableStateOf(transaction.category) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -428,8 +487,10 @@ fun EditTransactionScreen(transaction: FinanceTransaction, onSave: (FinanceTrans
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("đ", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
+                    val displayAmt = formatAmountInput(amountRaw)
                     BasicTextField(
-                        value = amountText, onValueChange = { amountText = it },
+                        value = displayAmt,
+                        onValueChange = { amountRaw = it.filter { c -> c.isDigit() } },
                         textStyle = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
@@ -462,7 +523,7 @@ fun EditTransactionScreen(transaction: FinanceTransaction, onSave: (FinanceTrans
         Spacer(Modifier.height(20.dp))
         OutlinedTextField(value = noteText, onValueChange = { noteText = it }, label = { Text("Ghi chú") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(32.dp))
-        Button(onClick = { onSave(transaction.copy(amount = amountText.toDoubleOrNull() ?: 0.0, note = noteText, category = selectedCategory)) },
+        Button(onClick = { onSave(transaction.copy(amount = amountRaw.toDoubleOrNull() ?: 0.0, note = noteText, category = selectedCategory)) },
             modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) { Text("Lưu thay đổi") }
         TextButton(onClick = { showDeleteDialog = true }, modifier = Modifier.fillMaxWidth()) { Text("Xóa giao dịch", color = Color.Red) }
     }
@@ -473,7 +534,7 @@ fun getCategoryIcon(category: String): ImageVector {
 }
 
 @Composable
-fun AccountCard(account: AppBankAccount, isHiddenGlobal: Boolean, onToggle: () -> Unit) {
+fun AccountCard(account: AppBankAccount, onToggle: () -> Unit) {
     val bankInfo = remember(account.bankCode) { SUPPORTED_BANKS.find { it.code == account.bankCode } ?: SUPPORTED_BANKS.last() }
     val gradientColors = remember(account.colorIndex, bankInfo.primaryColorHex) { cardGradient(account.colorIndex, bankInfo.primaryColorHex) }
 
@@ -488,7 +549,7 @@ fun AccountCard(account: AppBankAccount, isHiddenGlobal: Boolean, onToggle: () -
         }
         Column(modifier = Modifier.align(Alignment.CenterStart)) {
             Text("Số dư khả dụng", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
-            AnimatedAmountText(amount = account.amount, isHidden = isHiddenGlobal && account.isHidden, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            AnimatedAmountText(amount = account.amount, isHidden = account.isHidden, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
         }
         Text(account.name.uppercase(), color = Color.White, fontSize = 13.sp, modifier = Modifier.align(Alignment.BottomStart))
     }
@@ -523,7 +584,8 @@ fun QuickActionsSection(onAction: (TransactionType?) -> Unit, onSavingsAction: (
         Triple("Chuyển tiền", Icons.Default.SwapHoriz, Color(0xFF6366F1)),
         Triple("Thống kê", Icons.Default.BarChart, Color(0xFFEC4899)),
         Triple("Kế hoạch", Icons.Default.EventNote, Color(0xFF8B5CF6)),
-        Triple("Nợ/Vay", Icons.Default.AccountBalance, Color(0xFF9333EA))
+        Triple("Nợ/Vay", Icons.Default.AccountBalance, Color(0xFF9333EA)),
+        Triple("Nhật ký", Icons.Default.PhotoLibrary, Color(0xFFEA580C))
     )
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         actions.chunked(4).forEach { row ->
@@ -538,6 +600,7 @@ fun QuickActionsSection(onAction: (TransactionType?) -> Unit, onSavingsAction: (
                             "Thống kê" -> onNavigate(Routes.ANALYTICS)
                             "Kế hoạch" -> onNavigate(Routes.BUDGET)
                             "Nợ/Vay" -> onNavigate(Routes.DEBT_LOAN)
+                            "Nhật ký" -> onNavigate(Routes.PHOTO_DIARY)
                         }
                     }) {
                         Box(Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Icon(icon, label, tint = color) }
@@ -552,15 +615,19 @@ fun QuickActionsSection(onAction: (TransactionType?) -> Unit, onSavingsAction: (
 
 @Composable
 fun TransactionListItem(transaction: FinanceTransaction, onClick: () -> Unit) {
-    val color = if (transaction.type == TransactionType.INCOME) Color(0xFF10C67F) else if (transaction.type == TransactionType.EXPENSE) Color(0xFFEF4444) else Color(0xFF6366F1)
+    val color = when(transaction.type) {
+        TransactionType.INCOME -> Color(0xFF10C67F)
+        TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> Color(0xFFEF4444)
+        TransactionType.TRANSFER -> Color(0xFF6366F1)
+    }
     Row(modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { Icon(getCategoryIcon(transaction.category), null) }
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(transaction.note.ifBlank { transaction.category }, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(SimpleDateFormat("HH:mm • dd/MM", Locale.getDefault()).format(transaction.timestamp.toDate()), fontSize = 12.sp)
+            Text(transactionDateFormat.format(transaction.timestamp.toDate()), fontSize = 12.sp)
         }
-        Text("${if (transaction.type == TransactionType.EXPENSE) "-" else "+"}${formatCurrency(transaction.amount)}", color = color, fontWeight = FontWeight.Bold)
+        Text("${if (transaction.type == TransactionType.INCOME) "+" else "-"}${formatCurrency(if (transaction.isGroupPrepayment) transaction.personalAmount else transaction.amount)}", color = color, fontWeight = FontWeight.Bold)
     }
 }
 

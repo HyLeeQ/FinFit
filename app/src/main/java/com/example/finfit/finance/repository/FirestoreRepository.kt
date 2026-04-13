@@ -17,8 +17,17 @@ import com.example.finfit.finance.model.*
 import java.util.UUID
 
 class FirestoreRepository {
-    private val db = Firebase.firestore
-    private val usersCollection = db.collection("users")
+    companion object {
+        var cachedWallet: AppUserWallet? = null
+        var cachedTransactions: List<FinanceTransaction> = emptyList()
+        var cachedGoals: List<SavingsGoal> = emptyList()
+        var cachedBudgets: List<FinanceBudget> = emptyList()
+        var cachedDebtLoans: List<DebtLoan> = emptyList()
+        var cachedWeeklySchedule: List<SpendingScheduleItem> = emptyList()
+    }
+
+    internal val db = Firebase.firestore
+    internal val usersCollection = db.collection("users")
 
     /** Lấy danh sách mục tiêu tiết kiệm */
     suspend fun getSavingsGoals(uid: String): List<SavingsGoal> {
@@ -70,6 +79,7 @@ class FirestoreRepository {
                     lastAutoSavingAt = doc.getTimestamp("lastAutoSavingAt")
                 )
             }
+            cachedGoals = list
             trySend(list)
         }
         awaitClose { listener.remove() }
@@ -96,6 +106,7 @@ class FirestoreRepository {
                     startDate = doc.getTimestamp("startDate") ?: Timestamp.now()
                 )
             }
+            cachedBudgets = list
             trySend(list)
         }
         awaitClose { listener.remove() }
@@ -156,6 +167,7 @@ class FirestoreRepository {
                     createdAt  = doc.getTimestamp("createdAt") ?: Timestamp.now()
                 )
             }
+            cachedDebtLoans = list
             trySend(list)
         }
         awaitClose { listener.remove() }
@@ -241,6 +253,27 @@ class FirestoreRepository {
         }
     }
 
+    suspend fun saveSpendingSchedule(uid: String, item: SpendingScheduleItem) {
+        try {
+            val data = mapOf(
+                "dayOfWeek" to item.dayOfWeek,
+                "amount" to item.amount,
+                "category" to item.category,
+                "note" to item.note,
+                "isAutoApply" to item.isAutoApply
+            )
+            val docRef = if (item.id.isBlank()) {
+                usersCollection.document(uid).collection("schedules").document()
+            } else {
+                usersCollection.document(uid).collection("schedules").document(item.id)
+            }
+            docRef.set(data, com.google.firebase.firestore.SetOptions.merge())
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "saveSpendingSchedule: ${e.message}")
+            throw e
+        }
+    }
+
     /** Lấy thông tin ví (bao gồm danh sách tài khoản) */
     suspend fun getUserWallet(uid: String): AppUserWallet? {
         return try {
@@ -299,6 +332,7 @@ class FirestoreRepository {
                 card2Name = card2Name, card2Type = card2Type, card2Color = card2Color,
                 accounts = accounts,
                 generalSavings = generalSavings,
+                groupPrepaidAmount = doc.getDouble("groupPrepaidAmount") ?: 0.0,
                 heldFunds = heldFunds,
                 isTotalBalanceHidden = isTotalBalanceHidden,
                 autoSaveWeeklySurplus = autoSaveWeeklySurplus
@@ -361,7 +395,7 @@ class FirestoreRepository {
                 val isTotalBalanceHidden = snapshot.getBoolean("isTotalBalanceHidden") ?: true
                 val autoSaveWeeklySurplus = snapshot.getBoolean("autoSaveWeeklySurplus") ?: false
 
-                trySend(AppUserWallet(
+                val newWallet = AppUserWallet(
                     uid = uid,
                     savingsAmount = savingsAmount,
                     disposableAmount = disposableAmount,
@@ -371,10 +405,13 @@ class FirestoreRepository {
                     card2Name = card2Name, card2Type = card2Type, card2Color = card2Color,
                     accounts = accounts,
                     generalSavings = generalSavings,
+                    groupPrepaidAmount = snapshot.getDouble("groupPrepaidAmount") ?: 0.0,
                     heldFunds = heldFunds,
                     isTotalBalanceHidden = isTotalBalanceHidden,
                     autoSaveWeeklySurplus = autoSaveWeeklySurplus
-                ))
+                )
+                cachedWallet = newWallet
+                trySend(newWallet)
             } catch (e: Exception) {
                 android.util.Log.e("FirestoreError", "observeUserWallet parse err: ${e.message}")
             }
@@ -409,6 +446,7 @@ class FirestoreRepository {
                 "card2Color"         to wallet.card2Color,
                 "accounts"           to accountsData,
                 "generalSavings"     to wallet.generalSavings,
+                "groupPrepaidAmount" to wallet.groupPrepaidAmount,
                 "heldFunds"          to wallet.heldFunds.map {
                     mapOf("id" to it.id, "name" to it.name, "amount" to it.amount)
                 },
@@ -450,7 +488,11 @@ class FirestoreRepository {
                         note      = doc.getString("note") ?: "",
                         timestamp = doc.getTimestamp("timestamp") ?: Timestamp.now(),
                         accountId = doc.getString("accountId"),
-                        toAccountId = doc.getString("toAccountId")
+                        toAccountId = doc.getString("toAccountId"),
+                        isGroupPrepayment = doc.getBoolean("isGroupPrepayment") ?: false,
+                        personalAmount = doc.getDouble("personalAmount") ?: 0.0,
+                        groupAmount = doc.getDouble("groupAmount") ?: 0.0,
+                        participantCount = doc.getLong("participantCount")?.toInt() ?: 1
                     )
                 } catch (e: Exception) { null }
             }
@@ -489,10 +531,15 @@ class FirestoreRepository {
                         note      = doc.getString("note") ?: "",
                         timestamp = doc.getTimestamp("timestamp") ?: Timestamp.now(),
                         accountId = doc.getString("accountId"),
-                        toAccountId = doc.getString("toAccountId")
+                        toAccountId = doc.getString("toAccountId"),
+                        isGroupPrepayment = doc.getBoolean("isGroupPrepayment") ?: false,
+                        personalAmount = doc.getDouble("personalAmount") ?: 0.0,
+                        groupAmount = doc.getDouble("groupAmount") ?: 0.0,
+                        participantCount = doc.getLong("participantCount")?.toInt() ?: 1
                     )
                 } catch (e: Exception) { null }
             }
+            cachedTransactions = list
             trySend(list)
         }
         awaitClose { listener.remove() }
@@ -515,7 +562,11 @@ class FirestoreRepository {
                 "imageUrl"      to transaction.imageUrl,
                 "linkedGoalId"  to transaction.linkedGoalId,
                 "accountId"     to transaction.accountId,
-                "toAccountId"   to transaction.toAccountId
+                "toAccountId"   to transaction.toAccountId,
+                "isGroupPrepayment" to transaction.isGroupPrepayment,
+                "personalAmount" to transaction.personalAmount,
+                "groupAmount" to transaction.groupAmount,
+                "participantCount" to transaction.participantCount
             )
             usersCollection.document(uid)
                 .collection("transactions")
@@ -542,7 +593,11 @@ class FirestoreRepository {
                 "imageUrl"      to transaction.imageUrl,
                 "linkedGoalId"  to transaction.linkedGoalId,
                 "accountId"     to transaction.accountId,
-                "toAccountId"   to transaction.toAccountId
+                "toAccountId"   to transaction.toAccountId,
+                "isGroupPrepayment" to transaction.isGroupPrepayment,
+                "personalAmount" to transaction.personalAmount,
+                "groupAmount" to transaction.groupAmount,
+                "participantCount" to transaction.participantCount
             )
             usersCollection.document(uid)
                 .collection("transactions")
@@ -566,4 +621,140 @@ class FirestoreRepository {
             throw e
         }
     }
+
+    // --- Lịch trình chi tiêu tuần (Weekly Schedule) ---
+
+    /** Quan sát lịch trình chi tiêu tuần thời gian thực */
+    fun observeWeeklySchedule(uid: String): Flow<List<SpendingScheduleItem>> = callbackFlow {
+        val listener = usersCollection.document(uid).collection("spending_schedule")
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) { close(e); return@addSnapshotListener }
+                val items = snapshot?.documents?.mapNotNull { doc ->
+                    SpendingScheduleItem(
+                        id          = doc.id,
+                        dayOfWeek   = (doc.getLong("dayOfWeek") ?: 1L).toInt(),
+                        amount      = doc.getDouble("amount") ?: 0.0,
+                        category    = doc.getString("category") ?: "Khác",
+                        note        = doc.getString("note") ?: "",
+                        isAutoApply = doc.getBoolean("isAutoApply") ?: false
+                    )
+                } ?: emptyList()
+                cachedWeeklySchedule = items
+                trySend(items)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    /** Lưu một mục lịch trình chi tiêu tuần */
+    suspend fun saveWeeklyScheduleItem(uid: String, item: SpendingScheduleItem) {
+        val data = mapOf(
+            "dayOfWeek"   to item.dayOfWeek,
+            "amount"      to item.amount,
+            "category"    to item.category,
+            "note"        to item.note,
+            "isAutoApply" to item.isAutoApply
+        )
+        val docId = if (item.id.isBlank()) UUID.randomUUID().toString() else item.id
+        usersCollection.document(uid).collection("spending_schedule").document(docId).set(data).await()
+    }
+
+    /** Xóa một mục lịch trình chi tiêu tuần */
+    suspend fun deleteWeeklyScheduleItem(uid: String, id: String) {
+        usersCollection.document(uid).collection("spending_schedule").document(id).delete().await()
+    }
+
+    // --- Thói quen người dùng (User Habits) ---
+
+    /** Lấy thói quen người dùng */
+    suspend fun getUserHabit(uid: String): UserHabit? {
+        return try {
+            val doc = usersCollection.document(uid).collection("config").document("habit").get().await()
+            if (!doc.exists()) return null
+            mapDocToUserHabit(doc)
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "getUserHabit: ${e.message}")
+            null
+        }
+    }
+
+    /** Theo dõi thói quen người dùng thời gian thực */
+    fun observeUserHabit(uid: String): Flow<UserHabit?> = callbackFlow {
+        val listener = usersCollection.document(uid).collection("config").document("habit")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("FirestoreError", "observeUserHabit: ${error.message}")
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                if (snapshot == null || !snapshot.exists()) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                trySend(mapDocToUserHabit(snapshot))
+            }
+        awaitClose { listener.remove() }
+    }
+
+    private fun mapDocToUserHabit(doc: com.google.firebase.firestore.DocumentSnapshot): UserHabit {
+        @Suppress("UNCHECKED_CAST")
+        val rawRoutine = doc.get("routineSchedules") as? List<Map<String, Any>> ?: emptyList()
+        val routines = rawRoutine.map { m ->
+            RoutineSchedule(
+                startDay = (m["startDay"] as? Number)?.toInt() ?: 1,
+                endDay = (m["endDay"] as? Number)?.toInt() ?: 1,
+                location = m["location"] as? String ?: "",
+                note = m["note"] as? String ?: ""
+            )
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val rawFixed = doc.get("fixedCosts") as? List<Map<String, Any>> ?: emptyList()
+        val fixed = rawFixed.map { m ->
+            SpendingScheduleItem(
+                id = m["id"] as? String ?: "",
+                dayOfWeek = (m["dayOfWeek"] as? Number)?.toInt() ?: 1,
+                amount = (m["amount"] as? Number)?.toDouble() ?: 0.0,
+                category = m["category"] as? String ?: "",
+                note = m["note"] as? String ?: "",
+                isAutoApply = m["isAutoApply"] as? Boolean ?: false
+            )
+        }
+
+        return UserHabit(
+            minMealCost = doc.getDouble("minMealCost") ?: 0.0,
+            maxMealCost = doc.getDouble("maxMealCost") ?: 0.0,
+            routineSchedules = routines,
+            fixedCosts = fixed,
+            lastProactiveWeek = doc.getString("lastProactiveWeek") ?: "",
+            generalNotes = doc.getString("generalNotes") ?: ""
+        )
+    }
+
+    /** Lưu thói quen người dùng */
+    suspend fun saveUserHabit(uid: String, habit: UserHabit) {
+        try {
+            val routineData = habit.routineSchedules.map {
+                mapOf("startDay" to it.startDay, "endDay" to it.endDay, "location" to it.location, "note" to it.note)
+            }
+            val fixedData = habit.fixedCosts.map {
+                mapOf("id" to it.id, "dayOfWeek" to it.dayOfWeek, "amount" to it.amount, "category" to it.category, "note" to it.note, "isAutoApply" to it.isAutoApply)
+            }
+
+            val data = mapOf(
+                "minMealCost" to habit.minMealCost,
+                "maxMealCost" to habit.maxMealCost,
+                "routineSchedules" to routineData,
+                "fixedCosts" to fixedData,
+                "lastProactiveWeek" to habit.lastProactiveWeek,
+                "generalNotes" to habit.generalNotes
+            )
+            usersCollection.document(uid).collection("config").document("habit")
+                .set(data, com.google.firebase.firestore.SetOptions.merge())
+                .await()
+        } catch (e: Exception) {
+            android.util.Log.e("FirestoreError", "saveUserHabit: ${e.message}")
+            throw e
+        }
+    }
+
 }

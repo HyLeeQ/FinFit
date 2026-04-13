@@ -16,6 +16,7 @@ import com.example.finfit.finance.repository.FirestoreRepository
 import com.example.finfit.finance.ui.wrappers.AddTransactionWithData
 import com.example.finfit.ui.AuthScreen
 import com.example.finfit.ui.MainScreen
+import com.example.finfit.ui.SplashScreen
 import com.example.finfit.ui.theme.FinFitTheme
 
 class MainActivity : ComponentActivity() {
@@ -37,11 +38,20 @@ class MainActivity : ComponentActivity() {
             FinFitTheme(darkTheme = useDarkTheme) {
                 val navController = rememberNavController()
                 val currentUser = authRepository.getCurrentUser()
-                val startDestination = if (currentUser == null) Routes.AUTH else Routes.MAIN
                 
                 var refreshTrigger by remember { mutableStateOf(0) }
 
-                NavHost(navController = navController, startDestination = startDestination) {
+                NavHost(navController = navController, startDestination = Routes.SPLASH) {
+                    composable(Routes.SPLASH) {
+                        SplashScreen(
+                            onSplashFinished = {
+                                val dest = if (authRepository.getCurrentUser() == null) Routes.AUTH else Routes.MAIN
+                                navController.navigate(dest) {
+                                    popUpTo(Routes.SPLASH) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
                     composable(Routes.AUTH) {
                         AuthScreen(
                             authRepository = authRepository,

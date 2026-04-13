@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 // Định nghĩa các tên màn hình
 object Routes {
+    const val SPLASH = "splash"
     const val AUTH = "auth"
     const val MAIN = "main"
     const val ADD = "add"
@@ -28,6 +29,7 @@ object Routes {
     const val ANALYTICS = "analytics"
     const val DEBT_LOAN = "debt_loan"
     const val TRANSACTION_HISTORY = "transaction_history"
+    const val PHOTO_DIARY = "photo_diary"
     const val PROFILE = "profile" // Cá nhân chung
     const val ASSISTANT = "assistant"
 

@@ -42,9 +42,13 @@ fun NavGraphBuilder.financeNavGraph(
         )
     }
     composable(Routes.FINANCE_PLAN) {
-        // Placeholder for future feature
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-            Text("Tính năng Kế hoạch chi tiêu sẽ phát triển sau", color = MaterialTheme.colorScheme.onBackground)
+        val user = com.example.finfit.data.repository.AuthRepository().getCurrentUser()
+        if (user != null) {
+            WeeklyScheduleWrapper(
+                uid = user.uid,
+                firestoreRepository = firestoreRepository,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
     composable(Routes.SAVINGS_GOALS) {
@@ -116,5 +120,15 @@ fun NavGraphBuilder.financeNavGraph(
             onHome = { navController.popBackStack() },
             initialTypeArg = typeArg
         )
+    }
+    composable(Routes.PHOTO_DIARY) {
+        val user = com.example.finfit.data.repository.AuthRepository().getCurrentUser()
+        if (user != null) {
+            PhotoDiaryWithData(
+                firestoreRepository = firestoreRepository,
+                onBack = { navController.popBackStack() },
+                onNavigateToAddTransaction = { navController.navigate(Routes.ADD) }
+            )
+        }
     }
 }

@@ -13,3 +13,17 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# FinFit Temporary files
+*.log
+tmp_build*.txt
+compile_err.txt
+err.txt
+build_log*.txt
+
+# Build artifacts
+app/build_old/
+app/build/
+.kotlin/
+.vscode/
+

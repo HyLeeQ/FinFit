@@ -3,21 +3,87 @@ package com.example.finfit.finance.ui.utils
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import java.text.NumberFormat
 import java.util.Locale
 
 /** Hỗ trợ định dạng tiền tệ VNĐ */
 fun formatCurrency(amount: Double): String {
-    val fmt = NumberFormat.getInstance(Locale("vi", "VN"))
-    fmt.maximumFractionDigits = 0
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = '.'
+        decimalSeparator = ','
+    }
+    val fmt = java.text.DecimalFormat("#,###", symbols)
     return "${fmt.format(amount)} đ"
 }
+
+/**
+ * Format số tiền theo chuẩn VN khi nhập: 1.000.000
+ * Dùng trong TextField khi người dùng đang gõ.
+ */
+fun formatAmountInput(raw: String): String {
+    val digits = raw.filter { it.isDigit() }
+    if (digits.isBlank()) return ""
+    val number = digits.toLongOrNull() ?: return digits
+    val symbols = java.text.DecimalFormatSymbols(java.util.Locale.US).apply {
+        groupingSeparator = '.'
+        decimalSeparator = ','
+    }
+    return java.text.DecimalFormat("#,###", symbols).format(number)
+}
+
+/**
+ * Chuyển chuỗi đã format (1.000.000) về Double
+ */
+fun parseAmountInput(formatted: String): Double {
+    return formatted.filter { it.isDigit() }.toDoubleOrNull() ?: 0.0
+}
+
+/**
+ * TextField dùng chung cho nhập số tiền VNĐ.
+ * Tự động hiển thị dấu chấm mỗi 3 chữ số (1.000.000).
+ * State bên ngoài nên là raw digits (chỉ số, không dấu).
+ *
+ * @param rawValue  Chuỗi raw digits từ state ngoài (vd: "50000")
+ * @param onValueChange  Trả về raw digits mới khi người dùng thay đổi
+ */
+@Composable
+fun VnAmountTextField(
+    rawValue: String,
+    onValueChange: (String) -> Unit,
+    label: String = "Số tiền (đ)",
+    modifier: Modifier = Modifier,
+    suffix: String = "đ",
+    singleLine: Boolean = true
+) {
+    val displayValue = formatAmountInput(rawValue)
+    OutlinedTextField(
+        value = displayValue,
+        onValueChange = { input ->
+            // Chỉ giữ lại chữ số
+            onValueChange(input.filter { it.isDigit() })
+        },
+        label = { Text(label) },
+        suffix = if (suffix.isNotEmpty()) {{ Text(suffix) }} else null,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        singleLine = singleLine
+    )
+}
+
 
 /** 
  * Một component hỗ trợ hiển thị số tiền có hiệu ứng nhảy số mượt mà 

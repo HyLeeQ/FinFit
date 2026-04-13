@@ -262,7 +262,12 @@ fun AddDebtLoanDialog(defaultType: DebtLoanType, onDismiss: () -> Unit, onConfir
                     }
                 }
                 OutlinedTextField(value = person, onValueChange = { person = it }, label = { Text("Tên người tham gia") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
-                OutlinedTextField(value = amount, onValueChange = { if (it.all { it.isDigit() }) amount = it }, label = { Text("Số tiền (đ)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
+                VnAmountTextField(
+                    rawValue = amount,
+                    onValueChange = { amount = it },
+                    label = "Số tiền (đ)",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Ghi chú/Mục đích") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
             }
         },

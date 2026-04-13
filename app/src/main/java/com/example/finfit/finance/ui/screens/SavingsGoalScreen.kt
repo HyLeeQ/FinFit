@@ -294,13 +294,11 @@ fun ContributionDialog(
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { if (it.all { c -> c.isDigit() }) amount = it },
-                    label = { Text("Số tiền (đ)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                VnAmountTextField(
+                    rawValue = amount,
+                    onValueChange = { amount = it },
+                    label = "Số tiền (đ)",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
                     singleLine = true
                 )
             }
@@ -342,7 +340,13 @@ fun AddEditGoalDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Tên mục tiêu") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
-                OutlinedTextField(value = target, onValueChange = { if (it.all { c -> c.isDigit() }) target = it }, label = { Text("Số tiền cần tiết kiệm") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                VnAmountTextField(
+                    rawValue = target,
+                    onValueChange = { target = it },
+                    label = "Số tiền cần tiết kiệm",
+                    modifier = Modifier.fillMaxWidth(),
+                    suffix = ""
+                )
                 
                 Text("Chọn biểu tượng", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

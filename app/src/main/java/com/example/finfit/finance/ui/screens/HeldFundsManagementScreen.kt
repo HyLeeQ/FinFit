@@ -295,14 +295,11 @@ fun AddEditHeldFundDialog(
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true
                 )
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) amount = it },
-                    label = { Text("Số tiền") },
-                    suffix = { Text("đ") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                VnAmountTextField(
+                    rawValue = amount,
+                    onValueChange = { amount = it },
+                    label = "Số tiền",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
                     singleLine = true
                 )
             }

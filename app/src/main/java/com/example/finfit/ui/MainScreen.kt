@@ -41,11 +41,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.finfit.core.navigation.AppMode
 import com.example.finfit.core.navigation.BottomNavItem
 import com.example.finfit.core.navigation.Routes
-import com.example.finfit.finance.model.TransactionType
-import com.example.finfit.finance.repository.FirestoreRepository
+import com.example.finfit.finance.model.*
+import com.example.finfit.finance.repository.*
 import com.example.finfit.finance.ui.navigation.financeNavGraph
 import com.example.finfit.health.ui.*
 import com.example.finfit.ui.theme.PrimaryBlue
+import com.example.finfit.ui.assistant.AssistantScreen
 import kotlin.math.roundToInt
 
 @Composable
@@ -122,7 +123,9 @@ fun MainScreen(
         Routes.HEALTH_PREDICTION,
         Routes.HEALTH_LOG
     )
-    val showBars = !isHealthSubScreen
+    // Ẩn toàn bộ thanh bars khi vào AI
+    val isAssistantScreen = currentRoute == Routes.ASSISTANT
+    val showBars = !isHealthSubScreen && !isAssistantScreen
 
     // Make sure initial Tab syncs with app mode if needed
     LaunchedEffect(appMode) {
@@ -152,7 +155,7 @@ fun MainScreen(
             }
         },
         floatingActionButton = {
-            if (appMode == AppMode.FINANCE) {
+            if (appMode == AppMode.FINANCE && !isAssistantScreen) {
                 FloatingActionButton(
                     onClick = { navController.navigate(Routes.ADD) },
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -195,43 +198,63 @@ fun MainScreen(
 
                 // Assistant screen
                 composable(Routes.ASSISTANT) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background), 
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(64.dp))
-                            Spacer(Modifier.height(16.dp))
-                            Text("Trợ lý AI ✨", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                            Spacer(Modifier.height(8.dp))
-                            Text("Tính năng hội thoại đang được phát triển...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    val user = com.example.finfit.data.repository.AuthRepository().getCurrentUser()
+                    if (user != null) {
+                        val wallet by firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+                        val transactions by firestoreRepository.observeTransactions(user.uid).collectAsState(initial = emptyList())
+                        val schedule by firestoreRepository.observeWeeklySchedule(user.uid).collectAsState(initial = emptyList())
+                        val debtLoans by firestoreRepository.observeDebtLoans(user.uid).collectAsState(initial = emptyList())
+                        val savingsGoals by firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = emptyList())
+                        val budgets by firestoreRepository.observeBudgets(user.uid).collectAsState(initial = emptyList())
+                        val userHabit by firestoreRepository.observeUserHabit(user.uid).collectAsState(initial = null)
+                        
+                        AssistantScreen(
+                            firestoreRepository = firestoreRepository,
+                            userId = user.uid,
+                            wallet = wallet,
+                            transactions = transactions,
+                            schedule = schedule,
+                            debtLoans = debtLoans,
+                            savingsGoals = savingsGoals,
+                            budgets = budgets,
+                            habit = userHabit,
+                            stepsToday = 3420, // Placeholder cho đến khi tích hợp Health ViewModel hoàn chỉnh
+                            onBack = { navController.popBackStack() }
+                        )
                     }
                 }
                 
                 // Common
                 composable(Routes.PROFILE) {
-                    ProfileScreen(
-                        email = userEmail,
-                        themeMode = themeMode,
-                        onThemeChange = onThemeChange,
-                        onLogout = onLogout
-                    )
+                    val user = com.example.finfit.data.repository.AuthRepository().getCurrentUser()
+                    if (user != null) {
+                        val wallet by firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+                        val savingsGoals by firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = emptyList())
+                        
+                        ProfileScreen(
+                            email = userEmail,
+                            wallet = wallet,
+                            goals = savingsGoals,
+                            themeMode = themeMode,
+                            onThemeChange = onThemeChange,
+                            onLogout = onLogout
+                        )
+                    }
                 }
             }
             
-            // Floating AI Bubble over everything
-            AIFloatingBubble(onClick = { 
-                navController.navigate(Routes.ASSISTANT) {
-                    popUpTo(navController.graph.findStartDestination().id) {
-                        saveState = true
+            // Floating AI Bubble — ẩn khi đang trong màn hình AI
+            if (!isAssistantScreen) {
+                AIFloatingBubble(onClick = { 
+                    navController.navigate(Routes.ASSISTANT) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
                     }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            })
+                })
+            }
         }
     }
 }
