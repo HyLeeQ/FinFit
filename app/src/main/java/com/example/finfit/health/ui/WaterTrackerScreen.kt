@@ -39,7 +39,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 // --- Bubble Logic ---
-private class Bubble(
+private class WaterBubble(
     var x: Float = 0f,
     var y: Float = 0f,
     var radius: Float = 0f,
@@ -77,7 +77,7 @@ fun WaterTrackerScreen(
     val uiState by healthViewModel.healthUiState.collectAsStateWithLifecycle()
     
     val percentage = uiState.waterConsumedMl.toFloat() / maxOf(1, uiState.waterGoalMl).toFloat()
-    val targetWaterColor = if (percentage > 1f) Color(0xFF50C878) else Color(0xFF0EA5E9)
+    val targetWaterColor = Color(0xFF64b5f6) // primary
     val animatedBubbleColor by animateColorAsState(
         targetValue = targetWaterColor, 
         animationSpec = tween(500), 
@@ -86,7 +86,7 @@ fun WaterTrackerScreen(
 
     // Bubble management
     val maxBubbles = 80
-    val bubbles = remember { List(maxBubbles) { Bubble() } }
+    val bubbles = remember { List(maxBubbles) { WaterBubble() } }
     
     // Bubble Trigger
     var previousConsumed by remember { mutableIntStateOf(uiState.waterConsumedMl) }
@@ -131,7 +131,7 @@ fun WaterTrackerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color(0xFF0e0e0e)) // dark background
         ) {
             HealthHeaderSection(
                 title = "Theo dõi uống nước",
@@ -193,7 +193,7 @@ private fun WaterTrackerWidget(
     )
     
     // Colors
-    val targetWaterColor = if (percentage > 1f) Color(0xFF50C878) else Color(0xFF2196F3)
+    val targetWaterColor = Color(0xFF64b5f6)
     val animatedWaterColor by animateColorAsState(targetValue = targetWaterColor, animationSpec = tween(500), label = "colorAnim")
 
     // State for Dialog
@@ -223,7 +223,7 @@ private fun WaterTrackerWidget(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = Color(0xFF1a1a1a) // surface_container
         )
     ) {
         Column(
@@ -237,7 +237,7 @@ private fun WaterTrackerWidget(
             ) {
                 Icon(Icons.Rounded.WaterDrop, contentDescription = null, tint = animatedWaterColor, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Mục tiêu Nước", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Mục tiêu Nước", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFFadaaaa)) // on_surface_variant
             }
             
             Spacer(Modifier.height(32.dp))
@@ -295,7 +295,7 @@ private fun WaterTrackerWidget(
                         scale(scaleX, scaleY, pivot = androidx.compose.ui.geometry.Offset.Zero)
                     }) {
                         // 1. Draw Gray Background Silhouette
-                        drawPath(humanPath, color = Color.LightGray.copy(alpha = 0.2f))
+                        drawPath(humanPath, color = Color(0xFF262626)) // surface_variant
 
                         // 2. Clip and Draw Water Level
                         clipPath(humanPath) {
@@ -333,21 +333,21 @@ private fun WaterTrackerWidget(
             val formatNumber = { value: Int -> NumberFormat.getInstance(Locale("vi", "VN")).format(value) }
             Text(
                 text = "${formatNumber(consumedMl)} ml",
-                fontSize = 32.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 letterSpacing = (-1).sp
             )
             Text(
                 text = "/ ${formatNumber(goalMl)} ml (${(percentage * 100).toInt()}%)",
                 fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFFadaaaa)
             )
 
             Spacer(Modifier.height(32.dp))
 
             // -- Phần 3: LazyRow Presets --
-            Text("Các loại thức uống", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+            Text("Các loại thức uống", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
             val presets = listOf(
                 Pair("Nước lọc", Icons.Rounded.WaterDrop),
                 Pair("Trà", Icons.Rounded.EmojiFoodBeverage),
@@ -371,12 +371,13 @@ private fun WaterTrackerWidget(
                                 customVolumeInput = ""
                                 showPresetDialog = true 
                             },
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(56.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = Color(0xFF262626)) // surface_container_highest
                         ) {
                             Icon(preset.second, contentDescription = preset.first, Modifier.size(28.dp), tint = animatedWaterColor)
                         }
                         Spacer(Modifier.height(4.dp))
-                        Text(preset.first, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(preset.first, fontSize = 12.sp, color = Color(0xFFadaaaa))
                     }
                 }
             }
@@ -393,7 +394,8 @@ private fun WaterTrackerWidget(
             title = {
                 Text(
                     text = if (selectedPresetName == "Khác") "Thêm đồ uống mới" else "Thêm ${selectedPresetName}",
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
             },
             text = {
@@ -402,30 +404,38 @@ private fun WaterTrackerWidget(
                         OutlinedTextField(
                             value = customDrinkName,
                             onValueChange = { customDrinkName = it },
-                            label = { Text("Tên đồ uống (vd: Sinh tố)") },
+                            label = { Text("Tên đồ uống (vd: Sinh tố)", color = Color(0xFFadaaaa)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFF131313),
+                                unfocusedContainerColor = Color(0xFF131313)
+                            )
                         )
                         Spacer(Modifier.height(16.dp))
                     }
                     
-                    Text("Phân lượng nhanh", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text("Phân lượng nhanh", color = Color(0xFFadaaaa), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(onClick = { onAddWater(100); showPresetDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Text("100") }
-                        OutlinedButton(onClick = { onAddWater(200); showPresetDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Text("200") }
-                        OutlinedButton(onClick = { onAddWater(300); showPresetDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Text("300") }
+                        Button(onClick = { onAddWater(100); showPresetDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262626), contentColor = Color.White)) { Text("100") }
+                        Button(onClick = { onAddWater(200); showPresetDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262626), contentColor = Color.White)) { Text("200") }
+                        Button(onClick = { onAddWater(300); showPresetDialog = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262626), contentColor = Color.White)) { Text("300") }
                     }
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = customVolumeInput,
                         onValueChange = { customVolumeInput = it.filter { char -> char.isDigit() } },
-                        label = { Text("Hoặc tự nhập dung tích (ml)") },
+                        label = { Text("Hoặc tự nhập dung tích (ml)", color = Color(0xFFadaaaa)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF131313),
+                            unfocusedContainerColor = Color(0xFF131313)
+                        )
                     )
                 }
             },
@@ -438,16 +448,17 @@ private fun WaterTrackerWidget(
                         }
                         showPresetDialog = false
                     },
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = animatedWaterColor)
                 ) {
-                    Text("Xác nhận")
+                    Text("Xác nhận", color = Color(0xFF0e0e0e), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPresetDialog = false }) { Text("Hủy") }
+                TextButton(onClick = { showPresetDialog = false }) { Text("Hủy", color = Color(0xFFadaaaa)) }
             },
             shape = RoundedCornerShape(28.dp),
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color(0xFF1a1a1a)
         )
     }
 }

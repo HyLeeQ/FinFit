@@ -38,7 +38,9 @@ data class HealthUiState(
     val activeMinuteGoal: Int = 60,
     val waterConsumedMl: Int = 0,
     val waterGoalMl: Int = 2000,
-    val sleepHours: Float = 0f
+    val sleepHours: Float = 0f,
+    val isFirst1000StepsAchieved: Boolean = false,
+    val hasCelebrated1000Steps: Boolean = false
 ) {
     /** Calo thuần: Nạp vào - Tiêu hao */
     val netCalorieBalance: Int get() = caloriesIn - caloriesOut

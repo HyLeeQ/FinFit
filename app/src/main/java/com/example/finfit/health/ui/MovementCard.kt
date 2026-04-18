@@ -20,9 +20,9 @@ import java.util.Locale
 import kotlin.math.min
 
 // ─── Màu sắc cho vòng tròn tiến trình ─────────────────────────
-private val TrackColor = Color.LightGray.copy(alpha = 0.3f)
-private val ProgressBlue = Color(0xFF2196F3)
-private val OverflowRed = Color(0xFFF44336)
+private val TrackColor = Color(0xFF262626) // surface_variant
+private val ProgressBlue = Color(0xFFbbffb3) // tertiary (Activity)
+private val OverflowRed = Color(0xFFff716c) // error
 
 /**
  * CircularStepProgress — vẽ vòng tròn 3 lớp bằng Canvas.
@@ -46,7 +46,7 @@ fun CircularStepProgress(
         label = "stepProgressAnim"
     )
 
-    val strokeWidth = 14.dp
+    val strokeWidth = 16.dp
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {

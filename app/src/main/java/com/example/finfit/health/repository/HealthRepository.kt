@@ -285,4 +285,64 @@ class HealthRepository(private val context: Context) {
         
         triggerOneTimeSync()
     }
+
+    /**
+     * Kiểm tra xem user đã đạt thành tựu 1000 bước bao giờ chưa (Global flag).
+     */
+    suspend fun checkFirst1000StepsAchieved(): Boolean {
+        val user = AuthRepository().getCurrentUser() ?: return false
+        val uid = user.uid
+        val localKey = "first_1000_steps_achieved_$uid"
+
+        if (prefs.getBoolean(localKey, false)) return true
+
+        return try {
+            val userDoc = firestore.collection("users").document(uid).get().await()
+            val achieved = userDoc.getBoolean("isFirst1000StepsAchieved") ?: false
+            if (achieved) {
+                prefs.edit().putBoolean(localKey, true).apply()
+            }
+            achieved
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Ghi nhận thành tựu 1000 bước.
+     */
+    suspend fun markFirst1000StepsAchieved() {
+        val user = AuthRepository().getCurrentUser() ?: return
+        val uid = user.uid
+        val localKey = "first_1000_steps_achieved_$uid"
+
+        prefs.edit().putBoolean(localKey, true).apply()
+        try {
+            firestore.collection("users").document(uid)
+                .set(mapOf("isFirst1000StepsAchieved" to true), SetOptions.merge())
+                .await()
+        } catch (e: Exception) {
+            Log.e("HealthRepo", "Failed to mark achievement on cloud", e)
+        }
+    }
+
+    /**
+     * Kiểm tra xem user đã xem pháo hoa chúc mừng chưa
+     */
+    suspend fun checkFirst1000StepsCelebrated(): Boolean {
+        val user = AuthRepository().getCurrentUser() ?: return false
+        val uid = user.uid
+        val localKey = "first_1000_steps_celebrated_$uid"
+        return prefs.getBoolean(localKey, false)
+    }
+
+    /**
+     * Ghi nhận đã xem pháo hoa
+     */
+    suspend fun markFirst1000StepsCelebrated() {
+        val user = AuthRepository().getCurrentUser() ?: return
+        val uid = user.uid
+        val localKey = "first_1000_steps_celebrated_$uid"
+        prefs.edit().putBoolean(localKey, true).apply()
+    }
 }

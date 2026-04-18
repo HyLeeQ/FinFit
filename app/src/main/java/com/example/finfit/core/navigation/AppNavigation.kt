@@ -41,6 +41,7 @@ object Routes {
     const val HEALTH_STATS = "health_stats"
     const val HEALTH_PREDICTION = "health_prediction"
     const val HEALTH_LOG = "health_log"
+    const val SLEEP_SCHEDULE = "sleep_schedule"
 }
 
 enum class AppMode {

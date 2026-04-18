@@ -35,4 +35,7 @@ fun NavGraphBuilder.healthNavGraph(
     composable(Routes.HEALTH_LOG) {
         HealthLogScreen(userEmail, onBack = { navController.popBackStack() })
     }
+    composable(Routes.SLEEP_SCHEDULE) {
+        SleepScheduleScreen(onBack = { navController.popBackStack() })
+    }
 }

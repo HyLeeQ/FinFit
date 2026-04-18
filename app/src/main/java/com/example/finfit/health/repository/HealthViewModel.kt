@@ -6,8 +6,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import androidx.core.app.NotificationCompat
+import android.os.Build
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -45,6 +53,19 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     private val _todaySteps = MutableStateFlow(0)
     val todaySteps: StateFlow<Int> = _todaySteps.asStateFlow()
 
+    private val _achievementEvent = MutableSharedFlow<String>()
+    val achievementEvent: SharedFlow<String> = _achievementEvent.asSharedFlow()
+
+    private val isFirst1000AchievedState = MutableStateFlow(false)
+    private val hasCelebrated1000State = MutableStateFlow(false)
+
+    fun mark1000StepsCelebrated() {
+        viewModelScope.launch(Dispatchers.IO) {
+            healthRepository.markFirst1000StepsCelebrated()
+            hasCelebrated1000State.value = true
+        }
+    }
+
     init {
         // Đồng bộ Cloud -> Local ngay khi khởi tạo
         viewModelScope.launch(Dispatchers.IO) {
@@ -67,22 +88,45 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         viewModelScope.launch {
+            isFirst1000AchievedState.value = healthRepository.checkFirst1000StepsAchieved()
+            hasCelebrated1000State.value = healthRepository.checkFirst1000StepsCelebrated()
+        }
+
+        viewModelScope.launch {
             val today = getCurrentDate()
+
+            val achievementFlow = combine(isFirst1000AchievedState, hasCelebrated1000State) { a, c -> Pair(a, c) }
 
             // Combine tất cả nguồn sensor realtime + Room persistent
             combine(
                 stepCounterManager.todaySteps,
                 stepCounterManager.calories,
                 stepCounterManager.activeMinutes,
-                healthDao.observeHealthByDate(today)
-            ) { sensorSteps, sensorCal, sensorMinutes, dbEntity ->
+                healthDao.observeHealthByDate(today),
+                achievementFlow
+            ) { sensorSteps, sensorCal, sensorMinutes, dbEntity, achPair ->
                 dbEntity.toUiState(
                     sensorSteps = sensorSteps,
                     sensorCaloriesOut = sensorCal,
                     sensorActiveMinutes = sensorMinutes
+                ).copy(
+                    isFirst1000StepsAchieved = achPair.first,
+                    hasCelebrated1000Steps = achPair.second
                 )
             }.collect { state ->
-                _healthUiState.value = state
+                // Check achievement logic
+                if (state.steps >= 1000 && !state.isFirst1000StepsAchieved) {
+                    isFirst1000AchievedState.value = true
+                    viewModelScope.launch(Dispatchers.IO) {
+                        healthRepository.markFirst1000StepsAchieved()
+                    }
+                    showAchievementNotification()
+                }
+
+                _healthUiState.value = state.copy(
+                    isFirst1000StepsAchieved = isFirst1000AchievedState.value,
+                    hasCelebrated1000Steps = hasCelebrated1000State.value
+                )
                 _todaySteps.value = state.steps
             }
         }
@@ -184,5 +228,30 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             healthRepository.updateCaloriesIn(amount)
         }
+    }
+
+    private fun showAchievementNotification() {
+        val context = getApplication<Application>()
+        val channelId = "health_achievements"
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Thành tựu sức khỏe",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.btn_star_big_on)
+            .setContentTitle("🎉 Chúc mừng!")
+            .setContentText("Bạn đã hoàn thành 1.000 bước đi đầu tiên!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(1000, notification)
     }
 }

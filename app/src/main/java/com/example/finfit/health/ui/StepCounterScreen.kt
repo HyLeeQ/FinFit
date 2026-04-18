@@ -19,10 +19,17 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
+import kotlin.random.Random
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.animation.core.Animatable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -47,11 +54,11 @@ import java.util.Locale
 import kotlin.math.min
 
 // ─── Màu sắc ────────────────────────────────────────────────
-private val TrackColor = Color.LightGray.copy(alpha = 0.3f)
-private val ProgressBlue = Color(0xFF2196F3)
-private val OverflowRed = Color(0xFFF44336)
+private val TrackColor = Color(0xFF262626) // surface_variant
+private val ProgressBlue = Color(0xFFbbffb3) // activity color
+private val OverflowRed = Color(0xFFff716c) // error color
 private val CalorieOrange = Color(0xFFF59E0B)
-private val ActiveGreen = Color(0xFF22C55E)
+private val ActiveGreen = Color(0xFFbbffb3)
 
 // ═══════════════════════════════════════════════════════════════
 // StepCounterScreen — Màn hình chính hiển thị bước chân
@@ -83,6 +90,17 @@ fun StepCounterScreen(
     )
 
     var showWipeDialog by remember { mutableStateOf(false) }
+    var showAchievement by remember { mutableStateOf(false) }
+
+    // Fix lỗi cancel state: Dùng uiState.isFirst1000StepsAchieved làm key duy nhất để tránh LaunchedEffect bị hủy khi hasCelebrated đổi sang true
+    LaunchedEffect(uiState.isFirst1000StepsAchieved) {
+        if (uiState.isFirst1000StepsAchieved && !uiState.hasCelebrated1000Steps) {
+            showAchievement = true
+            healthViewModel.mark1000StepsCelebrated()
+            delay(5000)
+            showAchievement = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         val perms = mutableListOf<String>()
@@ -106,7 +124,7 @@ fun StepCounterScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent
+        containerColor = Color(0xFF0e0e0e) // dark background
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             HealthHeaderSection(
@@ -156,6 +174,16 @@ fun StepCounterScreen(
 
                     // ─── Hàng 3: GoalStatusCard (Full width) ───
                     GoalStatusCard(uiState)
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // ─── Hàng 4: Thống kê trong ngày (Biểu đồ) ───
+                    ActivityHistoryChart()
+
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // ─── Hàng 5: Upcoming Achievement ───
+                    UpcomingAchievementCard(uiState)
                 }
             } else {
                 Box(
@@ -165,7 +193,8 @@ fun StepCounterScreen(
                     Text(
                         text = "Vui lòng cấp quyền theo dõi vận động để sử dụng tính năng này",
                         modifier = Modifier.padding(32.dp),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White
                     )
                 }
             }
@@ -197,6 +226,9 @@ fun StepCounterScreen(
                 )
             }
         }
+        
+        FireworksOverlay(show = showAchievement)
+        AchievementDialog(show = showAchievement)
     }
 }
 
@@ -217,7 +249,7 @@ private fun MainProgressCard(state: HealthUiState) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = Color(0xFF1a1a1a)
         )
     ) {
         Column(
@@ -255,20 +287,20 @@ private fun MainProgressCard(state: HealthUiState) {
                         text = formatNumber(state.steps),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.White,
                         letterSpacing = (-1).sp
                     )
                     Text(
                         text = "/ ${formatNumber(safeGoal)}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFFadaaaa)
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Activity Score",
                         fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color(0xFFadaaaa)
                     )
                 }
             }
@@ -329,7 +361,7 @@ private fun GoalStatusCard(state: HealthUiState) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = Color(0xFF1a1a1a)
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -345,7 +377,7 @@ private fun GoalStatusCard(state: HealthUiState) {
                     "Mục tiêu ngày",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -375,7 +407,7 @@ private fun GoalStatusCard(state: HealthUiState) {
                 text = if (isCompleted) "🎉 Bạn đã vượt mục tiêu hôm nay!"
                        else "Còn ${formatNumber(safeGoal - state.steps)} bước nữa",
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFFadaaaa)
             )
         }
     }
@@ -399,7 +431,7 @@ private fun StatCard(
         modifier = modifier.height(160.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = Color(0xFF1a1a1a)
         )
     ) {
         Column(
@@ -409,7 +441,7 @@ private fun StatCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(title, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFadaaaa))
             }
 
             Column {
@@ -417,13 +449,13 @@ private fun StatCard(
                     text = mainValue,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                     letterSpacing = (-1).sp
                 )
                 Text(
                     text = mainUnit,
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFFadaaaa)
                 )
             }
 
@@ -437,7 +469,191 @@ private fun StatCard(
     }
 }
 
+// ─── Thống kê trong ngày (Biểu đồ) ───────────────────────────────────────
+@Composable
+private fun ActivityHistoryChart() {
+    // Render giả lập 24 cột dữ liệu vì hiện tại DB chưa track theo giờ
+    val hourlyData = remember {
+        List(24) { index ->
+            when (index) {
+                in 0..5 -> Random.nextInt(0, 10)
+                in 6..8 -> Random.nextInt(50, 150)
+                in 9..14 -> Random.nextInt(20, 100)
+                in 15..18 -> Random.nextInt(100, 300)
+                in 19..22 -> Random.nextInt(10, 50)
+                else -> Random.nextInt(0, 5)
+            }
+        }
+    }
+    
+    val maxStep = hourlyData.maxOrNull()?.coerceAtLeast(1) ?: 1
+    
+    Card(
+        modifier = Modifier.fillMaxWidth().height(260.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1a1a1a))
+    ) {
+        Column(modifier = Modifier.padding(20.dp).fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Lịch sử hoạt động",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color.White
+                )
+                Text(
+                    text = "HÔM NAY",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFadaaaa),
+                    letterSpacing = 1.sp
+                )
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                    val canvasWidth = size.width
+                    val canvasHeight = size.height
+                    
+                    // Vẽ các đường Grid ngang mờ
+                    val lines = 4
+                    val lineSpacing = canvasHeight / lines
+                    for (i in 0..lines) {
+                        val y = i * lineSpacing
+                        drawLine(
+                            color = Color(0xFF262626), 
+                            start = Offset(0f, y),
+                            end = Offset(canvasWidth, y),
+                            strokeWidth = 2f
+                        )
+                    }
+                    
+                    // Vẽ 24 cột
+                    val barCount = 24
+                    val gap = 8f
+                    val totalGap = gap * (barCount - 1)
+                    val barWidth = (canvasWidth - totalGap) / barCount
+                    
+                    hourlyData.forEachIndexed { index, value ->
+                        val barHeight = (value.toFloat() / maxStep) * canvasHeight
+                        val x = index * (barWidth + gap)
+                        val y = canvasHeight - barHeight
+                        
+                        val isMax = value == maxStep
+                        val barColor = if (isMax) Color(0xFF64b5f6) else Color(0xFF64b5f6).copy(alpha = 0.3f)
+                        
+                        drawRoundRect(
+                            color = barColor,
+                            topLeft = Offset(x, y),
+                            size = Size(barWidth, barHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            // Text X-axis
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("00:00", fontSize = 12.sp, color = Color(0xFFadaaaa))
+                Text("12:00", fontSize = 12.sp, color = Color(0xFFadaaaa))
+                Text("23:00", fontSize = 12.sp, color = Color(0xFFadaaaa))
+            }
+        }
+    }
+}
+
 // ─── Helper ────────────────────────────────────────────────────
 private fun formatNumber(value: Int): String {
     return NumberFormat.getInstance(Locale("vi", "VN")).format(value)
+}
+
+@Composable
+private fun UpcomingAchievementCard(state: HealthUiState) {
+    if (state.isFirst1000StepsAchieved) return
+    Card(
+        modifier = Modifier.fillMaxWidth().height(100.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1a1a1a))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("SẮP ĐẠT ĐƯỢC", fontSize = 10.sp, color = Color(0xFF64b5f6), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Spacer(Modifier.height(4.dp))
+                Text("Người mới bắt đầu", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(Modifier.height(4.dp))
+                Text("Hoàn thành 1,000 bước đi tiên phong", fontSize = 12.sp, color = Color(0xFFadaaaa))
+            }
+            Icon(Icons.Rounded.StarBorder, contentDescription = null, modifier = Modifier.size(48.dp), tint = Color(0xFF262626))
+        }
+    }
+}
+
+@Composable
+fun FireworksOverlay(show: Boolean) {
+    if (!show) return
+    val particles = remember { List(100) { FireworksParticle() } }
+    val progress = remember { Animatable(0f) }
+    
+    LaunchedEffect(show) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, animationSpec = tween(3000))
+    }
+    
+    Box(modifier = Modifier.fillMaxSize().zIndex(100f)) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerLeft = Offset(size.width * 0.2f, size.height * 0.6f)
+            val centerRight = Offset(size.width * 0.8f, size.height * 0.6f)
+            val currentProg = progress.value
+            
+            if (currentProg < 1f) {
+                particles.forEach { p ->
+                    val xL = centerLeft.x + kotlin.math.cos(p.angle) * p.distance * currentProg
+                    val yL = centerLeft.y + kotlin.math.sin(p.angle) * p.distance * currentProg + (currentProg * currentProg * 200f) // gravity
+                    drawCircle(p.color, p.size * (1f - currentProg), Offset(xL.toFloat(), yL.toFloat()))
+                    
+                    val xR = centerRight.x + kotlin.math.cos(p.angle) * p.distance * currentProg
+                    val yR = centerRight.y + kotlin.math.sin(p.angle) * p.distance * currentProg + (currentProg * currentProg * 200f)
+                    drawCircle(p.color, p.size * (1f - currentProg), Offset(xR.toFloat(), yR.toFloat()))
+                }
+            }
+        }
+    }
+}
+
+class FireworksParticle {
+    val angle = Random.nextFloat() * 2 * kotlin.math.PI
+    val distance = Random.nextFloat() * 500f + 100f
+    val size = Random.nextFloat() * 8f + 4f
+    val colors = listOf(Color(0xFFbbffb3), Color(0xFF64b5f6), Color.White)
+    val color = colors.random()
+}
+
+@Composable
+fun AchievementDialog(show: Boolean) {
+    if (!show) return
+    Box(modifier = Modifier.fillMaxSize().zIndex(100f), contentAlignment = Alignment.Center) {
+        Card(
+            shape = RoundedCornerShape(32.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1a1a1a)),
+            modifier = Modifier.padding(32.dp).fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(64.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Chúc mừng!", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B))
+                Spacer(Modifier.height(8.dp))
+                Text("Bạn đã hoàn thành 1,000 bước đi đầu tiên. Tuyệt vời!", fontSize = 14.sp, color = Color.White, textAlign = TextAlign.Center)
+            }
+        }
+    }
 }
