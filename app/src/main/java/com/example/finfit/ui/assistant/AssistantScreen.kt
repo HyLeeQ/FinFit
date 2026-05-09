@@ -125,67 +125,118 @@ fun AssistantScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Animated AI avatar
                         Box(
-                            Modifier.size(36.dp).clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)))),
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFEC4899))
+                                    )
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                null,
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text("Trợ lý AI Đầu tư", fontSize = 16.sp, fontWeight = FontWeight.Black)
-                            Text("Chuyển text thành Data", fontSize = 10.sp, color = AccentGreen)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Trợ lý FinFit AI",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                // Online indicator dot
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981))
+                                )
+                            }
+                            Text(
+                                "⚡ Local + Gemini AI · Phản hồi tức thì",
+                                fontSize = 10.sp,
+                                color = AccentGreen
+                            )
                         }
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
+                    }
                 },
                 actions = {
-                    // Quick insight button — no API needed
+                    // Quick local insight button
                     IconButton(onClick = {
                         viewModel.addLocalMessage(
                             MessageContent.Text(viewModel.getLocalInsight()),
                             isUser = false
                         )
                     }) {
-                        Icon(Icons.Default.Insights, contentDescription = "Tổng quan nhanh",
-                            tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            Icons.Default.Insights,
+                            contentDescription = "Tổng quan nhanh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         },
         bottomBar = {
             Column {
-                // ── Smart suggestion chips ────────────────────────
+                // ── Smart suggestion chips ──────────────────
                 if (suggestions.isNotEmpty() && inputText.isBlank()) {
-                    androidx.compose.foundation.lazy.LazyRow(
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
                         items(suggestions) { s ->
-                            SuggestionChip(
-                                onClick = {
-                                    // Tap chip = gửi luôn (local parse sẽ bắt trước API)
-                                    inputText = ""
-                                    viewModel.sendMessage(s.text)
-                                },
-                                label = { Text("${s.emoji} ${s.label}", fontSize = 12.sp) },
-                                shape = RoundedCornerShape(20.dp),
-                                colors = SuggestionChipDefaults.suggestionChipColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                ),
-                                border = SuggestionChipDefaults.suggestionChipBorder(
-                                    enabled = true,
-                                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                    borderWidth = 1.dp
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)
+                                            )
+                                        )
+                                    )
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                        CircleShape
+                                    )
+                                    .clickable {
+                                        inputText = ""
+                                        viewModel.sendMessage(s.text)
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                            ) {
+                                Text(
+                                    "${s.emoji} ${s.label}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                            )
+                            }
                         }
                     }
                 }

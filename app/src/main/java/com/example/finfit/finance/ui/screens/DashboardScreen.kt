@@ -391,35 +391,105 @@ fun SavingsGoalsSection(goals: List<SavingsGoal>, onNavigate: (String) -> Unit) 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Mục tiêu tiết kiệm", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Mục tiêu tiết kiệm", fontWeight = FontWeight.Black, fontSize = 18.sp)
             TextButton(onClick = { onNavigate(Routes.SAVINGS_GOALS) }) {
-                Text("Xem tất cả", color = PrimaryBlue, fontSize = 13.sp)
+                Text("Xem tất cả →", color = PrimaryBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
+        Spacer(Modifier.height(4.dp))
         if (goals.isEmpty()) {
-            Text("Chưa có mục tiêu nào", color = Color.Gray, fontSize = 14.sp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .clickable { onNavigate(Routes.SAVINGS_GOALS) }
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🎯", fontSize = 32.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Chưa có mục tiêu nào", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), fontSize = 14.sp)
+                    Text("Nhấn để tạo mục tiêu đầu tiên", fontSize = 12.sp, color = PrimaryBlue, fontWeight = FontWeight.Bold)
+                }
+            }
         } else {
-            goals.take(3).forEach { goal ->
-                val progress = (goal.currentAmount / goal.targetAmount).coerceIn(0.0, 1.0).toFloat()
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onNavigate(Routes.SAVINGS_GOALS) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(goal.iconEmoji, fontSize = 20.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Text(goal.goalName, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = Color(goal.colorHex))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(end = 16.dp)
+            ) {
+                items(goals) { goal ->
+                    val progress = (goal.currentAmount / goal.targetAmount.coerceAtLeast(1.0)).coerceIn(0.0, 1.0).toFloat()
+                    val goalColor = Color(goal.colorHex)
+                    Box(
+                        modifier = Modifier
+                            .width(180.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        goalColor.copy(alpha = 0.15f),
+                                        goalColor.copy(alpha = 0.05f)
+                                    )
+                                )
+                            )
+                            .border(1.dp, goalColor.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
+                            .clickable { onNavigate(Routes.SAVINGS_GOALS) }
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(goal.iconEmoji, fontSize = 22.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "${(progress * 100).toInt()}%",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = goalColor
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                goal.goalName,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            // Gradient progress bar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(CircleShape)
+                                    .background(goalColor.copy(alpha = 0.12f))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(progress)
+                                        .fillMaxHeight()
+                                        .clip(CircleShape)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                listOf(goalColor, goalColor.copy(alpha = 0.6f))
+                                            )
+                                        )
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                formatCurrency(goal.currentAmount),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                "/ ${formatCurrency(goal.targetAmount)}",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
+                            )
                         }
-                        Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                            color = Color(goal.colorHex),
-                            trackColor = Color(goal.colorHex).copy(alpha = 0.1f)
-                        )
                     }
                 }
             }
@@ -562,49 +632,125 @@ fun HeaderSectionWithAnim(userEmail: String, isVisible: Boolean) {
 
 @Composable
 fun HeaderSection(userEmail: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+    val greeting = when (hour) {
+        in 5..11  -> "☀️ Chào buổi sáng"
+        in 12..13 -> "🌞 Buổi trưa vui vẻ"
+        in 14..17 -> "☀️ Buổi chiều"
+        in 18..21 -> "🌇 Buổi tối"
+        else      -> "🌙 Khuya rồi"
+    }
+    val displayName = userEmail.substringBefore("@").replaceFirstChar { it.uppercaseChar() }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, null) }
-            Spacer(Modifier.width(10.dp))
+            // Gradient avatar
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    displayName.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Spacer(Modifier.width(12.dp))
             Column {
-                Text("Xin chào 👋", fontSize = 12.sp)
-                Text(userEmail.substringBefore("@"), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Text(greeting, fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
+                Text(displayName, fontWeight = FontWeight.Black, fontSize = 18.sp)
             }
         }
-        IconButton(onClick = {}) { Icon(Icons.Default.Notifications, null) }
+        // Notification bell with subtle badge
+        Box {
+            IconButton(onClick = {}) {
+                Icon(
+                    Icons.Default.Notifications,
+                    null,
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+        }
     }
 }
 
 @Composable
-fun QuickActionsSection(onAction: (TransactionType?) -> Unit, onSavingsAction: () -> Unit, onHeldFundsAction: () -> Unit, onTransferAction: () -> Unit, onNavigate: (String) -> Unit) {
+fun QuickActionsSection(
+    onAction: (TransactionType?) -> Unit,
+    onSavingsAction: () -> Unit,
+    onHeldFundsAction: () -> Unit,
+    onTransferAction: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    data class Action(val label: String, val icon: ImageVector, val gradient: List<Color>)
     val actions = listOf(
-        Triple("Giao dịch", Icons.Default.Add, PrimaryBlue),
-        Triple("Tiết kiệm", Icons.Default.Savings, Color(0xFF10B981)),
-        Triple("Ví nhóm", Icons.Default.Groups, Color(0xFFF59E0B)),
-        Triple("Chuyển tiền", Icons.Default.SwapHoriz, Color(0xFF6366F1)),
-        Triple("Thống kê", Icons.Default.BarChart, Color(0xFFEC4899)),
-        Triple("Kế hoạch", Icons.Default.EventNote, Color(0xFF8B5CF6)),
-        Triple("Nợ/Vay", Icons.Default.AccountBalance, Color(0xFF9333EA)),
-        Triple("Nhật ký", Icons.Default.PhotoLibrary, Color(0xFFEA580C))
+        Action("➕ Giao dịch", Icons.Default.Add,             listOf(Color(0xFF3B82F6), Color(0xFF6366F1))),
+        Action("🎯 Tiết kiệm", Icons.Default.Savings,         listOf(Color(0xFF10B981), Color(0xFF059669))),
+        Action("👥 Ví nhóm",  Icons.Default.Groups,          listOf(Color(0xFFF59E0B), Color(0xFFD97706))),
+        Action("🔄 Chuyển tiền", Icons.Default.SwapHoriz,      listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))),
+        Action("📊 Thống kê", Icons.Default.BarChart,         listOf(Color(0xFFEC4899), Color(0xFFDB2777))),
+        Action("📝 Kế hoạch",  Icons.Default.EventNote,       listOf(Color(0xFF8B5CF6), Color(0xFF7C3AED))),
+        Action("💳 Nợ/Vay",    Icons.Default.AccountBalance,  listOf(Color(0xFF9333EA), Color(0xFF7E22CE))),
+        Action("📸 Nhật ký",  Icons.Default.PhotoLibrary,    listOf(Color(0xFFEA580C), Color(0xFFDC2626)))
     )
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         actions.chunked(4).forEach { row ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { (label, icon, color) ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f).clickable {
-                        when(label) {
-                            "Giao dịch" -> onAction(null)
-                            "Tiết kiệm" -> onSavingsAction()
-                            "Ví nhóm" -> onHeldFundsAction()
-                            "Chuyển tiền" -> onTransferAction()
-                            "Thống kê" -> onNavigate(Routes.ANALYTICS)
-                            "Kế hoạch" -> onNavigate(Routes.BUDGET)
-                            "Nợ/Vay" -> onNavigate(Routes.DEBT_LOAN)
-                            "Nhật ký" -> onNavigate(Routes.PHOTO_DIARY)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                row.forEach { action ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable {
+                                when {
+                                    action.label.contains("Giao dịch") -> onAction(null)
+                                    action.label.contains("Tiết kiệm") -> onSavingsAction()
+                                    action.label.contains("Ví nhóm")  -> onHeldFundsAction()
+                                    action.label.contains("Chuyển")    -> onTransferAction()
+                                    action.label.contains("Thống kê")  -> onNavigate(Routes.ANALYTICS)
+                                    action.label.contains("Kế hoạch")  -> onNavigate(Routes.BUDGET)
+                                    action.label.contains("Nợ")        -> onNavigate(Routes.DEBT_LOAN)
+                                    action.label.contains("Nhật ký")  -> onNavigate(Routes.PHOTO_DIARY)
+                                }
+                            }
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Brush.linearGradient(action.gradient)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(action.icon, null, tint = Color.White, modifier = Modifier.size(26.dp))
                         }
-                    }) {
-                        Box(Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Icon(icon, label, tint = color) }
-                        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            action.label.substringAfter(" "),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
                     }
                 }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -615,19 +761,55 @@ fun QuickActionsSection(onAction: (TransactionType?) -> Unit, onSavingsAction: (
 
 @Composable
 fun TransactionListItem(transaction: FinanceTransaction, onClick: () -> Unit) {
-    val color = when(transaction.type) {
-        TransactionType.INCOME -> Color(0xFF10C67F)
-        TransactionType.EXPENSE, TransactionType.GROUP_PREPAYMENT -> Color(0xFFEF4444)
-        TransactionType.TRANSFER -> Color(0xFF6366F1)
+    val (amtColor, signChar) = when (transaction.type) {
+        TransactionType.INCOME            -> Pair(Color(0xFF10B981), "+")
+        TransactionType.EXPENSE,
+        TransactionType.GROUP_PREPAYMENT  -> Pair(Color(0xFFEF4444), "-")
+        TransactionType.TRANSFER          -> Pair(Color(0xFF6366F1), "↔")
     }
-    Row(modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { Icon(getCategoryIcon(transaction.category), null) }
-        Spacer(Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(transaction.note.ifBlank { transaction.category }, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(transactionDateFormat.format(transaction.timestamp.toDate()), fontSize = 12.sp)
+    val catIcon = getCategoryIcon(transaction.category)
+    val catColor = amtColor
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Category icon circle with tinted background
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(catColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(catIcon, null, tint = catColor, modifier = Modifier.size(22.dp))
         }
-        Text("${if (transaction.type == TransactionType.INCOME) "+" else "-"}${formatCurrency(if (transaction.isGroupPrepayment) transaction.personalAmount else transaction.amount)}", color = color, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                transaction.note.ifBlank { transaction.category },
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                transactionDateFormat.format(transaction.timestamp.toDate()),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
+            )
+        }
+        Text(
+            "$signChar${formatCurrency(if (transaction.isGroupPrepayment) transaction.personalAmount else transaction.amount)}",
+            color = amtColor,
+            fontWeight = FontWeight.Black,
+            fontSize = 15.sp
+        )
     }
 }
 
