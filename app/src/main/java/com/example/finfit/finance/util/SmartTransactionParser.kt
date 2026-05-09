@@ -129,8 +129,8 @@ object SmartTransactionParser {
         // Chuẩn hoá text bằng cách thêm khoảng trắng ở 2 đầu và bỏ các dấu câu để tìm từ chính xác
         val searchString = " " + lower.replace(Regex("\\p{Punct}"), " ") + " "
 
-        // ── Bộ lọc nhanh: không chuyển giao cục bộ nếu có từ khóa Nợ/Vay/Tiết kiệm ──
-        val aiTriggers = listOf("vay", "nợ", "mượn", "tiết kiệm", "ngân sách", "mục tiêu", "trả", "vây")
+        // ── Bộ lọc nhanh: không chuyển giao cục bộ nếu có từ khóa Nợ/Vay/Tiết kiệm/Kế hoạch ──
+        val aiTriggers = listOf("vay", "nợ", "mượn", "tiết kiệm", "ngân sách", "mục tiêu", "trả", "vây", "mai", "sẽ", "kế hoạch", "định", "dự kiến")
         if (aiTriggers.any { searchString.contains(" $it ") }) return null
 
         // Phải có ít nhất 1 trong: đơn vị tiền (k/tr/đ/vnd) HOẶC từ khóa tài chính

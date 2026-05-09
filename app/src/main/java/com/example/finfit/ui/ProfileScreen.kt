@@ -36,7 +36,8 @@ fun ProfileScreen(
     goals: List<SavingsGoal>,
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onEditProfile: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     var transactionNotiEnabled by remember { mutableStateOf(true) }
@@ -78,7 +79,8 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .height(200.dp)
                     .clip(RoundedCornerShape(32.dp))
-                    .shadow(12.dp, RoundedCornerShape(32.dp)),
+                    .shadow(12.dp, RoundedCornerShape(32.dp))
+                    .clickable(onClick = onEditProfile),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
                 Box(
@@ -113,6 +115,17 @@ fun ProfileScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Chào bạn trở lại 👋", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
                                 Text(email.substringBefore("@"), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                            }
+
+                            // Edit icon
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Edit, "Chỉnh sửa hồ sơ", tint = Color.White, modifier = Modifier.size(18.dp))
                             }
                         }
                         

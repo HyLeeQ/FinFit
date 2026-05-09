@@ -57,6 +57,7 @@ fun AddTransactionScreen(
     budgets: List<FinanceBudget> = emptyList(),
     transactions: List<FinanceTransaction> = emptyList(),
     initialType: TransactionType = TransactionType.EXPENSE,
+    autoOpenCamera: Boolean = false,
     onSave: (FinanceTransaction, AppUserWallet, android.net.Uri?) -> Unit,
     onBack: () -> Unit,
     onHome: () -> Unit = onBack
@@ -87,6 +88,13 @@ fun AddTransactionScreen(
             val file = java.io.File(context.cacheDir, "temp_diary_${System.currentTimeMillis()}.jpg")
             file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
             selectedImageUri = android.net.Uri.fromFile(file)
+        }
+    }
+
+    // Tự động mở camera nếu được yêu cầu từ Navbar
+    LaunchedEffect(autoOpenCamera) {
+        if (autoOpenCamera && selectedImageUri == null) {
+            cameraLauncher.launch(null)
         }
     }
 

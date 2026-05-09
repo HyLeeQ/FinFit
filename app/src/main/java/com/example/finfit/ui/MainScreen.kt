@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.shadow
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.*
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -46,6 +47,7 @@ import com.example.finfit.finance.repository.*
 import com.example.finfit.finance.ui.navigation.financeNavGraph
 import com.example.finfit.health.ui.*
 import com.example.finfit.ui.theme.PrimaryBlue
+import com.example.finfit.data.local.SetupPreferences
 import com.example.finfit.ui.assistant.AssistantScreen
 import kotlin.math.roundToInt
 
@@ -157,13 +159,13 @@ fun MainScreen(
         floatingActionButton = {
             if (appMode == AppMode.FINANCE && !isAssistantScreen) {
                 FloatingActionButton(
-                    onClick = { navController.navigate(Routes.ADD) },
+                    onClick = { navController.navigate(Routes.ADD + "?camera=true") },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = CircleShape,
                     modifier = Modifier.offset(y = 50.dp).size(64.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Thêm", modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.PhotoCamera, contentDescription = "Chụp ảnh Diary", modifier = Modifier.size(32.dp))
                 }
             }
         },
@@ -237,9 +239,23 @@ fun MainScreen(
                             goals = savingsGoals,
                             themeMode = themeMode,
                             onThemeChange = onThemeChange,
-                            onLogout = onLogout
+                            onLogout = onLogout,
+                            onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) }
                         )
                     }
+                }
+                composable(Routes.EDIT_PROFILE) {
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val setupPrefs = remember { SetupPreferences(ctx) }
+                    EditProfileScreen(
+                        email = userEmail,
+                        initial = setupPrefs.getUserProfile(),
+                        onBack = { navController.popBackStack() },
+                        onSave = { profile ->
+                            setupPrefs.saveUserProfile(profile)
+                            navController.popBackStack()
+                        }
+                    )
                 }
             }
             

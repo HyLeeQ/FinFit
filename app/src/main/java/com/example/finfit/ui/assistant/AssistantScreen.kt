@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finfit.finance.model.*
 import com.example.finfit.finance.repository.FirestoreRepository
+import com.example.finfit.finance.util.LocalAIEngine
 import com.example.finfit.finance.util.SmartTransactionParser
 import com.example.finfit.ui.theme.AccentGreen
 import com.example.finfit.finance.ui.utils.formatCurrency
@@ -65,7 +66,11 @@ fun AssistantScreen(
     // Kiểm tra Thứ Hai chủ động khi mở màn hình
     LaunchedEffect(Unit) {
         viewModel.checkMondayProactive()
+        viewModel.checkBudgetAlerts()   // Cảnh báo ngân sách (local, no API)
     }
+
+    // Smart suggestion chips (update khi data thay đổi)
+    val suggestions = remember(transactions) { viewModel.getSmartSuggestions() }
 
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -136,29 +141,74 @@ fun AssistantScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+                },
+                actions = {
+                    // Quick insight button — no API needed
+                    IconButton(onClick = {
+                        viewModel.addLocalMessage(
+                            MessageContent.Text(viewModel.getLocalInsight()),
+                            isUser = false
+                        )
+                    }) {
+                        Icon(Icons.Default.Insights, contentDescription = "Tổng quan nhanh",
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             )
         },
         bottomBar = {
-            SmartChatInput(
-                text = inputText,
-                onTextChange = { inputText = it },
-                onSend = {
-                    val text = inputText.trim()
-                    if (text.isBlank()) return@SmartChatInput
-                    inputText = ""
-
-                    val parsed = SmartTransactionParser.parse(text)
-                    if (parsed != null && parsed.amount > 0) {
-                        viewModel.addLocalMessage(MessageContent.Text(text), true)
-                        viewModel.addLocalMessage(MessageContent.TransactionCard(parsed), false)
-                    } else {
-                        viewModel.sendMessage(text)
+            Column {
+                // ── Smart suggestion chips ────────────────────────
+                if (suggestions.isNotEmpty() && inputText.isBlank()) {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(suggestions) { s ->
+                            SuggestionChip(
+                                onClick = {
+                                    // Tap chip = gửi luôn (local parse sẽ bắt trước API)
+                                    inputText = ""
+                                    viewModel.sendMessage(s.text)
+                                },
+                                label = { Text("${s.emoji} ${s.label}", fontSize = 12.sp) },
+                                shape = RoundedCornerShape(20.dp),
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                ),
+                                border = SuggestionChipDefaults.suggestionChipBorder(
+                                    enabled = true,
+                                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                    borderWidth = 1.dp
+                                )
+                            )
+                        }
                     }
-                },
-                onCamera = { imageLauncher.launch("image/*") },
-                isLoading = isLoading || isLocalProcessing
-            )
+                }
+                SmartChatInput(
+                    text = inputText,
+                    onTextChange = { inputText = it },
+                    onSend = {
+                        val text = inputText.trim()
+                        if (text.isBlank()) return@SmartChatInput
+                        inputText = ""
+
+                        val parsed = SmartTransactionParser.parse(text)
+                        if (parsed != null && parsed.amount > 0) {
+                            viewModel.addLocalMessage(MessageContent.Text(text), true)
+                            viewModel.addLocalMessage(MessageContent.TransactionCard(parsed), false)
+                        } else {
+                            viewModel.sendMessage(text)
+                        }
+                    },
+                    onCamera = { imageLauncher.launch("image/*") },
+                    isLoading = isLoading || isLocalProcessing
+                )
+            }
         }
     ) { padding ->
         LazyColumn(
@@ -237,8 +287,9 @@ fun AssistantScreen(
                                 category = content.category,
                                 note = content.note,
                                 isConfirmed = content.confirmed,
-                                onConfirm = { t, c, cat, n -> 
-                                    viewModel.confirmSplitBill(t, c, cat, n, msg.id)
+                                initialParticipants = content.initialParticipants,
+                                onConfirm = { t, pList, cat, n -> 
+                                    viewModel.confirmSplitBill(t, pList, cat, n, msg.id)
                                 },
                                 onDismiss = { 
                                     viewModel.updateMessage(msg.id, content.copy(confirmed = true))
@@ -268,6 +319,34 @@ fun AssistantScreen(
                                 items = content.items,
                                 isConfirmed = content.confirmed,
                                 onConfirm = { viewModel.confirmWeeklyPlan(content.items, msg.id, content.description) },
+                                onDismiss = { viewModel.updateMessage(msg.id, content.copy(confirmed = true)) }
+                            )
+
+                        is MessageContent.DepositSavingsCard ->
+                            DepositSavingsConfirmCard(
+                                goalName = content.goalName,
+                                amount = content.amount,
+                                walletSource = content.walletSource,
+                                isConfirmed = content.confirmed,
+                                wallet = wallet,
+                                onConfirm = { goal, amt, sourceId ->
+                                    viewModel.confirmDepositSavings(goal, amt, sourceId, msg.id)
+                                },
+                                onDismiss = { viewModel.updateMessage(msg.id, content.copy(confirmed = true)) }
+                            )
+
+                        is MessageContent.WithdrawSavingsCard ->
+                            WithdrawSavingsConfirmCard(
+                                goalName = content.goalName,
+                                amount = content.amount,
+                                destinationWallet = content.destinationWallet,
+                                transferToSavingsGoal = content.transferToSavingsGoal,
+                                isConfirmed = content.confirmed,
+                                wallet = wallet,
+                                savingsGoals = savingsGoals,
+                                onConfirm = { goal, amt, destId, destGoalId ->
+                                    viewModel.confirmWithdrawSavings(goal, amt, destId, destGoalId, msg.id)
+                                },
                                 onDismiss = { viewModel.updateMessage(msg.id, content.copy(confirmed = true)) }
                             )
                     }

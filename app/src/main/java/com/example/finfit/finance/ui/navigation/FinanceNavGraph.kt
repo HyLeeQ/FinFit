@@ -100,16 +100,21 @@ fun NavGraphBuilder.financeNavGraph(
         )
     }
     composable(
-        Routes.ADD + "?type={type}",
+        Routes.ADD + "?type={type}&camera={camera}",
         arguments = listOf(
             navArgument("type") {
                 type = NavType.StringType
                 nullable = true
                 defaultValue = null
+            },
+            navArgument("camera") {
+                type = NavType.BoolType
+                defaultValue = false
             }
         )
     ) { backStackEntry ->
         val typeArg = backStackEntry.arguments?.getString("type")
+        val cameraArg = backStackEntry.arguments?.getBoolean("camera") ?: false
         AddTransactionWithData(
             firestoreRepository = firestoreRepository,
             onTransactionSaved = { 
@@ -118,7 +123,8 @@ fun NavGraphBuilder.financeNavGraph(
             },
             onBack = { navController.popBackStack() },
             onHome = { navController.popBackStack() },
-            initialTypeArg = typeArg
+            initialTypeArg = typeArg,
+            autoOpenCamera = cameraArg
         )
     }
     composable(Routes.PHOTO_DIARY) {
