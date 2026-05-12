@@ -56,18 +56,7 @@ fun PhotoDiaryScreen(
         return
     }
 
-    Scaffold(
-        containerColor = Color(0xFF0A0A0A),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddClick,
-                containerColor = Color(0xFFEAB308),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = "Chụp ảnh", tint = Color.Black)
-            }
-        }
-    ) { paddingValues ->
+    Scaffold(containerColor = Color(0xFF0A0A0A)) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             // ─── Header ──────────────────────────────────────────────────────
             Box(

@@ -159,13 +159,13 @@ fun MainScreen(
         floatingActionButton = {
             if (appMode == AppMode.FINANCE && !isAssistantScreen) {
                 FloatingActionButton(
-                    onClick = { navController.navigate(Routes.ADD + "?camera=true") },
+                    onClick = { navController.navigate(Routes.BILL_SCANNER) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = CircleShape,
                     modifier = Modifier.offset(y = 50.dp).size(64.dp)
                 ) {
-                    Icon(Icons.Default.PhotoCamera, contentDescription = "Chụp ảnh Diary", modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.PhotoCamera, contentDescription = "Quét Bill", modifier = Modifier.size(28.dp))
                 }
             }
         },
@@ -197,6 +197,25 @@ fun MainScreen(
                     navController = navController,
                     userEmail = userEmail
                 )
+
+                // Bill Scanner
+                composable(Routes.BILL_SCANNER) {
+                    val user = com.example.finfit.data.repository.AuthRepository().getCurrentUser()
+                    if (user != null) {
+                        com.example.finfit.finance.ui.screens.BillScannerScreen(
+                            onBack = { navController.popBackStack() },
+                            onConfirm = { amount, note, imageUri ->
+                                // Truyền amount và note sang AddTransaction
+                                val encodedNote = java.net.URLEncoder.encode(note.ifBlank { "" }, "UTF-8")
+                                navController.navigate(
+                                    "${Routes.ADD}?type=EXPENSE&amount=$amount&note=$encodedNote"
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                }
 
                 // Assistant screen
                 composable(Routes.ASSISTANT) {
@@ -412,7 +431,7 @@ fun BottomNavigationBar(navController: NavHostController, appMode: AppMode, onTa
             BottomNavItem.FinanceHome,
             BottomNavItem.FinanceWallet,
             null, // Placeholder for FAB
-            BottomNavItem.FinancePlan,
+            BottomNavItem.BillScanner,
             BottomNavItem.Profile
         )
     } else {
