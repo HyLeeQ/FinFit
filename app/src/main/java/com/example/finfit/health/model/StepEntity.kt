@@ -14,6 +14,9 @@ data class HealthEntity(
     val stepGoal: Int = 1000,
     val caloriesOut: Int = 0,       // Calo tiêu hao (từ vận động)
     val caloriesIn: Int = 0,        // Calo nạp vào (từ thực phẩm)
+    val carbs: Int = 0,             // Tinh bột (g)
+    val protein: Int = 0,           // Đạm (g)
+    val fat: Int = 0,               // Chất béo (g)
     val activeMinutes: Int = 0,
     val waterConsumed: Int = 0,     // Lượng nước tiêu thụ (ml)
     val waterGoal: Int = 0,         // Mục tiêu nước trong ngày (ml)

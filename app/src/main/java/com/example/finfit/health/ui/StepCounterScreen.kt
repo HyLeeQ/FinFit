@@ -134,9 +134,16 @@ fun StepCounterScreen(
                 onBackClick = onBack,
                 actionIcon = Icons.Rounded.Sync,
                 onActionClick = {
-                    healthViewModel.forceSyncWithCallback {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("⏳ Đang đồng bộ...")
+                    }
+                    healthViewModel.forceSyncWithCallback { success ->
                         scope.launch {
-                            snackbarHostState.showSnackbar("✅ Đồng bộ thành công!")
+                            if (success) {
+                                snackbarHostState.showSnackbar("✅ Đồng bộ thành công!")
+                            } else {
+                                snackbarHostState.showSnackbar("❌ Lỗi mạng. Vui lòng thử lại sau!")
+                            }
                         }
                     }
                 },

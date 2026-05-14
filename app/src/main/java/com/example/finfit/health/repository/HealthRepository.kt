@@ -24,6 +24,8 @@ import com.example.finfit.health.data.HealthSyncWorker
 class HealthRepository(private val context: Context) {
 
     private val healthDao = HealthDatabase.getDatabase(context).healthDao()
+    private val sleepLogDao = HealthDatabase.getDatabase(context).sleepLogDao()
+    private val waterLogDao = HealthDatabase.getDatabase(context).waterLogDao()
     private val firestore = FirebaseFirestore.getInstance()
     private val currentDeviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
     private val prefs = context.getSharedPreferences("HealthPrefs", Context.MODE_PRIVATE)
@@ -68,6 +70,9 @@ class HealthRepository(private val context: Context) {
                 val cloudCaloriesOut = doc.getLong("caloriesOut")?.toInt()
                     ?: doc.getLong("calories")?.toInt() ?: 0  // Backward compat
                 val cloudCaloriesIn = doc.getLong("caloriesIn")?.toInt() ?: 0
+                val cloudCarbs = doc.getLong("carbs")?.toInt() ?: 0
+                val cloudProtein = doc.getLong("protein")?.toInt() ?: 0
+                val cloudFat = doc.getLong("fat")?.toInt() ?: 0
                 val cloudActiveMinutes = doc.getLong("activeMinutes")?.toInt() ?: 0
                 val cloudWaterConsumed = doc.getLong("waterConsumed")?.toInt() ?: 0
                 val cloudWaterGoal = doc.getLong("waterGoal")?.toInt() ?: 0
@@ -85,6 +90,9 @@ class HealthRepository(private val context: Context) {
                             stepGoal = cloudStepGoal,
                             caloriesOut = cloudCaloriesOut,
                             caloriesIn = cloudCaloriesIn,
+                            carbs = cloudCarbs,
+                            protein = cloudProtein,
+                            fat = cloudFat,
                             activeMinutes = cloudActiveMinutes,
                             waterConsumed = cloudWaterConsumed,
                             waterGoal = cloudWaterGoal,
@@ -101,6 +109,9 @@ class HealthRepository(private val context: Context) {
                                 steps = cloudSteps,
                                 caloriesOut = maxOf(cloudCaloriesOut, localRecord.caloriesOut),
                                 caloriesIn = maxOf(cloudCaloriesIn, localRecord.caloriesIn),
+                                carbs = maxOf(cloudCarbs, localRecord.carbs),
+                                protein = maxOf(cloudProtein, localRecord.protein),
+                                fat = maxOf(cloudFat, localRecord.fat),
                                 activeMinutes = maxOf(cloudActiveMinutes, localRecord.activeMinutes),
                                 waterConsumed = maxOf(cloudWaterConsumed, localRecord.waterConsumed),
                                 waterGoal = maxOf(cloudWaterGoal, localRecord.waterGoal),
@@ -113,10 +124,166 @@ class HealthRepository(private val context: Context) {
                         healthDao.updateSyncStatus(date, 0)
                     }
                 }
+
+                // Sync embedded sleep and water logs
+                val cloudSleepSessions = doc.get("sleepSessions") as? List<Map<String, Any>>
+                if (cloudSleepSessions != null) {
+                    cloudSleepSessions.forEach { map ->
+                        val id = map["id"] as? String ?: return@forEach
+                        val bedTime = map["bedTimeTimestamp"] as? Long ?: return@forEach
+                        val wakeTime = map["wakeTimeTimestamp"] as? Long ?: return@forEach
+                        val quality = (map["sleepQuality"] as? Number)?.toInt() ?: 3
+                        val isDeleted = map["isDeleted"] as? Boolean ?: false
+                        
+                        sleepLogDao.insertSleepSession(
+                            com.example.finfit.health.model.SleepSessionEntity(
+                                id = id,
+                                date = date,
+                                bedTimeTimestamp = bedTime,
+                                wakeTimeTimestamp = wakeTime,
+                                sleepQuality = quality,
+                                isDeleted = isDeleted
+                            )
+                        )
+                    }
+                }
+
+                val cloudWaterLogs = doc.get("waterLogs") as? List<Map<String, Any>>
+                if (cloudWaterLogs != null) {
+                    cloudWaterLogs.forEach { map ->
+                        val id = map["id"] as? String ?: return@forEach
+                        val amount = (map["amountMl"] as? Number)?.toInt() ?: return@forEach
+                        val timestamp = map["timestamp"] as? Long ?: return@forEach
+                        val isDeleted = map["isDeleted"] as? Boolean ?: false
+                        val drinkType = map["drinkType"] as? String ?: "WATER"
+                        val caffeineMg = (map["caffeineMg"] as? Number)?.toInt() ?: 0
+                        val source = map["source"] as? String ?: "MANUAL"
+                        val contextSteps = (map["contextSteps"] as? Number)?.toInt() ?: 0
+                        val timezoneOffset = (map["timezoneOffset"] as? Number)?.toInt() ?: 25200
+                        val createdAt = map["createdAt"] as? Long ?: timestamp
+                        val updatedAt = map["updatedAt"] as? Long ?: System.currentTimeMillis()
+                        
+                        waterLogDao.insertLog(
+                            com.example.finfit.health.model.WaterLogEntity(
+                                id = id,
+                                date = date,
+                                amountMl = amount,
+                                timestamp = timestamp,
+                                drinkType = drinkType,
+                                caffeineMg = caffeineMg,
+                                source = source,
+                                contextSteps = contextSteps,
+                                timezoneOffset = timezoneOffset,
+                                createdAt = createdAt,
+                                syncStatus = 2, // SYNCED
+                                isDeleted = isDeleted,
+                                updatedAt = updatedAt
+                            )
+                        )
+                    }
+                }
             }
             Log.d("HealthRepo", "Cloud sync complete.")
         } catch (e: Exception) {
             Log.e("HealthRepo", "Cloud sync failed: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Đồng bộ từ Local lên Cloud (Push to Firebase).
+     * Được gọi bởi HealthSyncWorker hoặc Force Sync thủ công.
+     */
+    suspend fun pushLocalToCloud() {
+        val user = AuthRepository().getCurrentUser() ?: return
+        val uid = user.uid
+
+        // Kiểm tra Primary Device Auth trước khi Sync
+        val userDoc = firestore.collection("users").document(uid).get().await()
+        val cloudDeviceId = userDoc.getString("primaryDeviceId")
+        if (cloudDeviceId != null && cloudDeviceId != currentDeviceId) {
+            Log.e("HealthRepo", "Device ID mismatch! Kicking out current device.")
+            forceLogoutAndWipeLocalData()
+            return
+        }
+
+        // Lấy dữ liệu UNSYNCED
+        val unsyncedRecords = healthDao.getUnsyncedRecords()
+        if (unsyncedRecords.isEmpty()) return
+
+        // Đánh dấu SYNCING
+        unsyncedRecords.forEach {
+            healthDao.updateSyncStatus(it.date, 1)
+        }
+
+        try {
+            val batch = firestore.batch()
+            unsyncedRecords.forEach { entity ->
+                val docRef = firestore.collection("users").document(uid)
+                    .collection("health_history").document(entity.date)
+
+                // Fetch detailed logs
+                val sleepSessions = sleepLogDao.getSleepSessionsForDate(entity.date)
+                val waterLogs = waterLogDao.getLogsByDate(entity.date)
+
+                val sleepSessionsArray = sleepSessions.map {
+                    mapOf(
+                        "id" to it.id,
+                        "bedTimeTimestamp" to it.bedTimeTimestamp,
+                        "wakeTimeTimestamp" to it.wakeTimeTimestamp,
+                        "sleepQuality" to it.sleepQuality,
+                        "isDeleted" to it.isDeleted
+                    )
+                }
+
+                val waterLogsArray = waterLogs.map {
+                    mapOf(
+                        "id" to it.id,
+                        "amountMl" to it.amountMl,
+                        "timestamp" to it.timestamp,
+                        "isDeleted" to it.isDeleted,
+                        "drinkType" to it.drinkType,
+                        "caffeineMg" to it.caffeineMg,
+                        "source" to it.source,
+                        "contextSteps" to it.contextSteps,
+                        "timezoneOffset" to it.timezoneOffset,
+                        "createdAt" to it.createdAt,
+                        "updatedAt" to it.updatedAt
+                    )
+                }
+
+                val data = hashMapOf(
+                    "steps" to entity.steps,
+                    "stepGoal" to entity.stepGoal,
+                    "caloriesOut" to entity.caloriesOut,
+                    "caloriesIn" to entity.caloriesIn,
+                    "carbs" to entity.carbs,
+                    "protein" to entity.protein,
+                    "fat" to entity.fat,
+                    "activeMinutes" to entity.activeMinutes,
+                    "waterConsumed" to entity.waterConsumed,
+                    "waterGoal" to entity.waterGoal,
+                    "sleepHours" to entity.sleepHours,
+                    "sleepSessions" to sleepSessionsArray,
+                    "waterLogs" to waterLogsArray,
+                    "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                )
+                batch.set(docRef, data, SetOptions.merge())
+            }
+
+            // Thực thi commit
+            batch.commit().await()
+
+            // Cập nhật trạng thái SYNCED
+            unsyncedRecords.forEach {
+                healthDao.updateSyncStatus(it.date, 2)
+            }
+            Log.d("HealthRepo", "Local push to Cloud complete.")
+        } catch (e: Exception) {
+            // Lỗi mạng -> Đặt lại UNSYNCED
+            unsyncedRecords.forEach {
+                healthDao.updateSyncStatus(it.date, 0)
+            }
+            throw e
         }
     }
 
@@ -344,5 +511,27 @@ class HealthRepository(private val context: Context) {
         val uid = user.uid
         val localKey = "first_1000_steps_celebrated_$uid"
         prefs.edit().putBoolean(localKey, true).apply()
+    }
+
+    // ====================================================================
+    // WATER REMINDER & SLEEP PREFERENCES (PHASE 1)
+    // ====================================================================
+
+    fun isWaterReminderEnabled(): Boolean {
+        return prefs.getBoolean("water_reminder_enabled", false)
+    }
+
+    fun setWaterReminderEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("water_reminder_enabled", enabled).apply()
+    }
+
+    /** Trả về phút trong ngày của giờ đi ngủ (Mặc định 22:00 = 1320) */
+    fun getBedTimeMinute(): Int {
+        return prefs.getInt("bed_time_minute", 22 * 60)
+    }
+
+    /** Trả về phút trong ngày của giờ thức dậy (Mặc định 08:00 = 480) */
+    fun getWakeTimeMinute(): Int {
+        return prefs.getInt("wake_time_minute", 8 * 60)
     }
 }

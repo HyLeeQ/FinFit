@@ -89,7 +89,7 @@ class StepCounterService : Service() {
                 .build()
             
             androidx.work.WorkManager.getInstance(applicationContext).enqueue(syncRequest)
-            stopSelf()
+            // BỎ stopSelf() để Service tiếp tục chạy ngầm đếm bước chân
         }
     }
 

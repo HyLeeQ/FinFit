@@ -205,8 +205,6 @@ fun HealthPlaceholderScreen(
     }
 }
 
-// ── Màn hình con
-@Composable fun FoodScannerScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "AI quét món ăn", onBack = onBack, onHome = onHome)
 @Composable fun HealthStatsScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Phân tích sức khỏe", showBackButton = false, onBack = onBack, onHome = onHome)
 @Composable fun HealthPredictionScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Dự báo sức khỏe", onBack = onBack, onHome = onHome)
 @Composable fun HealthLogScreen(userEmail: String, onBack: () -> Unit, onHome: () -> Unit = onBack) = HealthPlaceholderScreen(userEmail, "Nhật ký sức khỏe", onBack = onBack, onHome = onHome)
@@ -264,7 +262,7 @@ fun HealthDashboardScreen(
             HealthWaterMiniCard(
                 consumedMl = uiState.waterConsumedMl,
                 goalMl = uiState.waterGoalMl,
-                onAddWater = { amount -> healthViewModel.addWater(amount) },
+                onAddWater = { amount -> healthViewModel.logWater(amountMl = amount, goalMl = uiState.waterGoalMl) },
                 onClick = { onNavigate(Routes.WATER_TRACKER) }
             )
         }
@@ -360,7 +358,10 @@ fun HealthWaterMiniCard(
         animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
         label = "waterFillAnimMini"
     )
-    val waterColor = Color(0xFF64b5f6) // Primary
+    // UX Rule: Xanh dương khi chưa đạt, xanh lá khi đạt goal
+    val goalReached = consumedMl >= goalMl && goalMl > 0
+    val targetWaterColor = if (goalReached) Color(0xFF81C784) else Color(0xFF64B5F6)
+    val waterColor by animateColorAsState(targetWaterColor, tween(600), label = "waterColorGoal")
 
     // Bubble management
     val maxBubbles = 20

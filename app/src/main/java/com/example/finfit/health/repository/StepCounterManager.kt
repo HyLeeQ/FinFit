@@ -36,8 +36,8 @@ class StepCounterManager private constructor(private val context: Context) : Sen
 
         private const val DB_WRITE_STEP_THRESHOLD = 10
         private const val DB_WRITE_TIME_THRESHOLD = 30_000L
-        private const val ACCEL_SHAKE_THRESHOLD = 20.0
-        private const val GYRO_SHAKE_THRESHOLD = 5.0
+        private const val ACCEL_SHAKE_THRESHOLD = 60.0 // Tăng lên 60.0 (chịu được rung chấn khi chạy bộ)
+        private const val GYRO_SHAKE_THRESHOLD = 15.0 // Nâng biên độ con quay hồi chuyển
         private const val AI_TIMEOUT_MS = 60_000L
     }
 
@@ -87,6 +87,17 @@ class StepCounterManager private constructor(private val context: Context) : Sen
     private var latestGyroMagnitude: Double = 0.0
     private var isShaking: Boolean = false
     private var shakeEndTimeMillis: Long = 0L
+    
+    // ====== Cached Prefs ======
+    @Volatile private var cachedIsUserWalking: Boolean = true
+    @Volatile private var cachedLastActivityUpdateTime: Long = 0L
+
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+        when (key) {
+            "isUserWalking" -> cachedIsUserWalking = sharedPreferences.getBoolean(key, true)
+            "lastActivityUpdateTime" -> cachedLastActivityUpdateTime = sharedPreferences.getLong(key, 0L)
+        }
+    }
 
     // ====== State: Buffered DB Write ======
     private var lastDbWriteTimeMillis: Long = 0L
@@ -105,8 +116,22 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             checkAndResetDate()
         } else {
             _activeMinutes.value = (activeTimeAccumulatedMs / 60_000L).toInt()
+            
+            // Phục hồi UI state (kể cả pending steps) để chống rollback ảo khi App bị kill
+            val displayedCache = prefs.getInt("displayed_steps_cache", 0)
+            if (displayedCache > 0) {
+                _todaySteps.value = displayedCache
+                _calories.value = (displayedCache * 0.04).toInt()
+                // Tạm thời coi toàn bộ cache là pending, lát loadStepsFromDb() sẽ trừ đi phần đã confirm
+                pendingDetectorSteps = displayedCache
+            }
+            
             loadStepsFromDb()
         }
+        
+        cachedIsUserWalking = prefs.getBoolean("isUserWalking", true)
+        cachedLastActivityUpdateTime = prefs.getLong("lastActivityUpdateTime", 0L)
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
     }
 
     private fun getCurrentDate(): String {
@@ -119,8 +144,28 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             val date = getCurrentDate()
             val healthEntity = healthDao.getHealthByDate(date)
             val steps = healthEntity?.steps ?: 0
-            _todaySteps.value = steps
-            lastConfirmedSteps = steps
+            
+            synchronized(this@StepCounterManager) {
+                // Chỉ cập nhật nếu DB lưu số lớn hơn confirmed steps hiện tại
+                if (steps > lastConfirmedSteps) {
+                    val currentUI = _todaySteps.value
+                    
+                    if (steps >= currentUI) {
+                        // Trường hợp 1: DB đã vượt qua cả UI hiện tại (Vd: Khởi động app, hoặc sync từ máy khác)
+                        lastConfirmedSteps = steps
+                        pendingDetectorSteps = 0
+                        _todaySteps.value = steps
+                        _calories.value = (steps * 0.04).toInt()
+                    } else {
+                        // Trường hợp 2: DB lớn hơn confirmed cũ, nhưng VẪN NHỎ HƠN UI hiện hành.
+                        // (Vd: DB load chậm, user đã kịp đi bộ thêm vài bước từ lúc bật app).
+                        // Áp dụng nguyên tắc Monotonic: Tuyệt đối KHÔNG trừ lùi UI.
+                        lastConfirmedSteps = steps
+                        pendingDetectorSteps = currentUI - steps
+                        // _todaySteps.value và _calories.value giữ nguyên không đổi!
+                    }
+                }
+            }
         }
     }
 
@@ -181,7 +226,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
                 latestAccelMagnitude = sqrt((x * x + y * y + z * z).toDouble())
                 if (latestAccelMagnitude > ACCEL_SHAKE_THRESHOLD) {
                     isShaking = true
-                    shakeEndTimeMillis = now + 2000L
+                    shakeEndTimeMillis = now + 500L // Giảm thời gian phạt xuống 500ms
                 }
             }
 
@@ -190,7 +235,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
                 latestGyroMagnitude = sqrt((x * x + y * y + z * z).toDouble())
                 if (latestGyroMagnitude > GYRO_SHAKE_THRESHOLD) {
                     isShaking = true
-                    shakeEndTimeMillis = now + 2000L
+                    shakeEndTimeMillis = now + 500L
                 }
             }
 
@@ -198,9 +243,12 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             // Hiển thị tạm: lastConfirmedSteps + pendingDetectorSteps
             // Khi STEP_COUNTER bắt kịp → recalibrate, pending reset
             Sensor.TYPE_STEP_DETECTOR -> {
-                if (isStepAllowed()) {
-                    pendingDetectorSteps++
-                    _todaySteps.value = lastConfirmedSteps + pendingDetectorSteps
+                if (isDetectorAllowed()) {
+                    synchronized(this) {
+                        pendingDetectorSteps++
+                        _todaySteps.value = lastConfirmedSteps + pendingDetectorSteps
+                        saveStateToPrefs() // Đảm bảo số trên màn hình được lưu ngay lập tức
+                    }
                 }
             }
 
@@ -211,18 +259,26 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         }
     }
 
-    // ====== BỘ LỌC 3 LỚP ======
-    private fun isStepAllowed(): Boolean {
+    // ====== BỘ LỌC TÁCH BIỆT ======
+    private fun isDetectorAllowed(): Boolean {
+        // Detector nhảy real-time nên dễ bị nhiễu cục bộ -> Dùng isShaking để lọc
         if (isShaking) return false
+        return isActivityAllowed()
+    }
 
-        val isUserWalking = prefs.getBoolean("isUserWalking", true)
-        if (!isUserWalking) {
-            val lastUpdate = prefs.getLong("lastActivityUpdateTime", 0L)
-            val timeSinceUpdate = System.currentTimeMillis() - lastUpdate
+    private fun isCounterAllowed(): Boolean {
+        // Counter là chip phần cứng đã tự lọc nhiễu rất tốt.
+        // Tuyệt đối KHÔNG dùng isShaking để block Counter, nếu không sẽ xoá nhầm bước thật.
+        // Chỉ block nếu Google AI chắc chắn user đang đi xe.
+        return isActivityAllowed()
+    }
+
+    private fun isActivityAllowed(): Boolean {
+        if (!cachedIsUserWalking) {
+            val timeSinceUpdate = System.currentTimeMillis() - cachedLastActivityUpdateTime
             if (timeSinceUpdate > AI_TIMEOUT_MS) return true
             return false
         }
-
         return true
     }
 
@@ -254,7 +310,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         }
 
         // ─── Anti-Cheat Gate ───
-        if (!isStepAllowed()) {
+        if (!isCounterAllowed()) {
             val rejectedSteps = currentSensorSteps - inMemoryLastSensorValue
             if (rejectedSteps > 0) {
                 sensorOffset += rejectedSteps
@@ -271,16 +327,22 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         if (todayStepsCalculated < 0) return
 
         // ──── RECALIBRATE: Đồng bộ STEP_DETECTOR với STEP_COUNTER ────
-        // STEP_COUNTER là nguồn chính xác → ghi đè giá trị, reset pending
-        lastConfirmedSteps = todayStepsCalculated
-        pendingDetectorSteps = 0
-        _todaySteps.value = todayStepsCalculated
-        _calories.value = (todayStepsCalculated * 0.04).toInt()
+        synchronized(this) {
+            val currentUI = _todaySteps.value
+            if (todayStepsCalculated >= currentUI) {
+                lastConfirmedSteps = todayStepsCalculated
+                pendingDetectorSteps = 0
+                _todaySteps.value = todayStepsCalculated
+                _calories.value = (todayStepsCalculated * 0.04).toInt()
+            } else {
+                lastConfirmedSteps = todayStepsCalculated
+                pendingDetectorSteps = currentUI - todayStepsCalculated
+            }
+        }
 
         // Tích lũy Active Time khi isUserWalking == true
         val now2 = System.currentTimeMillis()
-        val isUserWalking = prefs.getBoolean("isUserWalking", true)
-        if (isUserWalking && lastActiveCheckTimeMs > 0L) {
+        if (cachedIsUserWalking && lastActiveCheckTimeMs > 0L) {
             val delta = now2 - lastActiveCheckTimeMs
             if (delta in 1..10_000L) { // chỉ tích lũy delta hợp lý (< 10s)
                 activeTimeAccumulatedMs += delta
@@ -295,12 +357,17 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         stepsSinceLastDbWrite++
         val timeSinceLastWrite = currentTime - lastDbWriteTimeMillis
         if (stepsSinceLastDbWrite >= DB_WRITE_STEP_THRESHOLD || timeSinceLastWrite >= DB_WRITE_TIME_THRESHOLD) {
+            // CHỈ LƯU CONFIRMED STEPS XUỐNG DB ĐỂ BẢO VỆ TÍNH ĐÚNG ĐẮN CỦA DỮ LIỆU
+            val confirmedStepsToSave = lastConfirmedSteps
+            val confirmedCalories = (lastConfirmedSteps * 0.04).toInt()
+            val safeActiveMins = _activeMinutes.value
+            
             CoroutineScope(Dispatchers.IO).launch {
                 safeUpsertStepData(
                     date = currentDate,
-                    steps = todayStepsCalculated,
-                    caloriesOut = _calories.value,
-                    activeMinutes = _activeMinutes.value
+                    steps = confirmedStepsToSave,
+                    caloriesOut = confirmedCalories,
+                    activeMinutes = safeActiveMins
                 )
             }
             stepsSinceLastDbWrite = 0
@@ -314,6 +381,7 @@ class StepCounterManager private constructor(private val context: Context) : Sen
             .putInt("sensor_offset", sensorOffset)
             .putInt("last_sensor_value", inMemoryLastSensorValue)
             .putLong("active_time_ms", activeTimeAccumulatedMs)
+            .putInt("displayed_steps_cache", _todaySteps.value)
             .apply()
     }
 
@@ -329,14 +397,15 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         synchronized(this) {
             if (inMemorySavedDate != currentDate) {
                 // 1. Lưu lại nốt số liệu của Ngày Cũ (nếu có) trước khi xóa
-                val stepsToSave = _todaySteps.value
+                val stepsToSave = lastConfirmedSteps
                 val oldDate = inMemorySavedDate
                 if (stepsToSave > 0 && oldDate.isNotEmpty()) {
+                    val confirmedCalories = (stepsToSave * 0.04).toInt()
                     CoroutineScope(Dispatchers.IO).launch {
                         safeUpsertStepData(
                             date = oldDate,
                             steps = stepsToSave,
-                            caloriesOut = _calories.value,
+                            caloriesOut = confirmedCalories,
                             activeMinutes = _activeMinutes.value
                         )
                     }
@@ -372,18 +441,26 @@ class StepCounterManager private constructor(private val context: Context) : Sen
         return didRollover
     }
 
-    suspend fun flushToDatabase() {
+    suspend fun flushToDatabase(forceSyncAll: Boolean = false) {
         // Đảm bảo không flush nhầm số liệu cũ vào ngày mới
         checkAndResetDate()
         
-        val currentSteps = _todaySteps.value
-        if (currentSteps > 0) {
+        if (forceSyncAll) {
+            synchronized(this) {
+                lastConfirmedSteps = _todaySteps.value
+                pendingDetectorSteps = 0
+            }
+        }
+        
+        val confirmedStepsToSave = lastConfirmedSteps
+        if (confirmedStepsToSave > 0) {
             val strictDate = inMemorySavedDate // KHÔNG dùng getCurrentDate() ở đây!
+            val confirmedCalories = (confirmedStepsToSave * 0.04).toInt()
             kotlinx.coroutines.withContext(Dispatchers.IO) {
                 safeUpsertStepData(
                     date = strictDate,
-                    steps = currentSteps,
-                    caloriesOut = _calories.value,
+                    steps = confirmedStepsToSave,
+                    caloriesOut = confirmedCalories,
                     activeMinutes = _activeMinutes.value
                 )
             }

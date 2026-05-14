@@ -122,7 +122,7 @@ fun MainScreen(
         Routes.FOOD_SCANNER,
         Routes.HEALTH_PREDICTION,
         Routes.HEALTH_LOG
-    )
+    ) || currentRoute?.startsWith("food_camera") == true
     // Ẩn toàn bộ thanh bars khi vào AI
     val isAssistantScreen = currentRoute == Routes.ASSISTANT
     val showBars = !isHealthSubScreen && !isAssistantScreen

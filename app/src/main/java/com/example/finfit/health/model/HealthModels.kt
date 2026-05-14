@@ -34,6 +34,13 @@ data class HealthUiState(
     val stepGoal: Int = 1000,
     val caloriesOut: Int = 0,
     val caloriesIn: Int = 0,
+    val calorieGoal: Int = 2200,
+    val carbs: Int = 0,
+    val carbsGoal: Int = 250,
+    val protein: Int = 0,
+    val proteinGoal: Int = 120,
+    val fat: Int = 0,
+    val fatGoal: Int = 70,
     val activeMinutes: Int = 0,
     val activeMinuteGoal: Int = 60,
     val waterConsumedMl: Int = 0,
@@ -59,6 +66,87 @@ data class WaterPreset(
     val name: String,
     val icon: ImageVector,
     val defaultAmount: Int   // Dung tích mặc định (ml)
+)
+
+// ====================================================================
+// WATER UI STATE — State riêng cho WaterTrackerScreen
+// ====================================================================
+
+/**
+ * WaterUiState — Sealed class quản lý trạng thái màn hình Uống nước.
+ *
+ * Tách biệt hoàn toàn khỏi HealthUiState để:
+ *  - WaterTrackerScreen chỉ subscribe vào state của riêng nó (không re-render vì bước chân thay đổi)
+ *  - Dễ dàng mở rộng Water module mà không làm ảnh hưởng Dashboard tổng
+ */
+sealed class WaterUiState {
+    /** Lần đầu load, chưa có data */
+    data object Loading : WaterUiState()
+
+    /** Đã có data — chứa toàn bộ thông tin cần thiết cho UI */
+    data class Ready(val data: WaterScreenData) : WaterUiState()
+
+    /** Có lỗi nghiệp vụ (VD: Log thất bại) */
+    data class Error(val message: String) : WaterUiState()
+}
+
+/**
+ * WaterScreenData — Data class tổng hợp mọi thông tin UI cần hiển thị.
+ *
+ * Thiết kế: Không để lộ Entity/DAO ra ngoài ViewModel.
+ * UI chỉ đọc data class này, không nhận WaterLogEntity trực tiếp.
+ */
+data class WaterScreenData(
+    /** Lượng nước đã uống hôm nay (ml) — từ WaterDailySummary.totalConsumedMl */
+    val consumedMl: Int = 0,
+
+    /** Mục tiêu nước hôm nay (ml) — từ WaterDailySummary.dailyGoalMl */
+    val goalMl: Int = 2000,
+
+    /** Tiến độ hoàn thành (0f -> 1f). Tính sẵn để UI không phải tính toán */
+    val progress: Float = 0f,
+
+    /** Tổng Caffeine nạp vào hôm nay (mg) — từ WaterDailySummary.totalCaffeineMg */
+    val totalCaffeineMg: Int = 0,
+
+    /** Timestamp (Epoch ms) lần uống nước gần nhất — từ WaterDailySummary.lastDrinkTimestamp */
+    val lastDrinkTimestamp: Long = 0L,
+
+    /** Danh sách raw logs để vẽ Hourly Chart — từ WaterLogDao.observeLogsByDate() */
+    val todayLogs: List<WaterLogUiItem> = emptyList(),
+
+    /** Projection dùng riêng cho UI danh sách: 5 logs gần nhất, sắp xếp mới nhất lên đầu */
+    val recentLogs: List<WaterLogUiItem> = emptyList(),
+
+    /** Dữ liệu biểu đồ tích lũy (13 điểm: 00:00 đến 24:00 cách nhau 2 tiếng) */
+    val chartData: List<Float> = emptyList(),
+
+    /** Ngày đang xem (yyyy-MM-dd). Mặc định là hôm nay */
+    val selectedDate: String = "",
+
+    /**
+     * True trong khoảng thời gian gọi logWater() đang thực thi (cho Progress Indicator nhỏ).
+     * Không block cả màn hình, chỉ disable nút Add để tránh bấm liên tục.
+     */
+    val isLogging: Boolean = false,
+
+    /** Trạng thái bật tắt nhắc nhở uống nước */
+    val isReminderEnabled: Boolean = false
+) {
+    /** Số ml còn thiếu để đạt goal */
+    val remainingMl: Int get() = maxOf(0, goalMl - consumedMl)
+}
+
+/**
+ * WaterLogUiItem — Đại diện của 1 sự kiện uống nước trong UI.
+ * Chuyển từ WaterLogEntity sang, không bao giờ expose Entity ra View.
+ */
+data class WaterLogUiItem(
+    val id: String,
+    val timestamp: Long,
+    val amountMl: Int,
+    val drinkType: String,
+    val isDeleted: Boolean
 )
 
 // ====================================================================
@@ -93,10 +181,56 @@ fun HealthEntity?.toUiState(
         stepGoal = stepGoal,
         caloriesOut = maxOf(sensorCaloriesOut, caloriesOut),
         caloriesIn = caloriesIn,
+        calorieGoal = 2200, // Default or fetch from profile
+        carbs = carbs,
+        carbsGoal = 250,
+        protein = protein,
+        proteinGoal = 120,
+        fat = fat,
+        fatGoal = 70,
         activeMinutes = maxOf(sensorActiveMinutes, activeMinutes),
         activeMinuteGoal = 60,
         waterConsumedMl = waterConsumed,
         waterGoalMl = finalWaterGoal,
         sleepHours = sleepHours
     )
+}
+
+// ====================================================================
+// SLEEP MODULE STATE
+// ====================================================================
+
+/**
+ * SleepUiState — Sealed class cho trạng thái UI của SleepTrackerScreen.
+ */
+sealed class SleepUiState {
+    data object Loading : SleepUiState()
+    data class Ready(val data: SleepScreenData) : SleepUiState()
+    data class Error(val message: String) : SleepUiState()
+}
+
+/**
+ * SleepScreenData — Chứa toàn bộ dữ liệu hiển thị trên màn hình Giấc ngủ.
+ */
+data class SleepScreenData(
+    val selectedDate: String = "",
+    val totalSleepHours: Float = 0f,
+    val sleepGoalHours: Float = 8f,
+    val bedTimeMinuteOfDay: Int = 22 * 60, // Lấy từ preferences
+    val wakeTimeMinuteOfDay: Int = 8 * 60, // Lấy từ preferences
+    val todaySessions: List<SleepLogUiItem> = emptyList()
+) {
+    val progress: Float get() = if (sleepGoalHours > 0f) (totalSleepHours / sleepGoalHours).coerceIn(0f, 1f) else 0f
+}
+
+/**
+ * SleepLogUiItem — Đại diện cho 1 giấc ngủ trên UI.
+ */
+data class SleepLogUiItem(
+    val id: String,
+    val bedTimeTimestamp: Long,
+    val wakeTimeTimestamp: Long,
+    val sleepQuality: Int
+) {
+    val durationHours: Float get() = (wakeTimeTimestamp - bedTimeTimestamp) / (1000f * 60 * 60)
 }

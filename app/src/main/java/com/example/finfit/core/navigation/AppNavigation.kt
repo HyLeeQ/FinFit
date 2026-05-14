@@ -38,6 +38,7 @@ object Routes {
     const val WATER_TRACKER = "water_tracker"
     const val STEP_COUNTER = "stepCounter"
     const val FOOD_SCANNER = "food_scanner"
+    const val FOOD_CAMERA = "food_camera/{mealTitle}"
     const val HEALTH_STATS = "health_stats"
     const val HEALTH_PREDICTION = "health_prediction"
     const val HEALTH_LOG = "health_log"

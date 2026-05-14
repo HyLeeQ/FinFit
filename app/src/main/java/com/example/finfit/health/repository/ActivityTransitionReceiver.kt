@@ -36,10 +36,9 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                         }
                     }
                     // STILL: KHÔNG khoá bước — vì giữa mỗi bước đi đều có khoảnh khắc "đứng yên"
-                    // Chỉ ghi timestamp để StepCounterManager biết AI vẫn hoạt động
+                    // KHÔNG ghi timestamp để AI timeout (60s) có thể tự động gỡ khoá nếu vừa xuống xe
                     DetectedActivity.STILL -> {
-                        editor.putLong("lastActivityUpdateTime", System.currentTimeMillis())
-                        // Không thay đổi isUserWalking
+                        // Không làm gì cả để cơ chế Timeout 60s phát huy tác dụng
                     }
                     else -> {
                         // Trạng thái khác (ON_BICYCLE, TILTING, UNKNOWN): giữ nguyên
