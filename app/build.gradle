@@ -33,6 +33,16 @@ android {
             useSupportLibrary true
         }
 
+        // --- Mã nguồn từ GitHub của bạn bạn (Module Assistant/Finance) ---
+        // Đọc API key từ local.properties (không commit lên git)
+        def githubProperties = new Properties()
+        def githubPropertiesFile = rootProject.file('local.properties')
+        if (githubPropertiesFile.exists()) {
+            githubPropertiesFile.withInputStream { githubProperties.load(it) }
+        }
+        buildConfigField "String", "GEMINI_API_KEY", "\"${githubProperties['GEMINI_API_KEY'] ?: ''}\""
+
+        // --- Mã nguồn tại máy của bạn (Module Health) ---
         buildConfigField "String", "VISION_API_KEY", "\"${visionApiKey}\""
         buildConfigField "String", "CLOUDINARY_CLOUD_NAME", "\"${cloudinaryCloudName}\""
         buildConfigField "String", "CLOUDINARY_UPLOAD_PRESET", "\"${cloudinaryUploadPreset}\""

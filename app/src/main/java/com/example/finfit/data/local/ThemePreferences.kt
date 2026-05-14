@@ -30,4 +30,12 @@ class ThemePreferences(context: Context) {
     fun getLastTab(): String {
         return prefs.getString("last_tab", com.example.finfit.core.navigation.Routes.DASHBOARD) ?: com.example.finfit.core.navigation.Routes.DASHBOARD
     }
+
+    fun hasSeenOnboarding(): Boolean {
+        return prefs.getBoolean("has_seen_onboarding", false)
+    }
+
+    fun setOnboardingSeen() {
+        prefs.edit().putBoolean("has_seen_onboarding", true).apply()
+    }
 }

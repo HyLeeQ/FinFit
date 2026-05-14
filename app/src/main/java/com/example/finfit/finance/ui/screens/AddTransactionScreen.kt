@@ -57,6 +57,9 @@ fun AddTransactionScreen(
     budgets: List<FinanceBudget> = emptyList(),
     transactions: List<FinanceTransaction> = emptyList(),
     initialType: TransactionType = TransactionType.EXPENSE,
+    autoOpenCamera: Boolean = false,
+    initialAmount: Double = 0.0,
+    initialNote: String = "",
     onSave: (FinanceTransaction, AppUserWallet, android.net.Uri?) -> Unit,
     onBack: () -> Unit,
     onHome: () -> Unit = onBack
@@ -67,8 +70,8 @@ fun AddTransactionScreen(
     LaunchedEffect(Unit) { visible = true }
 
     var txType   by remember { mutableStateOf(initialType) }
-    var amount   by remember { mutableStateOf("") }
-    var note     by remember { mutableStateOf("") }
+    var amount   by remember { mutableStateOf(if (initialAmount > 0) initialAmount.toLong().toString() else "") }
+    var note     by remember { mutableStateOf(initialNote) }
     var category by remember { mutableStateOf("") }
     var isGroupPrepayment by remember { mutableStateOf(false) }
     var participantCount by remember { mutableIntStateOf(2) }
@@ -87,6 +90,13 @@ fun AddTransactionScreen(
             val file = java.io.File(context.cacheDir, "temp_diary_${System.currentTimeMillis()}.jpg")
             file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
             selectedImageUri = android.net.Uri.fromFile(file)
+        }
+    }
+
+    // Tự động mở camera nếu được yêu cầu từ Navbar
+    LaunchedEffect(autoOpenCamera) {
+        if (autoOpenCamera && selectedImageUri == null) {
+            cameraLauncher.launch(null)
         }
     }
 

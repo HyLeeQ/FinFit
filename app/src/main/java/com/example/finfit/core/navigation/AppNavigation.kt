@@ -8,12 +8,16 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // Định nghĩa các tên màn hình
 object Routes {
     const val SPLASH = "splash"
+    const val ONBOARDING = "onboarding"
+    const val SETUP_CURRENCY = "setup_currency"
+    const val SETUP_CATEGORIES = "setup_categories"
     const val AUTH = "auth"
     const val MAIN = "main"
     const val ADD = "add"
@@ -21,6 +25,7 @@ object Routes {
     const val DASHBOARD = "dashboard" // Trang chủ tài chính
     const val FINANCE_WALLET = "finance_wallet" // Quản lý ví
     const val FINANCE_PLAN = "finance_plan" // Kế hoạch chi tiêu
+    const val BILL_SCANNER = "bill_scanner"
     const val SAVINGS_GOALS = "savings_goals"
     const val HELD_FUNDS = "held_funds"
     const val GENERAL_SAVINGS = "general_savings"
@@ -31,6 +36,7 @@ object Routes {
     const val TRANSACTION_HISTORY = "transaction_history"
     const val PHOTO_DIARY = "photo_diary"
     const val PROFILE = "profile" // Cá nhân chung
+    const val EDIT_PROFILE = "edit_profile"
     const val ASSISTANT = "assistant"
 
     // Health Routes
@@ -54,7 +60,7 @@ sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: 
     // Finance
     object FinanceHome : BottomNavItem(Routes.DASHBOARD, Icons.Default.Home, "Trang chủ")
     object FinanceWallet : BottomNavItem(Routes.FINANCE_WALLET, Icons.Default.AccountBalanceWallet, "Quản lý ví")
-    object FinancePlan : BottomNavItem(Routes.FINANCE_PLAN, Icons.AutoMirrored.Filled.List, "Sắp xếp")
+    object BillScanner : BottomNavItem(Routes.BILL_SCANNER, Icons.Default.PhotoCamera, "Quét Bill")
     
     // Health 
     object HealthHome : BottomNavItem(Routes.HEALTH_DASHBOARD, Icons.Default.Favorite, "Sức khỏe")

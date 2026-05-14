@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.shadow
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.*
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -46,6 +47,7 @@ import com.example.finfit.finance.repository.*
 import com.example.finfit.finance.ui.navigation.financeNavGraph
 import com.example.finfit.health.ui.*
 import com.example.finfit.ui.theme.PrimaryBlue
+import com.example.finfit.data.local.SetupPreferences
 import com.example.finfit.ui.assistant.AssistantScreen
 import kotlin.math.roundToInt
 
@@ -157,13 +159,13 @@ fun MainScreen(
         floatingActionButton = {
             if (appMode == AppMode.FINANCE && !isAssistantScreen) {
                 FloatingActionButton(
-                    onClick = { navController.navigate(Routes.ADD) },
+                    onClick = { navController.navigate(Routes.BILL_SCANNER) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = CircleShape,
                     modifier = Modifier.offset(y = 50.dp).size(64.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Thêm", modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.PhotoCamera, contentDescription = "Quét Bill", modifier = Modifier.size(28.dp))
                 }
             }
         },
@@ -195,6 +197,25 @@ fun MainScreen(
                     navController = navController,
                     userEmail = userEmail
                 )
+
+                // Bill Scanner
+                composable(Routes.BILL_SCANNER) {
+                    val user = com.example.finfit.data.repository.AuthRepository().getCurrentUser()
+                    if (user != null) {
+                        com.example.finfit.finance.ui.screens.BillScannerScreen(
+                            onBack = { navController.popBackStack() },
+                            onConfirm = { amount, note, imageUri ->
+                                // Truyền amount và note sang AddTransaction
+                                val encodedNote = java.net.URLEncoder.encode(note.ifBlank { "" }, "UTF-8")
+                                navController.navigate(
+                                    "${Routes.ADD}?type=EXPENSE&amount=$amount&note=$encodedNote"
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                }
 
                 // Assistant screen
                 composable(Routes.ASSISTANT) {
@@ -237,9 +258,23 @@ fun MainScreen(
                             goals = savingsGoals,
                             themeMode = themeMode,
                             onThemeChange = onThemeChange,
-                            onLogout = onLogout
+                            onLogout = onLogout,
+                            onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) }
                         )
                     }
+                }
+                composable(Routes.EDIT_PROFILE) {
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val setupPrefs = remember { SetupPreferences(ctx) }
+                    EditProfileScreen(
+                        email = userEmail,
+                        initial = setupPrefs.getUserProfile(),
+                        onBack = { navController.popBackStack() },
+                        onSave = { profile ->
+                            setupPrefs.saveUserProfile(profile)
+                            navController.popBackStack()
+                        }
+                    )
                 }
             }
             
@@ -396,7 +431,7 @@ fun BottomNavigationBar(navController: NavHostController, appMode: AppMode, onTa
             BottomNavItem.FinanceHome,
             BottomNavItem.FinanceWallet,
             null, // Placeholder for FAB
-            BottomNavItem.FinancePlan,
+            BottomNavItem.BillScanner,
             BottomNavItem.Profile
         )
     } else {

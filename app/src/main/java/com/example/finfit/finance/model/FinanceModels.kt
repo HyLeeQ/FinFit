@@ -88,6 +88,13 @@ data class AppUserWallet(
 // ──────────────────────────────────────────────────────────────
 //  Giao dịch
 // ──────────────────────────────────────────────────────────────
+data class TransactionParticipant(
+        val name: String = "",
+        val shareAmount: Double = 0.0,
+        val paidAmount: Double = 0.0,
+        val isPaid: Boolean = false
+)
+
 data class FinanceTransaction(
         val id: String = "",
         val amount: Double = 0.0,
@@ -104,7 +111,8 @@ data class FinanceTransaction(
         val isGroupPrepayment: Boolean = false, // Đánh dấu là trả trước cho nhóm
         val personalAmount: Double = 0.0, // Phần tiền cá nhân chịu (trong giao dịch chia sẻ)
         val groupAmount: Double = 0.0,    // Phần tiền người khác chịu (trả trước hộ)
-        val participantCount: Int = 1     // Số người tham gia chia tiền
+        val participantCount: Int = 1,    // Số người tham gia chia tiền
+        val participants: List<TransactionParticipant> = emptyList() // Chi tiết từng người tham gia
 )
 
 data class SavingsGoal(

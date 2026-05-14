@@ -230,7 +230,10 @@ fun AddTransactionWithData(
     onTransactionSaved: () -> Unit,
     onBack: () -> Unit,
     onHome: () -> Unit = onBack,
-    initialTypeArg: String? = null
+    initialTypeArg: String? = null,
+    autoOpenCamera: Boolean = false,
+    initialAmount: Double = 0.0,
+    initialNote: String = ""
 ) {
     val initialType = try { initialTypeArg?.let { TransactionType.valueOf(it) } ?: TransactionType.EXPENSE } catch(e: Exception) { TransactionType.EXPENSE }
     val user = AuthRepository().getCurrentUser()
@@ -262,6 +265,9 @@ fun AddTransactionWithData(
                 budgets = budgets,
                 transactions = transactions,
                 initialType = initialType,
+                autoOpenCamera = autoOpenCamera,
+                initialAmount = initialAmount,
+                initialNote = initialNote,
                 onSave = { transaction, updatedWallet, imageUri ->
                     if (isSaving) return@AddTransactionScreen
                     wallet = updatedWallet

@@ -18,6 +18,16 @@ import java.util.UUID
 
 class BankNotificationListener : NotificationListenerService() {
 
+    companion object {
+        /**
+         * Flag cho biết listener hiện đang được hệ thống kết nối.
+         * MainActivity dùng flag này để quyết định có cần toggle lại không.
+         */
+        @Volatile
+        var isConnected: Boolean = false
+            private set
+    }
+
     private val firestoreRepository = FirestoreRepository()
     private val authRepository = AuthRepository()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -50,17 +60,22 @@ class BankNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        isConnected = true
         Log.d("BankNoti", "✅ NotificationListenerService đã kết nối")
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
+        isConnected = false
         Log.w("BankNoti", "⚠️ Mất kết nối - đang yêu cầu rebind...")
+        // requestRebind có thể bị MIUI/Xiaomi chặn nếu không được whitelist AutoStart.
+        // MainActivity.onResume() sẽ phát hiện isConnected = false và toggle lại component.
         requestRebind(ComponentName(this, BankNotificationListener::class.java))
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        isConnected = false
         serviceScope.cancel()
         Log.d("BankNoti", "🛑 Service destroyed, scope hủy")
     }
@@ -104,31 +119,44 @@ class BankNotificationListener : NotificationListenerService() {
      *  - Techcombank: "-350,000 VND TK..."
      */
     private fun parseBankingContent(raw: String): Triple<Double, TransactionType, String?>? {
-        // Chuẩn hóa: bỏ dấu phẩy, dấu chấm làm separator (giữ lại chữ, số, dấu +/-)
-        val content = raw
-            .replace(",", "")
-            .replace(Regex("""(\d)\.(\d{3})""")) { it.groupValues[1] + it.groupValues[2] } // 1.500.000 → 1500000
+        // Bước 1: Xoá chuỗi ngày/giờ trước khi chuẩn hóa để tránh nhầm số ngày thành tiền
+        // Ví dụ: "19/04/26 00:57" → xoá đi
+        val withoutDatetime = raw
+            .replace(Regex("""\b\d{1,2}/\d{1,2}/\d{2,4}\b"""), " ")   // dd/MM/yy hoặc dd/MM/yyyy
+            .replace(Regex("""\b\d{1,2}:\d{2}(:\d{2})?\b"""), " ")    // HH:mm hoặc HH:mm:ss
 
-        // ── Các pattern số tiền ──────────────────────────────────────────────
+        // Bước 2: Bỏ SD: (Số Dư) ra khỏi chuỗi — đây là số dư sau giao dịch, không phải số tiền GD
+        // Giữ lại các ký tự trước SD: để parse GD:
+        val withoutBalance = withoutDatetime.replace(
+            Regex("""SD\s*:\s*[\d,\.]+\s*(?:VND|vnd|đ|d|D)?""", RegexOption.IGNORE_CASE), " "
+        )
+
+        // Bước 3: Chuẩn hóa — bỏ dấu phẩy, dấu chấm làm separator
+        val content = withoutBalance
+            .replace(",", "")
+            .replace(Regex("""(\d)\.(\d{3})""")) { it.groupValues[1] + it.groupValues[2] }
+
+        // ── Các pattern số tiền, theo thứ tự ưu tiên ────────────────────────
         val patterns = listOf(
-            // Pattern 1: ký hiệu [+/-] rõ ràng trước số tiền
-            Regex("""([+\-])\s*(\d{4,})(?:\s*(?:VND|vnd|đ|d|D))?"""),
-            // Pattern 2: từ khóa trước số tiền (biến động, GD, SD, TK, so tien, amount)
-            Regex("""(?:biến động|bien dong|GD|SD|TK|số tiền|so tien|amount|nhan|da nhan|chuyen|chi|thanh toan)\s*[:\s]*([+\-]?\s*\d{4,})(?:\s*(?:VND|vnd|đ|d|D))?""", RegexOption.IGNORE_CASE),
-            // Pattern 3: số tiền đứng sau từ "+" hoặc "-" kiểu MB bank
-            Regex("""(?:^|[\s(])([+\-]\d{4,})(?:\s*(?:VND|vnd|đ|d|D))?"""),
-            // Pattern 4: fallback - số lớn độc lập bất kỳ đơn vị nào
-            Regex("""(\d{5,})(?:\s*(?:VND|vnd|đ|d|D))""")
+            // Pattern 0 (ưu tiên cao nhất): GD: +/-AMOUNT hoặc "biến động +/-AMOUNT" — số tiền giao dịch
+            Regex("""(?:GD|giao dich|giao dịch|biến động|bien dong)\s*[:\s]*([+\-]?\s*\d{4,})(?:\s*(?:VND|vnd|đ|d|D))?""", RegexOption.IGNORE_CASE),
+            // Pattern 1: ký hiệu [+/-] rõ ràng ngay sát trước số tiền + đơn vị
+            Regex("""([+\-])\s*(\d{4,})\s*(?:VND|vnd|đ|d|D)"""),
+            // Pattern 2: các từ khóa khác (KHÔNG bao gồm SD)
+            Regex("""(?:so tien|số tiền|amount|nhan|da nhan|chuyen|chi|thanh toan)\s*[:\s]*([+\-]?\s*\d{4,})(?:\s*(?:VND|vnd|đ|d|D))?""", RegexOption.IGNORE_CASE),
+            // Pattern 3: dấu +/- đứng đầu token
+            Regex("""(?:^|[\s|(])([+\-]\d{4,})(?:\s*(?:VND|vnd|đ|d|D))?"""),
+            // Pattern 4 (fallback): số lớn độc lập kèm đơn vị tiền tệ rõ ràng
+            Regex("""(\d{5,})\s*(?:VND|vnd|đ|D)""")
         )
 
         var rawAmount = 0.0
-        var signFromContent: Int? = null  // +1 = income, -1 = expense
+        var signFromContent: Int? = null
 
         for (pattern in patterns) {
             val match = pattern.find(content) ?: continue
             val groups    = match.groups
             val signStr   = groups[1]?.value?.trim() ?: ""
-            // Grup 2 nếu có (pattern có 2 group), nếu không thì dùng grup 1
             val amountStr = (if (groups.size > 2) groups[2] else groups[1])
                 ?.value?.replace(Regex("[^0-9]"), "") ?: continue
             val candidate = amountStr.toDoubleOrNull() ?: continue
@@ -136,9 +164,11 @@ class BankNotificationListener : NotificationListenerService() {
 
             rawAmount = candidate
             signFromContent = when {
-                signStr == "+" -> +1
-                signStr == "-" -> -1
-                else           -> null
+                signStr.startsWith("+") -> +1
+                signStr.startsWith("-") -> -1
+                content.contains(Regex("""(?:GD|bien dong|biến động)\s*[:\s]*\+""", RegexOption.IGNORE_CASE)) -> +1
+                content.contains(Regex("""(?:GD|bien dong|biến động)\s*[:\s]*-""", RegexOption.IGNORE_CASE))  -> -1
+                else                   -> null
             }
             break
         }
@@ -149,34 +179,35 @@ class BankNotificationListener : NotificationListenerService() {
         val lower = raw.lowercase()
 
         val incomeKeywords = listOf(
-            "+", "nhận", "nhan", "vào", "vao", "tang", "tăng",
+            "nhận", "nhan", "vào", "vao", "tang", "tăng",
             "nap vao", "nạp vào", "cashin", "cash in",
             "hoan tien", "hoàn tiền", "refund", "receive", "credit",
-            "so du tang", "số dư tăng", "bien dong +", "biến động +"
+            "so du tang", "số dư tăng", "bien dong +", "biến động +",
+            "gd: +", "gd:+"
         )
         val expenseKeywords = listOf(
-            "-", "trừ", "tru", "chi", "thanh toan", "thanh toán",
+            "trừ", "tru", "chi", "thanh toan", "thanh toán",
             "chuyen tien", "chuyển tiền", "rut", "rút",
             "payment", "debit", "so du giam", "số dư giảm",
-            "bien dong -", "biến động -", "transfer out"
+            "bien dong -", "biến động -", "transfer out",
+            "gd: -", "gd:-"
         )
 
         val incomeScore  = incomeKeywords.count { lower.contains(it) }
         val expenseScore = expenseKeywords.count { lower.contains(it) }
 
-        // Ưu tiên dấu từ content, nếu không có thì dùng keyword score
         val isIncome = when {
-            signFromContent == +1                  -> true
-            signFromContent == -1                  -> false
-            incomeScore > expenseScore             -> true
-            expenseScore > incomeScore             -> false
-            else                                   -> false  // default: expense nếu không rõ
+            signFromContent == +1      -> true
+            signFromContent == -1      -> false
+            incomeScore > expenseScore -> true
+            expenseScore > incomeScore -> false
+            else                       -> false // mặc định: expense
         }
 
-        // ── Phát hiện chuyển khoản nội bộ (e.g. nạp MoMo từ ngân hàng) ─────
-        val isMomoTransfer   = lower.contains("momo") && (lower.contains("cashin") || lower.contains("nap"))
-        val isZaloTransfer   = lower.contains("zalopay") && lower.contains("cashin")
-        val isAtmWithdraw    = lower.contains("rut tien") || lower.contains("rút tiền") || lower.contains("atm")
+        // ── Phát hiện chuyển khoản nội bộ ───────────────────────────────────
+        val isMomoTransfer = lower.contains("momo") && (lower.contains("cashin") || lower.contains("nap"))
+        val isZaloTransfer = lower.contains("zalopay") && lower.contains("cashin")
+        val isAtmWithdraw  = lower.contains("rut tien") || lower.contains("rút tiền") || lower.contains("atm")
 
         val type = when {
             isMomoTransfer || isZaloTransfer || isAtmWithdraw -> TransactionType.TRANSFER
@@ -185,10 +216,10 @@ class BankNotificationListener : NotificationListenerService() {
         }
 
         val targetBankCode = when {
-            isMomoTransfer  -> "MOMO"
-            isZaloTransfer  -> "ZALOPAY"
-            isAtmWithdraw   -> "CASH"
-            else            -> null
+            isMomoTransfer -> "MOMO"
+            isZaloTransfer -> "ZALOPAY"
+            isAtmWithdraw  -> "CASH"
+            else           -> null
         }
 
         return Triple(rawAmount, type, targetBankCode)
@@ -257,9 +288,74 @@ class BankNotificationListener : NotificationListenerService() {
                 firestoreRepository.addTransaction(user.uid, transaction)
                 Log.d("BankNoti", "✅ Đã lưu: $type ${amount.toLong()}đ | ${sourceAccount.name} → ${destAccount?.name ?: "–"}")
 
+                // Bước 3: Tiền ĐÃ vào ví → phân bổ tự động sang savings goals
+                // Chỉ áp dụng với THU NHậP, không áp dụng cho chi tiêu/chuyển khoản
+                if (type == TransactionType.INCOME) {
+                    autoDistributeToSavingsGoals(user.uid, sourceAccount.id)
+                }
+
             } catch (e: Exception) {
                 Log.e("BankNoti", "❌ Lỗi xử lý: ${e.message}", e)
             }
+        }
+    }
+
+    /**
+     * Sau khi tiền ĐÃ vào ví (sourceAccountId), tự động trừ từng khoản rồi cộng vào
+     * các savings goals có [autoSavingAmount] > 0 và chưa đạt mục tiêu.
+     * Nếu số dư ví sau khi nhận income không đủ, goal đó bị bỏ qua.
+     */
+    private suspend fun autoDistributeToSavingsGoals(uid: String, sourceAccountId: String) {
+        try {
+            val goals = firestoreRepository.getSavingsGoals(uid)
+            val activeGoals = goals.filter { it.autoSavingAmount > 0 && it.currentAmount < it.targetAmount }
+            if (activeGoals.isEmpty()) return
+
+            // Reload ví SAU KHI income đã được cộng vào ở bước 1
+            val wallet = firestoreRepository.getUserWallet(uid) ?: return
+            val currentAccounts = wallet.accounts.toMutableList()
+
+            for (goal in activeGoals) {
+                val transferAmt = minOf(goal.autoSavingAmount, goal.targetAmount - goal.currentAmount)
+                val srcIdx = currentAccounts.indexOfFirst { it.id == sourceAccountId }
+                if (srcIdx == -1) break
+
+                val srcAcc = currentAccounts[srcIdx]
+                if (srcAcc.amount < transferAmt) {
+                    Log.w("BankNoti", "⚠️ Ví không đủ để auto-save cho '‘${goal.goalName}': cần ${transferAmt}đ, còn ${srcAcc.amount}đ")
+                    continue
+                }
+
+                // Trừ khỏi ví
+                currentAccounts[srcIdx] = srcAcc.copy(amount = srcAcc.amount - transferAmt)
+
+                // Cộng vào savings goal
+                val updatedGoal = goal.copy(
+                    currentAmount = goal.currentAmount + transferAmt,
+                    lastAutoSavingAt = com.google.firebase.Timestamp.now()
+                )
+                firestoreRepository.saveSavingsGoal(uid, updatedGoal)
+
+                // Tạo transaction TRANSFER để ghi lịch sử phân bổ
+                val savingTx = FinanceTransaction(
+                    id = UUID.randomUUID().toString(),
+                    amount = transferAmt,
+                    type = TransactionType.TRANSFER,
+                    category = "Tiết kiệm tự động",
+                    note = "[Tự động] Ví → ${goal.goalName}",
+                    paymentMethod = PaymentMethod.BANKING,
+                    accountId = sourceAccountId,
+                    linkedGoalId = goal.id
+                )
+                firestoreRepository.addTransaction(uid, savingTx)
+                Log.d("BankNoti", "💰 Auto-save ${transferAmt.toLong()}đ → '‘${goal.goalName}' (${updatedGoal.currentAmount}/${goal.targetAmount})")
+            }
+
+            // Lưu ví với số dư đã trừ cho savings
+            firestoreRepository.saveUserWallet(wallet.copy(accounts = currentAccounts))
+
+        } catch (e: Exception) {
+            Log.e("BankNoti", "❌ Lỗi auto-distribute savings: ${e.message}", e)
         }
     }
 }

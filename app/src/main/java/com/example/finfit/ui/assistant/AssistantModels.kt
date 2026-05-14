@@ -16,10 +16,12 @@ sealed class MessageContent {
     data class SavingsCard(val goal: SavingsGoal, val confirmed: Boolean = false) : MessageContent()
     data class BudgetCard(val budget: FinanceBudget, val confirmed: Boolean = false) : MessageContent()
     data class ScheduleCard(val item: SpendingScheduleItem, val confirmed: Boolean = false) : MessageContent()
-    data class SplitBillCard(val totalAmount: Double, val participantCount: Int, val category: String, val note: String, val confirmed: Boolean = false) : MessageContent()
+    data class SplitBillCard(val totalAmount: Double, val participantCount: Int, val category: String, val note: String, val confirmed: Boolean = false, val initialParticipants: List<com.example.finfit.finance.model.TransactionParticipant> = emptyList()) : MessageContent()
     data class HeldFundCard(val fundName: String, val amount: Double, val confirmed: Boolean = false) : MessageContent()
     data class HabitUpdateCard(val habit: com.example.finfit.finance.model.UserHabit, val confirmed: Boolean = false) : MessageContent()
     data class WeeklyPlanCard(val description: String, val items: List<SpendingScheduleItem>, val confirmed: Boolean = false) : MessageContent()
+    data class DepositSavingsCard(val goalName: String, val amount: Double, val walletSource: String?, val confirmed: Boolean = false) : MessageContent()
+    data class WithdrawSavingsCard(val goalName: String, val amount: Double, val destinationWallet: String?, val transferToSavingsGoal: String?, val confirmed: Boolean = false) : MessageContent()
 }
 
 data class ChatMessage(

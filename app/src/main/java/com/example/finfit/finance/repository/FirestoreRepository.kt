@@ -492,7 +492,15 @@ class FirestoreRepository {
                         isGroupPrepayment = doc.getBoolean("isGroupPrepayment") ?: false,
                         personalAmount = doc.getDouble("personalAmount") ?: 0.0,
                         groupAmount = doc.getDouble("groupAmount") ?: 0.0,
-                        participantCount = doc.getLong("participantCount")?.toInt() ?: 1
+                        participantCount = doc.getLong("participantCount")?.toInt() ?: 1,
+                        participants = (doc.get("participants") as? List<Map<String, Any>>)?.map { m ->
+                            TransactionParticipant(
+                                name = m["name"] as? String ?: "",
+                                shareAmount = (m["shareAmount"] as? Number)?.toDouble() ?: 0.0,
+                                paidAmount = (m["paidAmount"] as? Number)?.toDouble() ?: 0.0,
+                                isPaid = m["isPaid"] as? Boolean ?: false
+                            )
+                        } ?: emptyList()
                     )
                 } catch (e: Exception) { null }
             }
@@ -535,7 +543,15 @@ class FirestoreRepository {
                         isGroupPrepayment = doc.getBoolean("isGroupPrepayment") ?: false,
                         personalAmount = doc.getDouble("personalAmount") ?: 0.0,
                         groupAmount = doc.getDouble("groupAmount") ?: 0.0,
-                        participantCount = doc.getLong("participantCount")?.toInt() ?: 1
+                        participantCount = doc.getLong("participantCount")?.toInt() ?: 1,
+                        participants = (doc.get("participants") as? List<Map<String, Any>>)?.map { m ->
+                            TransactionParticipant(
+                                name = m["name"] as? String ?: "",
+                                shareAmount = (m["shareAmount"] as? Number)?.toDouble() ?: 0.0,
+                                paidAmount = (m["paidAmount"] as? Number)?.toDouble() ?: 0.0,
+                                isPaid = m["isPaid"] as? Boolean ?: false
+                            )
+                        } ?: emptyList()
                     )
                 } catch (e: Exception) { null }
             }
@@ -566,7 +582,15 @@ class FirestoreRepository {
                 "isGroupPrepayment" to transaction.isGroupPrepayment,
                 "personalAmount" to transaction.personalAmount,
                 "groupAmount" to transaction.groupAmount,
-                "participantCount" to transaction.participantCount
+                "participantCount" to transaction.participantCount,
+                "participants" to transaction.participants.map { 
+                    mapOf(
+                        "name" to it.name,
+                        "shareAmount" to it.shareAmount,
+                        "paidAmount" to it.paidAmount,
+                        "isPaid" to it.isPaid
+                    )
+                }
             )
             usersCollection.document(uid)
                 .collection("transactions")
@@ -597,7 +621,15 @@ class FirestoreRepository {
                 "isGroupPrepayment" to transaction.isGroupPrepayment,
                 "personalAmount" to transaction.personalAmount,
                 "groupAmount" to transaction.groupAmount,
-                "participantCount" to transaction.participantCount
+                "participantCount" to transaction.participantCount,
+                "participants" to transaction.participants.map { 
+                    mapOf(
+                        "name" to it.name,
+                        "shareAmount" to it.shareAmount,
+                        "paidAmount" to it.paidAmount,
+                        "isPaid" to it.isPaid
+                    )
+                }
             )
             usersCollection.document(uid)
                 .collection("transactions")
