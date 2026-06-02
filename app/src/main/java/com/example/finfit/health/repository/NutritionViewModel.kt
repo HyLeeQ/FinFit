@@ -131,34 +131,45 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun generateHourlyPoints(meals: List<FoodMealEntity>): List<ChartPoint> {
         val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        
-        // We still provide 24 points for the smooth line, but map them specifically
-        val hourlyData = IntArray(24) { 0 }
+
+        // Accumulate calories per hour slot (0..23)
+        val hourlyCalories = IntArray(24) { 0 }
         val mealMetadata = mutableMapOf<Int, String>()
-        
+
         meals.forEach { meal ->
             val cal = Calendar.getInstance().apply { timeInMillis = meal.createdAt }
             val hour = cal.get(Calendar.HOUR_OF_DAY)
             if (hour in 0..23) {
-                hourlyData[hour] += meal.totalCalories
-                // Keep track of the largest meal in that hour for the tooltip
+                hourlyCalories[hour] += meal.totalCalories
                 mealMetadata[hour] = meal.mealName
             }
         }
-        
-        return hourlyData.mapIndexed { index, value ->
-            val label = if (index % 2 == 0) {
-                val h = if (index == 0) 12 else if (index > 12) index - 12 else index
-                val ampm = if (index < 12) "AM" else "PM"
-                "$h $ampm"
-            } else ""
+
+        // Build cumulative running total for the line chart
+        var cumulative = 0
+        val cumulativeData = IntArray(24)
+        for (h in 0..23) {
+            cumulative += hourlyCalories[h]
+            cumulativeData[h] = cumulative
+        }
+
+        return (0..23).map { h ->
+            // Show label every 4 hours: 00h, 04h, 08h, 12h, 16h, 20h
+            val label = if (h % 4 == 0) String.format("%02dh", h) else ""
+            val totalAtHour = cumulativeData[h]
+            val mealName = mealMetadata[h]
 
             ChartPoint(
                 label = label,
-                value = value.toFloat(),
-                isHighlighted = index == currentHour,
-                metadata = mealMetadata[index],
-                time = String.format("%02d:00", index)
+                value = totalAtHour.toFloat(),
+                isHighlighted = h == currentHour,
+                // Tooltip shows calories at that exact hour, or cumulative total
+                metadata = if (hourlyCalories[h] > 0)
+                    "${mealName ?: "Bữa ăn"} · +${hourlyCalories[h]} kcal"
+                else if (totalAtHour > 0)
+                    "Tổng tích lũy: $totalAtHour kcal"
+                else null,
+                time = String.format("%02d:00", h)
             )
         }
     }

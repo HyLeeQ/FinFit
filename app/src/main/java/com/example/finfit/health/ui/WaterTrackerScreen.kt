@@ -1,10 +1,10 @@
 package com.example.finfit.health.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,11 +22,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -199,6 +202,126 @@ private fun WaterErrorState(message: String) {
 }
 
 // ====================================================================
+// CAFFEINE MARQUEE TICKER
+// ====================================================================
+
+/** Enum mức Caffeine — dùng để vẽ UI đúng theo ngưỡng */
+private enum class CaffeineLevel { SAFE, WARN, DANGER }
+
+private fun caffeineLevel(mg: Int): CaffeineLevel = when {
+    mg >= DrinkType.CAFFEINE_DANGER_MG -> CaffeineLevel.DANGER
+    mg >= DrinkType.CAFFEINE_WARN_MG   -> CaffeineLevel.WARN
+    else                               -> CaffeineLevel.SAFE
+}
+
+/**
+ * Marquee ticker chạy từ phải sang trái.
+ * Hiện thị khi Caffeine ≥ CAFFEINE_WARN_MG (200mg).
+ *
+ * @param caffeineMg Tổng caffeine hôm nay (mg)
+ * @param dominantSource Loại đồ uống đóng góp caffeine nhiều nhất (DrinkType constant)
+ *
+ * Thiết kế cho Redmi 10 (360dp width, font 12sp):
+ * - Text ≤ 52 ký tự → đọc được toàn bộ trong 1 chu kỳ.
+ * - Tốc độ 72px/s — nhanh, rõ ràng, không gây mỏi mắt.
+ */
+@Composable
+private fun CaffeineMarquee(caffeineMg: Int, dominantSource: String = DrinkType.COFFEE) {
+    val level = caffeineLevel(caffeineMg)
+    if (level == CaffeineLevel.SAFE) return
+
+    val bgColor  = if (level == CaffeineLevel.DANGER) Color(0xFF7F1D1D) else Color(0xFF78350F)
+    val txtColor = if (level == CaffeineLevel.DANGER) Color(0xFFFF6B6B) else Color(0xFFFBBF24)
+
+    // Text khác nhau theo nguồn caffeine chính — Cà phê vs Trà ≠ nhau
+    val message = when {
+        level == CaffeineLevel.DANGER && dominantSource == DrinkType.TEA ->
+            "⚠️ Trà tích lũy ${caffeineMg}mg! Chuyển sang nước lọc ngay."
+        level == CaffeineLevel.DANGER ->
+            "⚠️ Caffeine ${caffeineMg}mg/400mg! Dừng cà phê, uống nước lọc."
+        dominantSource == DrinkType.TEA ->
+            "🍵 Trà: ${caffeineMg}mg caffeine. Hãy thay bằng nước lọc."
+        else ->
+            "☕ Cà phê: ${caffeineMg}mg caffeine. Cân nhắc uống nước lọc."
+    }
+
+    val density = LocalDensity.current
+    var containerWidthPx by remember { mutableIntStateOf(0) }
+    var textWidthPx       by remember { mutableIntStateOf(0) }
+
+    // Tổng quãng đường = chiều rộng màn hình + chiều dài text
+    val totalTravelPx = containerWidthPx + textWidthPx
+
+    // Tốc độ 72px/s — tăng từ 42px/s, đủ nhanh mà vẫn đọc được
+    val durationMs = if (totalTravelPx > 0) ((totalTravelPx / 72f) * 1000).toInt().coerceAtLeast(2500) else 4000
+
+    val infiniteTransition = rememberInfiniteTransition(label = "cafMarquee")
+    val offsetX by infiniteTransition.animateFloat(
+        initialValue  = containerWidthPx.toFloat(),
+        targetValue   = -textWidthPx.toFloat(),
+        animationSpec = infiniteRepeatable(
+            tween(durationMillis = durationMs, easing = LinearEasing),
+            RepeatMode.Restart
+        ),
+        label = "marqueeOffset"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { containerWidthPx = it.size.width }
+            .background(bgColor, RoundedCornerShape(12.dp))
+            .padding(vertical = 8.dp, horizontal = 4.dp)
+            .clipToBounds()
+    ) {
+        Text(
+            text       = message,
+            color      = txtColor,
+            fontSize   = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines   = 1,
+            softWrap   = false,
+            onTextLayout = { result -> textWidthPx = result.size.width },
+            modifier   = Modifier.offset(x = with(density) { offsetX.toDp() })
+        )
+    }
+}
+
+/**
+ * Dialog cảnh báo DANGER — hiện khi vượt 400mg.
+ * Chỉ hiện 1 lần mỗi session (remember flag isDismissed).
+ */
+@Composable
+private fun CaffeineDangerDialog(caffeineMg: Int, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Warning, null, tint = Color(0xFFEF5350), modifier = Modifier.size(36.dp)) },
+        title = { Text("⚠️ Cảnh báo Caffeine!", fontWeight = FontWeight.Black, color = Color(0xFFEF5350)) },
+        text = {
+            Column {
+                Text(
+                    "Bạn đã nạp $caffeineMg mg Caffeine, vượt ngưỡng an toàn ${DrinkType.CAFFEINE_DANGER_MG}mg/ngày theo khái niệm y học.",
+                    color = Color.White, fontSize = 14.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "💧 Hãy chuyển sang uống nước lọc để bảo vệ giấc ngủ và sức khỏe tim mạch.",
+                    color = Color(0xFFADAAAA), fontSize = 13.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF5350))
+            ) { Text("Đã hiểu", color = Color.White, fontWeight = FontWeight.Bold) }
+        },
+        shape = RoundedCornerShape(24.dp),
+        containerColor = Color(0xFF1A1A1A)
+    )
+}
+
+// ====================================================================
 // READY CONTENT — bố cục chính
 // ====================================================================
 
@@ -211,15 +334,26 @@ private fun WaterReadyContent(
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var selectedPreset by remember { mutableStateOf(DRINK_PRESETS[0]) }
+    val cafLevel = caffeineLevel(data.totalCaffeineMg)
 
-    // Launcher xin quyền Notification (Android 13+)
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            onToggleReminder(true)
+    // Tính nguồn caffeine đóng góp nhiều nhất hôm nay
+    // WaterLogUiItem có drinkType + amountMl — tính lại caffeine theo DrinkType
+    val dominantCaffeineSource by remember(data.todayLogs) {
+        derivedStateOf {
+            data.todayLogs
+                .filter { !it.isDeleted }
+                .groupBy { it.drinkType }
+                .mapValues { (type, logs) ->
+                    logs.sumOf { DrinkType.caffeineMg(type, it.amountMl) }
+                }
+                .maxByOrNull { it.value }
+                ?.key ?: DrinkType.COFFEE
         }
     }
+
+    // Hiện dialog DANGER 1 lần duy nhất mỗi session khi caffeine vượt 400mg
+    var dangerDialogDismissed by remember { mutableStateOf(false) }
+    val showDangerDialog = cafLevel == CaffeineLevel.DANGER && !dangerDialogDismissed
 
     Column(
         Modifier
@@ -228,53 +362,20 @@ private fun WaterReadyContent(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Cụm Nhắc nhở uống nước (Góc trên cùng)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Rounded.NotificationsActive,
-                    contentDescription = null,
-                    tint = if (data.isReminderEnabled) Color(0xFF64B5F6) else Color(0xFFADAAAA),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Nhắc nhở uống nước",
-                    color = if (data.isReminderEnabled) Color.White else Color(0xFFADAAAA),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            Switch(
-                checked = data.isReminderEnabled,
-                onCheckedChange = { isChecked ->
-                    if (isChecked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        onToggleReminder(isChecked)
-                    }
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF64B5F6),
-                    uncheckedThumbColor = Color(0xFFADAAAA),
-                    uncheckedTrackColor = Color(0xFF333333)
-                )
-            )
-        }
+        // --- Marquee Caffeine Ticker (text khác nhau theo nguồn: trà vs cà phê) ---
+        CaffeineMarquee(
+            caffeineMg     = data.totalCaffeineMg,
+            dominantSource = dominantCaffeineSource
+        )
 
         // Card tổng quan + cột nước
         WaterSummaryCard(data = data)
 
         // LazyRow chọn loại thức uống
         DrinkPresetRow(
-            selected = selectedPreset,
-            onSelect = { selectedPreset = it; showDialog = true }
+            selected      = selectedPreset,
+            caffeineMg    = data.totalCaffeineMg,
+            onSelect      = { selectedPreset = it; showDialog = true }
         )
 
         // Danh sách lịch sử uống hôm nay (chỉ hiện 5 logs gần nhất)
@@ -286,9 +387,9 @@ private fun WaterReadyContent(
 
         // Biểu đồ tích lũy trong ngày
         WaterIntakeLineChartCard(
-            chartData = data.chartData,
-            goalMl = data.goalMl,
-            consumedMl = data.consumedMl
+            chartData   = data.chartData,
+            goalMl      = data.goalMl,
+            consumedMl  = data.consumedMl
         )
 
         Spacer(Modifier.height(80.dp))
@@ -297,13 +398,21 @@ private fun WaterReadyContent(
     // Dialog nhập lượng
     if (showDialog) {
         AddWaterDialog(
-            preset   = selectedPreset,
+            preset    = selectedPreset,
             isLoading = data.isLogging,
             onConfirm = { amount ->
                 onLogWater(amount, selectedPreset.drinkType)
                 showDialog = false
             },
             onDismiss = { showDialog = false }
+        )
+    }
+
+    // Dialog nguy hiểm (> 400mg Caffeine)
+    if (showDangerDialog) {
+        CaffeineDangerDialog(
+            caffeineMg = data.totalCaffeineMg,
+            onDismiss  = { dangerDialogDismissed = true }
         )
     }
 }
@@ -408,27 +517,86 @@ private fun WaterSummaryCard(data: WaterScreenData) {
 @Composable
 private fun DrinkPresetRow(
     selected: DrinkPreset,
+    caffeineMg: Int,
     onSelect: (DrinkPreset) -> Unit
 ) {
+    val cafLevel = caffeineLevel(caffeineMg)
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Các loại thức uống", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Các loại thức uống", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                // Hiện Hydration Index label của loại đang chọn
+                val idx = (DrinkType.hydrationIndex(selected.drinkType) * 100).toInt()
+                Text(
+                    text = "HI: $idx%",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        idx >= 90 -> Color(0xFF4CAF50)
+                        idx >= 85 -> Color(0xFF8BC34A)
+                        idx >= 80 -> Color(0xFFFFC107)
+                        else      -> Color(0xFFFF7043)
+                    }
+                )
+            }
             Spacer(Modifier.height(12.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(DRINK_PRESETS) { preset ->
                     val meta = drinkMeta(preset.drinkType)
                     val isSelected = preset.drinkType == selected.drinkType
+
+                    // Tính caffeine đóng góp ước tính của từng loại dựa trên amount mặc định nhỏ nhất
+                    // → Cà phê 150ml = 90mg (0.60×150), Trà 150ml = 30mg (0.20×150)
+                    // → 2 loại có "tốc độ tăng caffeine" KHÁC NHAU rõ ràng
+                    val defaultAmount = preset.defaultAmounts.first()
+                    val singleServingCaffeine = DrinkType.caffeineMg(preset.drinkType, defaultAmount)
+
+                    // Border chỉ xuất hiện nếu:
+                    // 1. Loại đó CÓ caffeine (singleServingCaffeine > 0)
+                    // 2. Tổng caffeine hiện tại đã đủ để ly tiếp theo có thể gây vấn đề
+                    //
+                    // Ngưỡng viền CAM: tổng caffeine đã ≥ WARN (200mg)
+                    // Ngưỡng viền ĐỎ:  tổng caffeine đã ≥ DANGER (400mg) HOẶC
+                    //                  (tổng + 1 ly nữa) sẽ ≥ DANGER
+                    val willExceedDanger = (caffeineMg + singleServingCaffeine) >= DrinkType.CAFFEINE_DANGER_MG
+                    val borderColor = when {
+                        singleServingCaffeine <= 0 -> Color.Transparent           // Không caffeine → không border
+                        cafLevel == CaffeineLevel.DANGER -> Color(0xFFEF5350)     // Đã vượt ngưỡng → đỏ
+                        willExceedDanger && cafLevel == CaffeineLevel.WARN -> Color(0xFFFF7043) // Ly tiếp theo sẽ vượt → cam đậm
+                        cafLevel == CaffeineLevel.WARN -> Color(0xFFFFC107)       // Đang ở mức cảnh báo → vàng cam
+                        else -> Color.Transparent
+                    }
+                    val borderWidth = if (borderColor != Color.Transparent) 2.dp else 0.dp
+
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(
                             modifier = Modifier
                                 .size(56.dp)
                                 .clip(CircleShape)
+                                .border(borderWidth, borderColor, CircleShape)
                                 .background(if (isSelected) meta.color.copy(alpha = 0.25f) else Color(0xFF262626))
                                 .clickable { onSelect(preset) },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(meta.icon, null, tint = meta.color, modifier = Modifier.size(28.dp))
+                            // Badge "!" chỉ khi DANGER hoặc ly tiếp theo sẽ vượt ngưỡng
+                            if (singleServingCaffeine > 0 && (cafLevel == CaffeineLevel.DANGER || willExceedDanger)) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(14.dp)
+                                        .clip(CircleShape)
+                                        .background(if (cafLevel == CaffeineLevel.DANGER) Color(0xFFEF5350) else Color(0xFFFF7043)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("!", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
                         }
                         Spacer(Modifier.height(4.dp))
                         Text(meta.label, fontSize = 11.sp, color = if (isSelected) meta.color else Color(0xFFADAAAA))

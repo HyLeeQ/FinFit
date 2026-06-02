@@ -1,0 +1,74 @@
+Calculating task graph as no cached configuration is available for tasks: clean compileDebugKotlin
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:clean
+> Task :app:generateDebugResValues
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:generateDebugResources
+> Task :app:generateDebugBuildConfig
+> Task :app:processDebugGoogleServices
+> Task :app:processDebugNavigationResources
+> Task :app:extractDeepLinksDebug
+> Task :app:mapDebugSourceSetPaths
+> Task :app:compileDebugNavigationResources
+> Task :app:checkDebugAarMetadata
+> Task :app:packageDebugResources
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+[org.tensorflow:tensorflow-lite-support:0.4.4] C:\Users\ADMIN\.gradle\caches\8.13\transforms\4896465faf4a67c174330478ef5c5e45\transformed\tensorflow-lite-support-0.4.4\AndroidManifest.xml Warning:
+	Namespace 'org.tensorflow.lite.support' is used in multiple modules and/or libraries: org.tensorflow:tensorflow-lite-support:0.4.4, org.tensorflow:tensorflow-lite-support-api:0.4.4. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace
+[org.tensorflow:tensorflow-lite:2.14.0] C:\Users\ADMIN\.gradle\caches\8.13\transforms\f7e2ccf44e9bea49a23e1af77379dca5\transformed\tensorflow-lite-2.14.0\AndroidManifest.xml Warning:
+	Namespace 'org.tensorflow.lite' is used in multiple modules and/or libraries: org.tensorflow:tensorflow-lite:2.14.0, org.tensorflow:tensorflow-lite-api:2.14.0. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace
+
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugResources
+> Task :app:processDebugResources
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/repository/FirestoreRepository.kt:496:65 Unchecked cast of 'kotlin.Any?' to 'kotlin.collections.List<kotlin.collections.Map<kotlin.String, kotlin.Any>>'.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/repository/FirestoreRepository.kt:547:65 Unchecked cast of 'kotlin.Any?' to 'kotlin.collections.List<kotlin.collections.Map<kotlin.String, kotlin.Any>>'.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/BillScannerScreen.kt:76:64 'static fun getBitmap(p0: ContentResolver!, p1: Uri!): Bitmap!' is deprecated. Deprecated in Java.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/DashboardScreen.kt:523:17 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/DashboardScreen.kt:704:46 'val Icons.Filled.EventNote: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.EventNote.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/DashboardScreen.kt:837:92 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/DebtLoanScreen.kt:173:119 'val Icons.Filled.CallReceived: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.CallReceived.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/DebtLoanScreen.kt:173:151 'val Icons.Filled.CallMade: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.CallMade.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/finance/ui/screens/FinanceCategories.kt:26:42 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/repository/HealthRepository.kt:129:67 Unchecked cast of 'kotlin.Any?' to 'kotlin.collections.List<kotlin.collections.Map<kotlin.String, kotlin.Any>>'.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/repository/HealthRepository.kt:151:59 Unchecked cast of 'kotlin.Any?' to 'kotlin.collections.List<kotlin.collections.Map<kotlin.String, kotlin.Any>>'.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/repository/HealthViewModel.kt:119:7 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/repository/HealthViewModel.kt:481:10 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/repository/StepCounterService.kt:82:28 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/FoodCameraScreen.kt:88:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/FoodCameraScreen.kt:279:38 'fun setTargetResolution(p0: Size): ImageAnalysis.Builder' is deprecated. Deprecated in Java.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/FoodCameraScreen.kt:909:37 'static fun getBitmap(p0: ContentResolver!, p1: Uri!): Bitmap!' is deprecated. Deprecated in Java.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/HealthScreen.kt:96:39 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/HealthScreen.kt:525:36 'val Icons.Rounded.DirectionsWalk: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.DirectionsWalk.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/SleepScheduleScreen.kt:57:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/SleepScheduleScreen.kt:260:33 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/StepCounterScreen.kt:325:30 'val Icons.Rounded.DirectionsWalk: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.DirectionsWalk.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/health/ui/WaterTrackerScreen.kt:599:36 'val Icons.Rounded.ShowChart: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.ShowChart.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/AuthScreens.kt:279:40 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/EditProfileScreen.kt:293:36 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/OnboardingScreen.kt:361:17 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/OnboardingScreen.kt:368:17 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/OnboardingScreen.kt:550:86 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/ProfileScreen.kt:264:36 'val Icons.Filled.Logout: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Logout.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/SetupCategoriesScreen.kt:143:36 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/SetupCurrencyScreen.kt:86:36 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///D:/AndroidStudioProjects/DACN_1/FinFit/app/src/main/java/com/example/finfit/ui/assistant/AssistantViewModel.kt:278:50 Unchecked cast of 'kotlin.Any?' to 'kotlin.collections.List<kotlin.String>'.
+
+[Incubating] Problems report is available at: file:///D:/AndroidStudioProjects/DACN_1/FinFit/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m 34s
+20 actionable tasks: 20 executed
+Configuration cache entry stored.

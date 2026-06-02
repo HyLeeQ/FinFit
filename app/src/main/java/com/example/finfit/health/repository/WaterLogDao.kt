@@ -136,6 +136,18 @@ interface WaterLogDao {
     @Query("SELECT SUM(amountMl) FROM water_logs WHERE date = :date AND isDeleted = 0")
     suspend fun sumAmountMlByDate(date: String): Int?
 
+    /**
+     * Tổng lượng nước cấp cho cơ thể thực tế (ml) sau khi áp dụng Hydration Index.
+     * Dùng thay cho sumAmountMlByDate trong rebuildSummary để có số liệu chính xác hơn.
+     * Fallback về amountMl nếu effectiveHydrationMl chưa có (row cũ từ DB version < 7).
+     */
+    @Query("""
+        SELECT SUM(COALESCE(effectiveHydrationMl, amountMl)) 
+        FROM water_logs 
+        WHERE date = :date AND isDeleted = 0
+    """)
+    suspend fun sumEffectiveHydrationMlByDate(date: String): Int?
+
     /** Tổng caffeine trong ngày */
     @Query("SELECT SUM(caffeineMg) FROM water_logs WHERE date = :date AND isDeleted = 0")
     suspend fun sumCaffeineMgByDate(date: String): Int?

@@ -63,37 +63,40 @@ class WaterRepository(
         val date = todayDateString()
         val timezoneOffsetSeconds = TimeZone.getDefault().getOffset(now) / 1000
         val caffeine = DrinkType.caffeineMg(drinkType, amountMl)
+        // Tính lượng nước cấp thực tế theo Hydration Index y học
+        val effectiveHydration = DrinkType.effectiveHydrationMl(amountMl, drinkType)
         val currentSteps = todayStepsProvider()
 
         val newLog = WaterLogEntity(
-            id            = UUID.randomUUID().toString(),
-            date          = date,
-            timestamp     = now,
-            amountMl      = amountMl,
-            drinkType     = drinkType,
-            caffeineMg    = caffeine,
-            source        = source,
-            contextSteps  = currentSteps,
-            timezoneOffset = timezoneOffsetSeconds,
-            isDeleted     = false,
-            createdAt     = now,
-            updatedAt     = now,
-            syncStatus    = WaterSyncStatus.UNSYNCED
+            id                   = UUID.randomUUID().toString(),
+            date                 = date,
+            timestamp            = now,
+            amountMl             = amountMl,
+            drinkType            = drinkType,
+            caffeineMg           = caffeine,
+            effectiveHydrationMl = effectiveHydration,
+            source               = source,
+            contextSteps         = currentSteps,
+            timezoneOffset       = timezoneOffsetSeconds,
+            isDeleted            = false,
+            createdAt            = now,
+            updatedAt            = now,
+            syncStatus           = WaterSyncStatus.UNSYNCED
         )
 
         try {
             // Step 1: Insert Log vào bảng water_logs
             waterLogDao.insertLog(newLog)
-            Log.d("WaterAudit", "[1/3] INSERT water_logs OK | id=${newLog.id} | +${amountMl}ml $drinkType | date=$date")
+            Log.d("WaterAudit", "[1/3] INSERT water_logs OK | id=${newLog.id} | +${amountMl}ml $drinkType (effective=${effectiveHydration}ml) | date=$date")
 
             // Step 2 + 3: Rebuild Summary từ SUM (chống Race Condition)
             rebuildSummaryForDate(date, goalMl)
 
-            // Step 4: Sync ngược health_history bằng SET trực tiếp
-            val totalMl = waterLogDao.sumAmountMlByDate(date) ?: 0
+            // Step 4: Sync ngược health_history bằng SET trực tiếp (dùng effective ml)
+            val totalEffectiveMl = waterLogDao.sumEffectiveHydrationMlByDate(date) ?: 0
             ensureHealthEntityExists(date, goalMl)
-            healthDao.setWaterConsumed(date, totalMl, goalMl)
-            Log.d("WaterAudit", "[3/3] SET health_history.waterConsumed=$totalMl, waterGoal=$goalMl | date=$date")
+            healthDao.setWaterConsumed(date, totalEffectiveMl, goalMl)
+            Log.d("WaterAudit", "[3/3] SET health_history.waterConsumed=${totalEffectiveMl}ml (effective) | date=$date")
         } catch (e: Exception) {
             Log.e("WaterRepository", "logWater FAILED: ${e.message}", e)
             throw e
@@ -110,11 +113,14 @@ class WaterRepository(
     suspend fun deleteWaterLog(logId: String, goalMl: Int = 2000) {
         val date = todayDateString()
         waterLogDao.softDeleteLog(logId)
+        // Rebuild Summary trước — dùng effectiveHydrationMl (Hydration Index)
+        // để totalConsumedMl và totalCaffeineMg trong Summary đều chính xác ngay lập tức.
+        // Đây là điều kiện để Marquee Ticker hạ màu cảnh báo xuống sau khi user xóa log.
         rebuildSummaryForDate(date, goalMl)
-        // Sync ngược health_history bằng SET trực tiếp
-        val totalMl = waterLogDao.sumAmountMlByDate(date) ?: 0
-        healthDao.setWaterConsumed(date, totalMl, goalMl)
-        Log.d("WaterRepository", "deleteWaterLog OK: logId=$logId, newTotal=$totalMl ml")
+        // Sync ngược health_history bằng effective ml (khớp với Summary)
+        val totalEffectiveMl = waterLogDao.sumEffectiveHydrationMlByDate(date) ?: 0
+        healthDao.setWaterConsumed(date, totalEffectiveMl, goalMl)
+        Log.d("WaterRepository", "deleteWaterLog OK: logId=$logId, newEffectiveTotal=${totalEffectiveMl}ml")
     }
 
     // ------------------------------------------------------------------
@@ -183,21 +189,22 @@ class WaterRepository(
      * Đây là trái tim của CQRS Write-side.
      */
     suspend fun rebuildSummaryForDate(date: String, goalMl: Int) {
-        val totalMl = waterLogDao.sumAmountMlByDate(date) ?: 0
+        // Dùng effectiveHydrationMl thay amountMl thô — áp dụng Hydration Index
+        val totalEffectiveMl = waterLogDao.sumEffectiveHydrationMlByDate(date) ?: 0
         val totalCaffeine = waterLogDao.sumCaffeineMgByDate(date) ?: 0
         val lastDrinkTs = waterLogDao.maxTimestampByDate(date) ?: 0L
 
         waterSummaryDao.upsertSummary(
             WaterDailySummaryEntity(
                 date               = date,
-                totalConsumedMl    = totalMl,
+                totalConsumedMl    = totalEffectiveMl,
                 dailyGoalMl        = goalMl,
                 totalCaffeineMg    = totalCaffeine,
                 lastDrinkTimestamp = lastDrinkTs,
                 updatedAt          = System.currentTimeMillis()
             )
         )
-        Log.d("WaterAudit", "[2/3] UPSERT water_daily_summary OK | total=${totalMl}ml, caffeine=${totalCaffeine}mg | date=$date")
+        Log.d("WaterAudit", "[2/3] UPSERT water_daily_summary OK | effectiveTotal=${totalEffectiveMl}ml, caffeine=${totalCaffeine}mg | date=$date")
     }
 
     /**

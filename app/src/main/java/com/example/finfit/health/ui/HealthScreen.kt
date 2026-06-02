@@ -218,7 +218,7 @@ data class HealthCardItem(
 )
 
 // ════════════════════════════════════════════════════════════════════════════
-// MÀN HÌNH DASHBOARD SỨC KHỎE CHÍNH (LAZY VERTICAL GRID THAY VÌ COLUMN)
+// MÀN HÌNH DASHBOARD SỨC KHỎE CHÍNH LAZY VERTICAL GRID
 // ════════════════════════════════════════════════════════════════════════════
 @Composable
 fun HealthDashboardScreen(
@@ -299,43 +299,7 @@ fun HealthDashboardScreen(
             )
         }
 
-        // --- Insights Section Header (Span 2) ---
-        item(span = { GridItemSpan(2) }) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Kiến thức hôm nay",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
-                )
-                TextButton(onClick = { /* See all */ }) {
-                    Text("Xem tất cả", color = Color(0xFF64b5f6), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
 
-        // Mock Insight Items (Span 2)
-        item(span = { GridItemSpan(2) }) {
-            InsightItem(
-                title = "Mẹo tập luyện hiệu quả",
-                source = "Bí quyết tập luyện",
-                icon = Icons.Rounded.FitnessCenter,
-                accentColor = Color(0xFFbbffb3)
-            )
-        }
-        item(span = { GridItemSpan(2) }) {
-            InsightItem(
-                title = "Chế độ ăn sạch (Clean Eating)",
-                source = "Dinh dưỡng & Sức khỏe",
-                icon = Icons.Rounded.Restaurant,
-                accentColor = Color(0xFFea73fb)
-            )
-        }
     }
 }
 
@@ -631,7 +595,7 @@ fun HealthEnergyBalanceCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.MonitorWeight, contentDescription = null, tint = energyColor, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Net Balance", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFadaaaa))
+                Text("Cân bằng Calo", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFadaaaa))
             }
             
             Spacer(modifier = Modifier.weight(1f))

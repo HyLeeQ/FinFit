@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import com.example.finfit.BuildConfig
 import com.example.finfit.health.api.vision.GeminiVisionProvider
@@ -48,8 +49,14 @@ class FoodCameraViewModel : ViewModel() {
     private var mealName: String = "Bữa ăn"
     private var yoloDetector: YoloFoodDetector? = null
 
-    // Repositories
-    private val visionAiProvider = GeminiVisionProvider(BuildConfig.VISION_API_KEY)
+    // Repositories — key pool enables automatic rotation when primary key hits 429 quota limit
+    private val visionAiProvider = GeminiVisionProvider(
+        apiKeys = listOf(
+            BuildConfig.VISION_API_KEY,
+            BuildConfig.VISION_API_KEY_2,
+            BuildConfig.VISION_API_KEY_3
+        ).filter { it.isNotBlank() }
+    )
     private val visionAiRepository = VisionAiRepository(visionAiProvider)
     private val mealRepository = MealRepository()
     private var cloudinaryRepository: com.example.finfit.health.data.remote.cloudinary.CloudinaryRepository? = null
@@ -64,8 +71,24 @@ class FoodCameraViewModel : ViewModel() {
         private set
 
     private val saveMutex = kotlinx.coroutines.sync.Mutex()
+    private var cacheDir: java.io.File? = null
+
+    private fun saveBitmapToCache(bitmap: Bitmap): String? {
+        val dir = cacheDir ?: return null
+        return try {
+            val file = java.io.File(dir, "temp_food_${System.currentTimeMillis()}.jpg")
+            java.io.FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+            file.absolutePath
+        } catch (e: Exception) {
+            Log.e("FoodCameraVM", "Error saving bitmap to cache", e)
+            null
+        }
+    }
     
     fun initializeDetector(context: Context) {
+        cacheDir = context.cacheDir
         if (yoloDetector == null) {
             try {
                 yoloDetector = YoloFoodDetector(context)
@@ -215,68 +238,92 @@ class FoodCameraViewModel : ViewModel() {
                 _aiStatusText.value = "Đang xử lý ảnh..."
             }
             try {
-                // IMPORTANT: Scale down IMMEDIATELY to speed up all subsequent steps (YOLO, Crop, Upload)
                 val sourceBitmap = if (bitmap.width > 1080) {
                     Bitmap.createScaledBitmap(bitmap, 1080, (1080f * bitmap.height / bitmap.width).toInt(), true)
                 } else bitmap
 
-                // 1. YOLO Detect Food Region (Now much faster on scaled bitmap)
+                // 1. YOLO Detect Food Region
                 val results = yoloDetector?.detect(sourceBitmap) ?: emptyList()
                 val bestBox = results.maxByOrNull { it.confidence }
+
+                if (!isActive) {
+                    if (sourceBitmap != bitmap) sourceBitmap.recycle()
+                    return@launch
+                }
 
                 if (bestBox == null) {
                     if (sourceBitmap != bitmap) sourceBitmap.recycle()
                     withContext(Dispatchers.Main) {
-                        _uiState.value = CameraUIState.Error("Không nhận diện được món ăn. Hãy thử lại.")
+                        if (isActive) _uiState.value = CameraUIState.Error("Không nhận diện được món ăn. Hãy thử lại.")
                     }
                     return@launch
                 }
 
                 // 2. Crop
-                withContext(Dispatchers.Main) {
-                    _aiStatusText.value = "Đang trích xuất món ăn..."
-                }
+                withContext(Dispatchers.Main) { if (isActive) _aiStatusText.value = "Đang trích xuất món ăn..." }
 
                 val croppedBitmap = BitmapUtils.cropFromBoundingBox(sourceBitmap, bestBox.boundingBox) ?: run {
                     if (sourceBitmap != bitmap) sourceBitmap.recycle()
                     withContext(Dispatchers.Main) {
-                        _uiState.value = CameraUIState.Error("Lỗi xử lý ảnh vùng cắt.")
+                        if (isActive) _uiState.value = CameraUIState.Error("Lỗi xử lý ảnh vùng cắt.")
                     }
                     return@launch
                 }
 
                 // 3. Upload to Cloudinary
                 withContext(Dispatchers.Main) {
-                    _uiState.value = CameraUIState.UploadingImage
-                    _aiStatusText.value = "Đang tải ảnh lên máy chủ..."
+                    if (isActive) {
+                        _uiState.value = CameraUIState.UploadingImage
+                        _aiStatusText.value = "Đang tải ảnh lên máy chủ..."
+                    }
                 }
+
                 val imageUrl = cloudinaryRepository?.uploadImage(croppedBitmap)
+
+                if (!isActive) {
+                    croppedBitmap.recycle()
+                    if (sourceBitmap != bitmap) sourceBitmap.recycle()
+                    return@launch
+                }
+
                 if (imageUrl == null) {
                     croppedBitmap.recycle()
                     if (sourceBitmap != bitmap) sourceBitmap.recycle()
                     withContext(Dispatchers.Main) {
-                        _uiState.value = CameraUIState.Error("Lỗi tải ảnh lên Cloudinary.")
+                        if (isActive) _uiState.value = CameraUIState.Error("Lỗi tải ảnh lên Cloudinary.")
                     }
                     return@launch
                 }
 
                 // 4. Gemini Analysis
                 withContext(Dispatchers.Main) {
-                    _uiState.value = CameraUIState.Analyzing
-                    _aiStatusText.value = "Đang phân tích dinh dưỡng..."
+                    if (isActive) {
+                        _uiState.value = CameraUIState.Analyzing
+                        _aiStatusText.value = "Đang phân tích dinh dưỡng..."
+                    }
                 }
+
                 val compressedForAi = compressAndScaleBitmap(croppedBitmap)
                 val result = visionAiRepository.analyzeFood(compressedForAi)
-                
+
+                if (!isActive) {
+                    if (sourceBitmap != bitmap) sourceBitmap.recycle()
+                    croppedBitmap.recycle()
+                    compressedForAi.recycle()
+                    return@launch
+                }
+
                 // Cleanup temp bitmaps
                 if (sourceBitmap != bitmap) sourceBitmap.recycle()
-                
-                // Create highly optimized UI bitmap (300px)
                 val uiBitmap = Bitmap.createScaledBitmap(croppedBitmap, 300, (300f * croppedBitmap.height / croppedBitmap.width).toInt(), true)
                 croppedBitmap.recycle()
                 compressedForAi.recycle()
 
                 withContext(Dispatchers.Main) {
+                    if (!isActive) {
+                        uiBitmap.recycle()
+                        return@withContext
+                    }
                     when (result) {
                         is VisionAiResult.Success -> {
                             _uiState.value = CameraUIState.Success(result.data, uiBitmap, imageUrl)
@@ -284,8 +331,7 @@ class FoodCameraViewModel : ViewModel() {
                         is VisionAiResult.Error -> {
                             uiBitmap.recycle()
                             if (result.message.contains("429") || result.message.contains("vượt quá giới hạn") || result.message.contains("Quota")) {
-                                triggerImmediateCooldown()
-                                _uiState.value = CameraUIState.Error("Vượt hạn mức AI. Các nút gửi/chụp sẽ bị khóa trong 60 giây để tuân thủ thời gian API.")
+                                _uiState.value = CameraUIState.Error("Hết hạn mức AI Cloud. Chi tiết: ${result.message}")
                             } else {
                                 _uiState.value = CameraUIState.Error(result.message)
                             }
@@ -297,7 +343,7 @@ class FoodCameraViewModel : ViewModel() {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e("FoodCameraVM", "Capture processing error", e)
                 withContext(Dispatchers.Main) {
-                    _uiState.value = CameraUIState.Error("Lỗi: ${e.message?.take(50)}")
+                    if (isActive) _uiState.value = CameraUIState.Error("Lỗi: ${e.message?.take(50)}")
                 }
             }
         }
@@ -312,38 +358,59 @@ class FoodCameraViewModel : ViewModel() {
         recordScanAttempt()
         viewModelScope.launch(Dispatchers.Default) {
             withContext(Dispatchers.Main) {
-                _uiState.value = CameraUIState.UploadingImage
-                _saveStatus.value = ""
-                _aiStatusText.value = "Đang chuẩn bị ảnh..."
+                if (isActive) {
+                    _uiState.value = CameraUIState.UploadingImage
+                    _saveStatus.value = ""
+                    _aiStatusText.value = "Đang chuẩn bị ảnh..."
+                }
             }
             try {
-                // Scale down for speed and memory safety
                 val sourceBitmap = if (bitmap.width > 1280) {
                     Bitmap.createScaledBitmap(bitmap, 1280, (1280f * bitmap.height / bitmap.width).toInt(), true)
                 } else bitmap
 
                 // 1. Upload to Cloudinary
                 val imageUrl = cloudinaryRepository?.uploadImage(sourceBitmap)
+
+                if (!isActive) {
+                    if (sourceBitmap != bitmap) sourceBitmap.recycle()
+                    return@launch
+                }
+
                 if (imageUrl == null) {
+                    if (sourceBitmap != bitmap) sourceBitmap.recycle()
                     withContext(Dispatchers.Main) {
-                        _uiState.value = CameraUIState.Error("Lỗi tải ảnh lên Cloudinary.")
+                        if (isActive) _uiState.value = CameraUIState.Error("Lỗi tải ảnh lên Cloudinary.")
                     }
                     return@launch
                 }
 
                 // 2. Gemini Analysis
                 withContext(Dispatchers.Main) {
-                    _uiState.value = CameraUIState.Analyzing
-                    _aiStatusText.value = "Đang phân tích dinh dưỡng..."
+                    if (isActive) {
+                        _uiState.value = CameraUIState.Analyzing
+                        _aiStatusText.value = "Đang phân tích dinh dưỡng..."
+                    }
                 }
+
                 val compressedForAi = compressAndScaleBitmap(bitmap)
                 val result = visionAiRepository.analyzeFood(compressedForAi)
+
+                if (!isActive) {
+                    if (sourceBitmap != bitmap) sourceBitmap.recycle()
+                    compressedForAi.recycle()
+                    return@launch
+                }
 
                 val uiBitmap = Bitmap.createScaledBitmap(sourceBitmap, 300, (300f * sourceBitmap.height / sourceBitmap.width).toInt(), true)
                 if (sourceBitmap != bitmap) sourceBitmap.recycle()
                 compressedForAi.recycle()
 
                 withContext(Dispatchers.Main) {
+                    if (!isActive) {
+                        uiBitmap.recycle()
+                        return@withContext
+                    }
                     when (result) {
                         is VisionAiResult.Success -> {
                             _uiState.value = CameraUIState.Success(result.data, uiBitmap, imageUrl)
@@ -351,8 +418,7 @@ class FoodCameraViewModel : ViewModel() {
                         is VisionAiResult.Error -> {
                             uiBitmap.recycle()
                             if (result.message.contains("429") || result.message.contains("vượt quá giới hạn") || result.message.contains("Quota")) {
-                                triggerImmediateCooldown()
-                                _uiState.value = CameraUIState.Error("Vượt hạn mức AI. Các nút gửi/chụp sẽ bị khóa trong 60 giây để tuân thủ thời gian API.")
+                                _uiState.value = CameraUIState.Error("Hết hạn mức AI Cloud. Chi tiết: ${result.message}")
                             } else {
                                 _uiState.value = CameraUIState.Error(result.message)
                             }
@@ -361,9 +427,10 @@ class FoodCameraViewModel : ViewModel() {
                 }
 
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e("FoodCameraVM", "Gallery error", e)
                 withContext(Dispatchers.Main) {
-                    _uiState.value = CameraUIState.Error("Lỗi xử lý ảnh: ${e.message?.take(60)}")
+                    if (isActive) _uiState.value = CameraUIState.Error("Lỗi xử lý ảnh: ${e.message?.take(60)}")
                 }
             }
         }
@@ -371,10 +438,10 @@ class FoodCameraViewModel : ViewModel() {
 
     /**
      * Resize and compress bitmap to meet API constraints safely.
-     * Target: Max dimension ~1024px, JPEG quality 85.
+     * Target: Max dimension 480px, JPEG quality 75 for extreme speed and low payload.
      */
     private suspend fun compressAndScaleBitmap(bitmap: Bitmap): Bitmap = withContext(Dispatchers.Default) {
-        val maxDim = 1024f
+        val maxDim = 480f
         val width = bitmap.width.toFloat()
         val height = bitmap.height.toFloat()
 
@@ -389,7 +456,7 @@ class FoodCameraViewModel : ViewModel() {
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true)
 
         val outputStream = ByteArrayOutputStream()
-        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
         val byteArray = outputStream.toByteArray()
         
         if (scaledBitmap != bitmap) scaledBitmap.recycle()
@@ -441,18 +508,36 @@ class FoodCameraViewModel : ViewModel() {
                 val saveResult = mealRepository.saveMultiItemMealSession(mealHeader, mealItems)
                 
                 if (saveResult is VisionAiResult.Success) {
-                    _saveStatus.value = "Đã lưu bữa ăn vào lịch sử"
-                    onComplete()
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        // Reset state FIRST to release Bitmap reference before navigation
+                        _uiState.value = CameraUIState.Idle
+                        _saveStatus.value = ""
+                        // Safely invoke navigation callback — catch any NavController exceptions
+                        try {
+                            onComplete()
+                        } catch (navEx: Exception) {
+                            Log.w("FoodCameraVM", "Navigation callback error (safe to ignore)", navEx)
+                        }
+                    }
                 } else {
-                    _saveStatus.value = "Lỗi lưu: ${(saveResult as VisionAiResult.Error).message}"
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _saveStatus.value = "Lỗi lưu: ${(saveResult as VisionAiResult.Error).message}"
+                    }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e("FoodCameraVM", "Error in saveCompleteMealSession", e)
-                _saveStatus.value = "Lỗi hệ thống: ${e.message?.take(30)}"
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _saveStatus.value = "Lỗi hệ thống: ${e.message?.take(30)}"
+                }
             } finally {
                 saveMutex.unlock()
             }
         }
+    }
+
+    fun selectFoodManually(result: com.example.finfit.health.model.vision.DishNutritionResult, bitmap: Bitmap) {
+        _uiState.value = CameraUIState.Success(result, bitmap, "")
     }
 
     fun dismissCard() {
@@ -469,11 +554,5 @@ class FoodCameraViewModel : ViewModel() {
         processingJob?.cancel()
         yoloDetector?.close()
         yoloDetector = null
-        
-        // Final attempt to clean up any UI bitmaps if the VM is cleared
-        val state = _uiState.value
-        if (state is CameraUIState.Success) {
-            state.bitmap.recycle()
-        }
     }
 }

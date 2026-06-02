@@ -3,7 +3,7 @@ package com.example.finfit.core.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -45,7 +45,8 @@ object Routes {
     const val STEP_COUNTER = "stepCounter"
     const val FOOD_SCANNER = "food_scanner"
     const val FOOD_CAMERA = "food_camera/{mealTitle}"
-    const val HEALTH_STATS = "health_stats"
+    const val HEALTH_NEWS = "health_news"
+    const val HEALTH_NEWS_DETAIL = "health_news_detail/{articleId}"
     const val HEALTH_PREDICTION = "health_prediction"
     const val HEALTH_LOG = "health_log"
     const val SLEEP_SCHEDULE = "sleep_schedule"
@@ -64,7 +65,7 @@ sealed class BottomNavItem(val route: String, val icon: ImageVector, val label: 
     
     // Health 
     object HealthHome : BottomNavItem(Routes.HEALTH_DASHBOARD, Icons.Default.Favorite, "Sức khỏe")
-    object HealthFeatures : BottomNavItem(Routes.HEALTH_STATS, Icons.Default.BarChart, "Phân tích")
+    object HealthFeatures : BottomNavItem(Routes.HEALTH_NEWS, Icons.AutoMirrored.Filled.List, "Tin tức")
     
     // Common
     object Profile : BottomNavItem(Routes.PROFILE, Icons.Default.Person, "Cá nhân")

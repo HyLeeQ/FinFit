@@ -8,6 +8,9 @@ import com.example.finfit.health.model.vision.VisionAiResult
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import java.util.Locale
 
 /**
  * Handles Prompt Engineering, network orchestration, and safe JSON extraction.
@@ -17,13 +20,131 @@ class VisionAiRepository(
     private val provider: VisionAiProvider
 ) {
     private val gson = Gson()
+    private val firestore = FirebaseFirestore.getInstance()
+
+    fun normalizeDishName(name: String): String {
+        val lowercase = name.trim().lowercase(Locale.getDefault())
+        val decomposed = java.text.Normalizer.normalize(lowercase, java.text.Normalizer.Form.NFD)
+        val regexMarks = Regex("\\p{InCombiningDiacriticalMarks}+")
+        var withoutAccents = regexMarks.replace(decomposed, "")
+        
+        // Custom replacement for Vietnamese specific 'đ'
+        withoutAccents = withoutAccents
+            .replace("đ", "d")
+            .replace("Đ", "d")
+            
+        // Remove special characters, keep only standard alphanumeric characters and spaces
+        val clean = withoutAccents.replace(Regex("[^a-z0-9\\s]"), "")
+        
+        // Collapse spaces and replace with single underscore
+        return clean.trim().replace(Regex("\\s+"), "_")
+    }
+
+    /**
+     * Check if a dish's nutrition is already cached globally in Firestore.
+     */
+    suspend fun getGlobalCachedNutrition(dishName: String): DishNutritionResult? {
+        val normalizedId = normalizeDishName(dishName)
+        if (normalizedId.isEmpty()) return null
+        
+        return try {
+            Log.d("VisionAiRepository", "Checking global Food Knowledge Cache for: [$normalizedId]...")
+            val document = firestore.collection("food_knowledge_cache")
+                .document(normalizedId)
+                .get()
+                .await()
+            
+            if (document.exists()) {
+                val name = document.getString("dishName") ?: ""
+                val confidence = document.getDouble("dishConfidence")?.toFloat() ?: 1.0f
+                val calories = document.getDouble("estimatedCalories")?.toFloat() ?: 0f
+                val healthScore = document.getDouble("healthScore")?.toFloat() ?: 0f
+                
+                val ingredientsList = document.get("ingredients") as? List<Map<String, Any>>
+                val ingredients = ingredientsList?.map {
+                    com.example.finfit.health.model.vision.IngredientInfo(
+                        name = it["name"] as? String ?: "",
+                        confidence = (it["confidence"] as? Double)?.toFloat() ?: 1.0f
+                    )
+                } ?: emptyList()
+                
+                val possibleList = document.get("possibleDishes") as? List<Map<String, Any>>
+                val possibleDishes = possibleList?.map {
+                    com.example.finfit.health.model.vision.DishInfo(
+                        name = it["name"] as? String ?: "",
+                        confidence = (it["confidence"] as? Double)?.toFloat() ?: 1.0f
+                    )
+                } ?: emptyList()
+                
+                val macrosMap = document.get("macros") as? Map<String, Any>
+                val macros = com.example.finfit.health.model.vision.Macros(
+                    proteinG = (macrosMap?.get("proteinG") as? Double)?.toFloat() ?: 0f,
+                    carbsG = (macrosMap?.get("carbsG") as? Double)?.toFloat() ?: 0f,
+                    fatG = (macrosMap?.get("fatG") as? Double)?.toFloat() ?: 0f
+                )
+                
+                val analysisNotes = document.get("analysisNotes") as? List<String> ?: emptyList()
+                
+                val cachedResult = DishNutritionResult(
+                    dishName = name,
+                    dishConfidence = confidence,
+                    possibleDishes = possibleDishes,
+                    ingredients = ingredients,
+                    estimatedCalories = calories,
+                    macros = macros,
+                    healthScore = healthScore,
+                    analysisNotes = analysisNotes
+                )
+                
+                Log.d("VisionAiRepository", "🔥 Cache HIT! Reusing global nutrition data for [$dishName].")
+                return cachedResult
+            }
+            Log.d("VisionAiRepository", "❄️ Cache MISS for: [$normalizedId].")
+            null
+        } catch (e: Exception) {
+            Log.e("VisionAiRepository", "Failed to read from global Food Knowledge Cache", e)
+            null
+        }
+    }
+
+    /**
+     * Save a successfully analyzed dish globally for all users to reuse.
+     */
+    suspend fun saveGlobalCachedNutrition(dishName: String, result: DishNutritionResult) {
+        val normalizedId = normalizeDishName(dishName)
+        if (normalizedId.isEmpty()) return
+        
+        try {
+            Log.d("VisionAiRepository", "Saving [$dishName] (ID: $normalizedId) to global Food Knowledge Cache...")
+            val dataMap = hashMapOf<String, Any>(
+                "dishName" to result.dishName,
+                "dishConfidence" to result.dishConfidence,
+                "estimatedCalories" to result.estimatedCalories,
+                "healthScore" to result.healthScore,
+                "popularityCount" to 1L,
+                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "lastUpdated" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "ingredients" to result.ingredients.map { mapOf("name" to it.name, "confidence" to it.confidence) },
+                "possibleDishes" to result.possibleDishes.map { mapOf("name" to it.name, "confidence" to it.confidence) },
+                "macros" to mapOf("proteinG" to result.macros.proteinG, "carbsG" to result.macros.carbsG, "fatG" to result.macros.fatG),
+                "analysisNotes" to result.analysisNotes
+            )
+            
+            firestore.collection("food_knowledge_cache")
+                .document(normalizedId)
+                .set(dataMap)
+                .await()
+            Log.d("VisionAiRepository", "✅ Stored [$dishName] in global Food Knowledge Cache successfully.")
+        } catch (e: Exception) {
+            Log.e("VisionAiRepository", "Failed to write to global Food Knowledge Cache", e)
+        }
+    }
 
     /**
      * Extracts strict JSON from potentially dirty AI responses.
      * AI models sometimes prepend "```json" or include trailing text.
      */
     private fun extractJsonBlock(rawResponse: String): String {
-        // Find the first '{' and the last '}'
         val startIndex = rawResponse.indexOf("{")
         val endIndex = rawResponse.lastIndexOf("}")
         
@@ -37,9 +158,12 @@ class VisionAiRepository(
 
     suspend fun analyzeFood(bitmap: Bitmap): VisionAiResult<DishNutritionResult> = withContext(Dispatchers.IO) {
         try {
-            Log.d("VisionAiRepository", "Initiating Advanced AI Reasoning Pipeline...")
+            Log.d("VisionAiRepository", "Initiating Advanced Unified AI Reasoning Pipeline...")
             
-            val prompt = """
+            // Unified Step: Execute 1 Deep Gemini Analysis Prompt
+            Log.d("VisionAiRepository", "Executing Unified Deep Gemini Analysis...")
+            
+            val deepPrompt = """
                 Bạn là chuyên gia dinh dưỡng và nhận diện thực phẩm chuyên nghiệp, đặc biệt am hiểu ẩm thực Việt Nam và quốc tế.
                 Hãy phân tích hình ảnh được cung cấp và thực hiện suy luận theo nhiều bước:
                 1. Xác định món ăn chính và các lựa chọn thay thế có thể có.
@@ -82,10 +206,9 @@ class VisionAiRepository(
             var rawResponse: String? = null
             var lastError: Exception? = null
             
-            // SIMPLE RETRY MECHANISM (3 attempts)
             for (i in 1..3) {
                 try {
-                    rawResponse = provider.analyzeImage(bitmap, prompt)
+                    rawResponse = provider.analyzeImage(bitmap, deepPrompt)
                     if (rawResponse.isNotEmpty()) break
                 } catch (e: Exception) {
                     lastError = e
@@ -94,7 +217,7 @@ class VisionAiRepository(
                         kotlinx.coroutines.delay(1500L * i)
                         continue
                     }
-                    throw e // Break loop for other errors
+                    throw e
                 }
             }
 
@@ -122,25 +245,45 @@ class VisionAiRepository(
                 return@withContext VisionAiResult.Error("Lỗi cấu trúc dữ liệu AI. Vui lòng thử lại.")
             }
 
-            if (rawResult == null || rawResult.dishName.isEmpty()) {
+            if (rawResult == null || rawResult.dishName.isEmpty() || rawResult.dishName == "Không xác định") {
                 return@withContext VisionAiResult.Error("AI không xác định được món ăn này.")
             }
 
-            // --- VALIDATION & CONFIDENCE ENGINE ---
-            val finalResult = applyHeuristicValidation(rawResult)
+            // Heuristic confidence validation
+            val validatedResult = applyHeuristicValidation(rawResult)
             
-            Log.d("VisionAiRepository", "Validation Complete. Final Confidence: ${finalResult.dishConfidence}")
+            Log.d("VisionAiRepository", "Validation Complete. Confidence: ${validatedResult.dishConfidence}")
 
-            if (finalResult.dishConfidence < 0.25f) {
+            if (validatedResult.dishConfidence < 0.25f) {
                 return@withContext VisionAiResult.Error("Hệ thống không tự tin nhận diện món ăn này. Vui lòng chụp rõ hơn.")
             }
 
-            VisionAiResult.Success(finalResult)
+            // Global cache lookup for data consistency & popularity updates
+            val normalizedId = normalizeDishName(validatedResult.dishName)
+            val cached = getGlobalCachedNutrition(normalizedId)
+            
+            if (cached != null) {
+                // Update popularity count in background
+                try {
+                    firestore.collection("food_knowledge_cache")
+                        .document(normalizedId)
+                        .update("popularityCount", com.google.firebase.firestore.FieldValue.increment(1))
+                } catch (e: Exception) {
+                    Log.w("VisionAiRepository", "Failed to increment popularity", e)
+                }
+                Log.d("VisionAiRepository", "🔥 Cache HIT (Unified Pipeline)! Consistent data returned for [${validatedResult.dishName}].")
+                return@withContext VisionAiResult.Success(cached)
+            }
+
+            // Save globally for future hits
+            saveGlobalCachedNutrition(validatedResult.dishName, validatedResult)
+
+            VisionAiResult.Success(validatedResult)
         } catch (e: Exception) {
             Log.e("VisionAiRepository", "Pipeline Failure", e)
             val friendlyError = when {
-                e.message?.contains("Model AI không khả dụng") == true -> e.message!!
-                e.message?.contains("429") == true -> "Bạn đã vượt quá giới hạn lượt dùng thử. Vui lòng đợi 1 phút."
+                e.message?.contains("API Key không hợp lệ") == true -> e.message!!
+                e.message?.contains("hạn mức") == true || e.message?.contains("429") == true -> e.message!!
                 e.message?.contains("503") == true -> "Máy chủ AI quá tải. Vui lòng thử lại sau vài giây."
                 else -> "Lỗi phân tích: ${e.localizedMessage ?: "Mất kết nối với AI"}"
             }

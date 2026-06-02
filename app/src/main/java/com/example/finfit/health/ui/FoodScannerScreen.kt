@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -384,8 +386,24 @@ fun PremiumAnimatedChart(
     onPeriodChange: (NutritionPeriod) -> Unit
 ) {
     var selectedPoint by remember { mutableStateOf<ChartPoint?>(null) }
-    var tooltipPos by remember { mutableStateOf(Offset.Zero) }
+    var selectedDotOffset by remember { mutableStateOf(Offset.Zero) }
     val haptic = LocalHapticFeedback.current
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+
+    // px per hour slot in Day mode — 48dp each gives a scrollable 24h canvas
+    val hourSlotDp = 48.dp
+    val totalChartWidthDp = hourSlotDp * 24  // 1152.dp
+
+    val scrollState = rememberScrollState()
+
+    // Auto-scroll to current hour on first composition (Day mode)
+    LaunchedEffect(period) {
+        if (period == NutritionPeriod.Day && data.isNotEmpty()) {
+            // Scroll so current hour is roughly centered
+            val targetPx = with(androidx.compose.ui.platform.LocalDensity) { 0 } // placeholder
+            // Use rough estimate: 48dp * currentHour, center offset handled below
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -414,7 +432,7 @@ fun PremiumAnimatedChart(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = when(mode) {
+                            text = when (mode) {
                                 NutritionPeriod.Day -> "Ngày"
                                 NutritionPeriod.Week -> "Tuần"
                             },
@@ -428,13 +446,10 @@ fun PremiumAnimatedChart(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Chart Viewport with Horizontal Scroll for Daily mode
-            val scrollState = rememberScrollState()
-            
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp) // Slightly taller for labels
+                    .height(240.dp)
             ) {
                 if (data.isEmpty()) {
                     NutritionEmptyState()
@@ -448,73 +463,155 @@ fun PremiumAnimatedChart(
                         },
                         label = "chart_mode_transition"
                     ) { targetPeriod ->
-                        Column {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .then(if (targetPeriod == NutritionPeriod.Day) Modifier.horizontalScroll(scrollState) else Modifier)
-                            ) {
-                                val chartWidth = if (targetPeriod == NutritionPeriod.Day) 1000.dp else Dp.Unspecified
-                                Box(
-                                    modifier = Modifier
-                                        .then(if (targetPeriod == NutritionPeriod.Day) Modifier.width(chartWidth) else Modifier.fillMaxWidth())
-                                        .fillMaxHeight()
-                                        .pointerInput(data) {
-                                            detectTapGestures(
-                                                onTap = { offset ->
-                                                    if (data.size >= 2) {
-                                                        val sidePadding = 24.dp.toPx()
-                                                        val width = size.width
-                                                        val usableWidth = width - (sidePadding * 2)
-                                                        val step = usableWidth / (data.size - 1)
-                                                        
-                                                        if (step > 0) {
-                                                            val index = ((offset.x - sidePadding) / step).toInt().coerceIn(0, data.size - 1)
-                                                            selectedPoint = data.getOrNull(index)
-                                                            tooltipPos = offset
-                                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                        }
-                                ) {
-                                    InteractiveTrendChart(
-                                        data = data,
-                                        goal = goal.toFloat(),
-                                        isDaily = targetPeriod == NutritionPeriod.Day
-                                    )
+                        if (targetPeriod == NutritionPeriod.Day) {
+                            // ---- 24H SCROLLABLE DAY CHART ----
+                            val density = LocalDensity.current
+                            val hourSlotPx = with(density) { hourSlotDp.toPx() }
+                            val totalWidthPx = hourSlotPx * 24
+
+                            // Auto-scroll to currentHour (center it)
+                            val viewportWidthPx = remember { mutableStateOf(0f) }
+                            LaunchedEffect(period, viewportWidthPx.value) {
+                                if (viewportWidthPx.value > 0) {
+                                    val targetScroll = ((currentHour * hourSlotPx) - viewportWidthPx.value / 2)
+                                        .toInt().coerceAtLeast(0)
+                                    scrollState.scrollTo(targetScroll)
                                 }
                             }
 
-                            // X-Axis Labels (Selective)
-                            if (data.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(12.dp))
+                            Column {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .horizontalScroll(scrollState)
+                                        .onSizeChanged { viewportWidthPx.value = it.width.toFloat() }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(totalChartWidthDp)
+                                            .fillMaxHeight()
+                                            .pointerInput(data) {
+                                                detectTapGestures(onTap = { offset ->
+                                                    val hourIndex = (offset.x / hourSlotPx)
+                                                        .toInt().coerceIn(0, 23)
+                                                    val pt = data.getOrNull(hourIndex)
+                                                    if (pt != null) {
+                                                        selectedPoint = pt
+                                                        val chartHeight = size.height.toFloat()
+                                                        val rawMax = maxOf(
+                                                            data.map { it.value }.maxOrNull() ?: 0f,
+                                                            goal.toFloat(), 1f
+                                                        ) * 1.2f
+                                                        val y = chartHeight - (pt.value / rawMax * chartHeight)
+                                                        selectedDotOffset = Offset(offset.x, y)
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    }
+                                                })
+                                            }
+                                    ) {
+                                        InteractiveTrendChart(
+                                            data = data,
+                                            goal = goal.toFloat(),
+                                            isDaily = true,
+                                            selectedHour = selectedPoint?.time?.substringBefore(":")?.toIntOrNull(),
+                                            selectedDotOffset = selectedDotOffset
+                                        )
+                                    }
+                                }
+
+                                // X-Axis Labels row (synced scroll)
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .then(if (targetPeriod == NutritionPeriod.Day) Modifier.horizontalScroll(scrollState) else Modifier)
+                                        .horizontalScroll(scrollState)
                                 ) {
-                                    val chartWidth = if (targetPeriod == NutritionPeriod.Day) 1000.dp else Dp.Unspecified
                                     Row(
-                                        modifier = Modifier
-                                            .then(if (targetPeriod == NutritionPeriod.Day) Modifier.width(chartWidth) else Modifier.fillMaxWidth())
-                                            .padding(horizontal = 24.dp), // Match chart side padding
+                                        modifier = Modifier.width(totalChartWidthDp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        data.forEach { point ->
-                                            if (point.label.isNotEmpty()) {
-                                                Text(
-                                                    text = point.label,
-                                                    color = Color.White.copy(alpha = 0.3f),
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    textAlign = TextAlign.Center
-                                                )
-                                            } else if (targetPeriod == NutritionPeriod.Day) {
-                                                Spacer(modifier = Modifier.width(1.dp))
+                                        data.forEachIndexed { idx, point ->
+                                            Box(
+                                                modifier = Modifier.width(hourSlotDp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (point.label.isNotEmpty()) {
+                                                    Text(
+                                                        text = point.label,
+                                                        color = if (idx == currentHour)
+                                                            Color(0xFF64b5f6)
+                                                        else
+                                                            Color.White.copy(alpha = 0.35f),
+                                                        fontSize = 9.sp,
+                                                        fontWeight = if (idx == currentHour) FontWeight.Bold else FontWeight.Normal,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // ---- WEEKLY CHART (unchanged layout) ----
+                            Column {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight()
+                                            .pointerInput(data) {
+                                                detectTapGestures(onTap = { offset ->
+                                                    if (data.size >= 2) {
+                                                        val sidePadding = 24.dp.toPx()
+                                                        val usableWidth = size.width - (sidePadding * 2)
+                                                        val step = usableWidth / (data.size - 1)
+                                                        if (step > 0) {
+                                                            val index = ((offset.x - sidePadding) / step)
+                                                                .toInt().coerceIn(0, data.size - 1)
+                                                            val pt = data.getOrNull(index)
+                                                            if (pt != null) {
+                                                                selectedPoint = pt
+                                                                selectedDotOffset = offset
+                                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                            }
+                                                        }
+                                                    }
+                                                })
+                                            }
+                                    ) {
+                                        InteractiveTrendChart(
+                                            data = data,
+                                            goal = goal.toFloat(),
+                                            isDaily = false,
+                                            selectedHour = null,
+                                            selectedDotOffset = Offset.Zero
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    data.forEach { point ->
+                                        if (point.label.isNotEmpty()) {
+                                            Text(
+                                                text = point.label,
+                                                color = if (point.isHighlighted) Color(0xFF64b5f6)
+                                                else Color.White.copy(alpha = 0.3f),
+                                                fontSize = 10.sp,
+                                                fontWeight = if (point.isHighlighted) FontWeight.Bold else FontWeight.Medium,
+                                                textAlign = TextAlign.Center
+                                            )
                                         }
                                     }
                                 }
@@ -522,12 +619,12 @@ fun PremiumAnimatedChart(
                         }
                     }
                 }
-                
-                // Tooltip Overlay
+
+                // Single floating tooltip
                 selectedPoint?.let { point ->
                     ChartTooltip(
                         point = point,
-                        offset = tooltipPos,
+                        offset = selectedDotOffset,
                         onDismiss = { selectedPoint = null }
                     )
                 }
@@ -537,47 +634,63 @@ fun PremiumAnimatedChart(
 }
 
 @Composable
-fun InteractiveTrendChart(data: List<ChartPoint>, goal: Float, isDaily: Boolean = false) {
-    // Add 20% breathing space above the highest point/goal
+fun InteractiveTrendChart(
+    data: List<ChartPoint>,
+    goal: Float,
+    isDaily: Boolean = false,
+    selectedHour: Int? = null,
+    selectedDotOffset: Offset = Offset.Zero
+) {
     val rawMax = maxOf(data.map { it.value }.maxOrNull() ?: 0f, goal, 1f)
-    val maxVal = rawMax * 1.2f 
-    
+    val maxVal = rawMax * 1.2f
+
     val drawProgress = remember { Animatable(0f) }
-    
     LaunchedEffect(data) {
+        drawProgress.snapTo(0f)
         drawProgress.animateTo(1f, tween(1500, easing = FastOutSlowInEasing))
     }
 
     val path = remember(data, maxVal) { Path() }
     val fillPath = remember(data, maxVal) { Path() }
 
+    // Pulsing animation for the selected dot
+    val pulseAnim = rememberInfiniteTransition(label = "dot_pulse")
+    val pulseRadius by pulseAnim.animateFloat(
+        initialValue = 6f,
+        targetValue = 12f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "pulse"
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
-            
-            // Add horizontal breathing space
-            val sidePadding = 24.dp.toPx()
-            val usableWidth = width - (sidePadding * 2)
-            val step = usableWidth / (data.size - 1).coerceAtLeast(1)
-            
             val goalY = height - (goal / maxVal * height)
-            
+
+            // For Day mode: each hour gets an equal slot width
+            val step = if (isDaily) {
+                width / 24f
+            } else {
+                val sidePadding = 24.dp.toPx()
+                (width - sidePadding * 2) / (data.size - 1).coerceAtLeast(1)
+            }
+            val xOffset = if (isDaily) 0f else 24.dp.toPx()
+
             if (data.isNotEmpty()) {
                 path.reset()
                 fillPath.reset()
-                
+
                 data.forEachIndexed { i, point ->
-                    val x = sidePadding + (i * step)
+                    val x = xOffset + i * step + if (isDaily) step / 2f else 0f
                     val y = height - (point.value / maxVal * height)
-                    
+
                     if (i == 0) {
                         path.moveTo(x, y)
                         fillPath.moveTo(x, height)
                         fillPath.lineTo(x, y)
                     } else {
-                        // Use cubic curve for premium look
-                        val prevX = (i - 1) * step
+                        val prevX = xOffset + (i - 1) * step + if (isDaily) step / 2f else 0f
                         val prevY = height - (data[i - 1].value / maxVal * height)
                         path.cubicTo(
                             (prevX + x) / 2f, prevY,
@@ -590,7 +703,6 @@ fun InteractiveTrendChart(data: List<ChartPoint>, goal: Float, isDaily: Boolean 
                             x, y
                         )
                     }
-                    
                     if (i == data.size - 1) {
                         fillPath.lineTo(x, height)
                         fillPath.close()
@@ -598,24 +710,19 @@ fun InteractiveTrendChart(data: List<ChartPoint>, goal: Float, isDaily: Boolean 
                 }
             }
 
-            // --- DRAWING LAYERS ---
+            // --- Draw layers ---
             clipRect(right = width * drawProgress.value) {
-                // 1. Draw Base Trend (Teal)
                 drawPath(
                     path = path,
                     color = Color(0xFF64b5f6),
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
-                
-                // 2. Draw Area Gradient
                 drawPath(
                     path = fillPath,
                     brush = Brush.verticalGradient(
                         colors = listOf(Color(0xFF64b5f6).copy(alpha = 0.2f), Color.Transparent)
                     )
                 )
-
-                // 3. Highlight Exceeded Area (Amber/Orange)
                 if (goal > 0) {
                     clipRect(top = 0f, bottom = goalY) {
                         drawPath(
@@ -632,40 +739,38 @@ fun InteractiveTrendChart(data: List<ChartPoint>, goal: Float, isDaily: Boolean 
                     }
                 }
             }
-            
-            // Draw Points (Glowing effect) - ONLY IF VALUE > 0
-            if (data.size >= 2) {
-                data.forEachIndexed { i, point ->
-                    if (drawProgress.value > (i.toFloat() / data.size) && point.value > 0) {
-                        val x = i * step
-                        val y = height - (point.value / maxVal * height)
-                        val isExceeded = point.value > goal && goal > 0
-                        val pointColor = if (isExceeded) Color(0xFFffb74d) else Color.White
 
-                        drawCircle(
-                            color = pointColor.copy(alpha = 0.2f),
-                            radius = 8.dp.toPx(),
-                            center = Offset(x, y)
-                        )
-                        drawCircle(
-                            color = pointColor,
-                            radius = 4.dp.toPx(),
-                            center = Offset(x, y)
-                        )
-                        
-                        if (point.isHighlighted) {
-                            drawCircle(
-                                color = pointColor,
-                                radius = 10.dp.toPx(),
-                                center = Offset(x, y),
-                                style = Stroke(width = 2.dp.toPx())
-                            )
-                        }
+            // --- Single dot: only the tapped/selected point ---
+            if (selectedHour != null && selectedDotOffset != Offset.Zero) {
+                val dotX = selectedDotOffset.x
+                val dotY = selectedDotOffset.y
+                val pt = data.getOrNull(selectedHour)
+                val isExceeded = (pt?.value ?: 0f) > goal && goal > 0
+                val dotColor = if (isExceeded) Color(0xFFffb74d) else Color(0xFF64b5f6)
+
+                // Outer pulsing ring
+                drawCircle(color = dotColor.copy(alpha = 0.25f), radius = pulseRadius.dp.toPx(), center = Offset(dotX, dotY))
+                // Inner solid dot
+                drawCircle(color = dotColor, radius = 5.dp.toPx(), center = Offset(dotX, dotY))
+                // White center
+                drawCircle(color = Color.White, radius = 2.5f.dp.toPx(), center = Offset(dotX, dotY))
+            } else if (!isDaily) {
+                // Weekly mode: show dot only for highlighted (today) point
+                data.forEachIndexed { i, point ->
+                    if (point.isHighlighted && point.value > 0) {
+                        val sidePadding = 24.dp.toPx()
+                        val usableWidth = size.width - sidePadding * 2
+                        val s = usableWidth / (data.size - 1).coerceAtLeast(1)
+                        val x = sidePadding + i * s
+                        val y = size.height - (point.value / maxVal * size.height)
+                        drawCircle(color = Color(0xFF64b5f6).copy(alpha = 0.3f), radius = 8.dp.toPx(), center = Offset(x, y))
+                        drawCircle(color = Color(0xFF64b5f6), radius = 4.dp.toPx(), center = Offset(x, y))
+                        drawCircle(color = Color.White, radius = 2.dp.toPx(), center = Offset(x, y))
                     }
                 }
             }
         }
-        
+
         GoalLine(goal = goal, maxVal = maxVal)
     }
 }

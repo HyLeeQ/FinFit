@@ -25,12 +25,51 @@ object DrinkType {
     const val SODA   = "SODA"
     const val OTHER  = "OTHER"
 
-    /** Ước lượng lượng Caffeine (mg) theo loại thức uống (phục vụ Sleep correlation sau này) */
+    /**
+     * Hydration Index — Hệ số cấp nước thực tế theo khuyến nghị y khoa.
+     *
+     * Lý do khoa học:
+     * - Cà phê/Trà có tính lợi tiểu nhẹ (diuretic effect) → cơ thể bài tiết
+     *   nhiều nước hơn so với lượng tiêu thụ → giá trị hydrat hóa thực thấp hơn.
+     * - Sữa/Nước ép chứa điện giải & dinh dưỡng hỗ trợ giữ nước nhưng
+     *   đường/chất béo làm chậm hấp thu → hệ số ~0.9.
+     * - Nước ngọt có đường + gas → tính lợi tiểu nhẹ hơn cà phê → 0.75.
+     *
+     * @return Hệ số (0.0–1.0). VD: 0.8 nghĩa là 500ml cà phê ≈ 400ml cấp nước thực.
+     */
+    fun hydrationIndex(drinkType: String): Float = when (drinkType) {
+        WATER  -> 1.00f   // Baseline — hoàn toàn được hấp thu
+        MILK   -> 0.90f   // Giàu điện giải, hỗ trợ giữ nước nhưng có chất béo
+        JUICE  -> 0.90f   // Tương tự sữa — điện giải tốt, đường làm chậm hấp thu
+        TEA    -> 0.85f   // Lợi tiểu nhẹ do tanin & caffeine thấp
+        COFFEE -> 0.80f   // Lợi tiểu rõ hơn do caffeine cao
+        SODA   -> 0.75f   // Gas + đường + caffeine (dark soda) → kém hiệu quả nhất
+        else   -> 0.90f   // OTHER: mặc định hệ số trung bình
+    }
+
+    /**
+     * Tính lượng nước cấp cho cơ thể thực tế (ml) sau khi áp dụng Hydration Index.
+     * Đây là giá trị dùng để cộng vào consumedMl trong Summary.
+     *
+     * VD: logWater(500ml, COFFEE) → effectiveHydration = 500 × 0.8 = 400ml
+     */
+    fun effectiveHydrationMl(amountMl: Int, drinkType: String): Int =
+        (amountMl * hydrationIndex(drinkType)).toInt()
+
+    /**
+     * Caffeine (mg) — Cập nhật theo tỷ lệ chuẩn hóa y khoa:
+     * - Cà phê: ~0.60mg/ml (tương đương ~90mg/150ml ly espresso)
+     * - Trà: ~0.20mg/ml (tương đương ~40mg/200ml)
+     */
     fun caffeineMg(drinkType: String, amountMl: Int): Int = when (drinkType) {
-        COFFEE -> (amountMl * 0.36).toInt()  // ~90mg/250ml
-        TEA    -> (amountMl * 0.02).toInt()  // ~20mg/250ml
+        COFFEE -> (amountMl * 0.60).toInt()  // ~90mg / 150ml
+        TEA    -> (amountMl * 0.20).toInt()  // ~40mg / 200ml
         else   -> 0
     }
+
+    /** Ngưỡng Caffeine cảnh báo theo khuyến nghị y khoa */
+    const val CAFFEINE_WARN_MG    = 200   // Mức bắt đầu cảnh báo (màu cam)
+    const val CAFFEINE_DANGER_MG  = 400   // Mức nguy hiểm (Dialog/Notification)
 }
 
 /**
@@ -93,6 +132,14 @@ data class WaterLogEntity(
      * Lưu sẵn để tránh tính toán lặp lại khi vẽ chart Sleep-Caffeine correlation.
      */
     val caffeineMg: Int,
+
+    /**
+     * Lượng nước cấp cho cơ thể thực tế (ml) sau khi áp dụng Hydration Index.
+     * Tính tại lúc Insert: amountMl × DrinkType.hydrationIndex(drinkType).
+     * VD: 500ml Cà phê × 0.80 = 400ml effectiveHydrationMl.
+     * Đây là giá trị được cộng vào consumedMl của Summary thay vì amountMl thô.
+     */
+    val effectiveHydrationMl: Int = amountMl,
 
     /** Nguồn gốc hành động. Dùng hằng số trong [WaterSource] */
     val source: String,

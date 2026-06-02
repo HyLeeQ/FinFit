@@ -14,6 +14,8 @@ if (localPropertiesFile.exists()) {
     }
 }
 def visionApiKey = localProperties.getProperty('VISION_API_KEY', '')
+def visionApiKey2 = localProperties.getProperty('VISION_API_KEY_2', '')
+def visionApiKey3 = localProperties.getProperty('VISION_API_KEY_3', '')
 def cloudinaryCloudName = localProperties.getProperty('CLOUDINARY_CLOUD_NAME', '')
 def cloudinaryUploadPreset = localProperties.getProperty('CLOUDINARY_UPLOAD_PRESET', '')
 
@@ -44,8 +46,15 @@ android {
 
         // --- Mã nguồn tại máy của bạn (Module Health) ---
         buildConfigField "String", "VISION_API_KEY", "\"${visionApiKey}\""
+        buildConfigField "String", "VISION_API_KEY_2", "\"${visionApiKey2}\""
+        buildConfigField "String", "VISION_API_KEY_3", "\"${visionApiKey3}\""
         buildConfigField "String", "CLOUDINARY_CLOUD_NAME", "\"${cloudinaryCloudName}\""
         buildConfigField "String", "CLOUDINARY_UPLOAD_PRESET", "\"${cloudinaryUploadPreset}\""
+        
+        // Airtable
+        buildConfigField "String", "AIRTABLE_PAT", "\"${localProperties.getProperty('AIRTABLE_PAT', '')}\""
+        buildConfigField "String", "AIRTABLE_BASE_ID", "\"${localProperties.getProperty('AIRTABLE_BASE_ID', '')}\""
+        buildConfigField "String", "AIRTABLE_TABLE_ID", "\"${localProperties.getProperty('AIRTABLE_TABLE_ID', '')}\""
     }
 
     buildTypes {
@@ -133,4 +142,8 @@ dependencies {
 
     // Cloudinary
     implementation 'com.cloudinary:cloudinary-android:3.0.2'
+
+    // Compose RichText for beautiful Markdown parsing
+    implementation("com.halilibo.compose-richtext:richtext-ui-material3:0.17.0")
+    implementation("com.halilibo.compose-richtext:richtext-commonmark:0.17.0")
 }

@@ -26,8 +26,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,7 +69,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import java.util.concurrent.Executors
 import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
 
 data class VisionFoodItem(
@@ -94,6 +98,7 @@ fun FoodCameraScreen(
     val isCooldownLocked = cooldownSeconds > 0
     
     val queuedItems = remember { mutableStateListOf<VisionFoodItem>() }
+    var showManualSearchSheet by remember { mutableStateOf(false) }
     
     val totalCalories = queuedItems.sumOf { it.result.estimatedCalories.toInt() }
     val maxCalories = 2500 // Increased for realistic daily tracking
@@ -195,8 +200,9 @@ fun FoodCameraScreen(
                             .clip(CircleShape)
                             .background(if (queuedItems.isNotEmpty()) Color(0xFF2E7D32) else Color(0xFF262626))
                             .clickable(enabled = queuedItems.isNotEmpty() && saveStatus.isEmpty()) {
-                                viewModel.saveCompleteMealSession(queuedItems) {
-                                    onLogMeal(queuedItems)
+                                val snapshot = queuedItems.toList() // freeze a copy before navigation
+                                viewModel.saveCompleteMealSession(snapshot) {
+                                    onLogMeal(snapshot)
                                 }
                             },
                         contentAlignment = Alignment.Center
@@ -214,6 +220,35 @@ fun FoodCameraScreen(
                             )
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // --- MARQUEE OFFLINE RUNNING NOTIFICATION BANNER ---
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .background(Color(0xFF2C2514), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFFFFB300).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                        .padding(vertical = 6.dp, horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = "Tips",
+                        tint = Color(0xFFFFB300),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "💡 Mẹo tiết kiệm thời gian: Nhấn biểu tượng kính lúp 🔍 ở góc phải bên dưới để chọn ngay món ăn có sẵn với độ chính xác tuyệt đối 100% mà không cần đợi quét AI!",
+                        color = Color(0xFFFFCC80),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee()
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -261,12 +296,28 @@ fun FoodCameraScreen(
                     .background(Color.Black)
             ) {
                 if (hasCameraPermission) {
+                    // Use DisposableEffect to manage camera lifecycle cleanly
+                    val analysisExecutorRef = remember { Executors.newSingleThreadExecutor() }
+                    var isScreenActive by remember { mutableStateOf(true) }
+
+                    DisposableEffect(lifecycleOwner) {
+                        onDispose {
+                            isScreenActive = false
+                            // Shutdown executor first so no new frames are submitted
+                            analysisExecutorRef.shutdown()
+                            // Then unbind camera safely
+                            try {
+                                ProcessCameraProvider.getInstance(context).get()?.unbindAll()
+                            } catch (e: Exception) {
+                                Log.e("Camera", "Cleanup unbind error", e)
+                            }
+                        }
+                    }
+
                     AndroidView(
                         factory = { ctx ->
                             val previewView = PreviewView(ctx)
                             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                            val executor = ContextCompat.getMainExecutor(ctx)
-                            val analysisExecutor = Executors.newSingleThreadExecutor()
 
                             cameraProviderFuture.addListener({
                                 val cameraProvider = cameraProviderFuture.get()
@@ -276,17 +327,32 @@ fun FoodCameraScreen(
 
                                 val imageAnalyzer = ImageAnalysis.Builder()
                                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                    .setTargetResolution(android.util.Size(1280, 720))
+                                    .setTargetResolution(android.util.Size(640, 480))
                                     .build()
                                     .also {
-                                        it.setAnalyzer(analysisExecutor) { imageProxy ->
+                                        it.setAnalyzer(analysisExecutorRef) { imageProxy ->
+                                            // Guard: stop processing if screen is gone
+                                            if (!isScreenActive) {
+                                                imageProxy.close()
+                                                return@setAnalyzer
+                                            }
                                             try {
                                                 val bitmap = imageProxy.toBitmap()
                                                 val matrix = Matrix().apply {
                                                     postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
                                                 }
-                                                val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-                                                
+                                                val rotatedBitmap = Bitmap.createBitmap(
+                                                    bitmap, 0, 0,
+                                                    bitmap.width, bitmap.height,
+                                                    matrix, true
+                                                )
+                                                if (!bitmap.isRecycled) bitmap.recycle()
+
+                                                if (!isScreenActive) {
+                                                    if (!rotatedBitmap.isRecycled) rotatedBitmap.recycle()
+                                                    return@setAnalyzer
+                                                }
+
                                                 if (viewModel.captureNextFrame) {
                                                     viewModel.processCapturedBitmap(rotatedBitmap)
                                                 } else {
@@ -311,19 +377,10 @@ fun FoodCameraScreen(
                                 } catch (exc: Exception) {
                                     Log.e("Camera", "Use case binding failed", exc)
                                 }
-                            }, executor)
+                            }, ContextCompat.getMainExecutor(ctx))
                             previewView
                         },
-                        modifier = Modifier.fillMaxSize(),
-                        onRelease = {
-                            // This runs when AndroidView is removed from the composition
-                            try {
-                                val cameraProvider = ProcessCameraProvider.getInstance(it.context).get()
-                                cameraProvider.unbindAll()
-                            } catch (e: Exception) {
-                                Log.e("Camera", "Failed to unbind on release", e)
-                            }
-                        }
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -433,8 +490,20 @@ fun FoodCameraScreen(
                         )
                     }
 
-                    // Mode Switcher Spacer
-                    Box(modifier = Modifier.size(40.dp))
+                    // Manual Search & Log Button (Premium Offline alternative)
+                    IconButton(
+                        onClick = { showManualSearchSheet = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = "Chọn thủ công",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -459,23 +528,26 @@ fun FoodCameraScreen(
         // --- SUCCESS DIALOG / CARD ---
         if (uiState is CameraUIState.Success) {
             val successState = uiState as CameraUIState.Success
-            MealAnalysisCard(
-                result = successState.result,
-                bitmap = successState.bitmap,
-                saveStatus = saveStatus,
-                onDismiss = { viewModel.dismissCard() },
-                onAdd = {
-                    val newItem = VisionFoodItem(
-                        id = System.currentTimeMillis().toString(),
-                        result = successState.result,
-                        bitmap = successState.bitmap,
-                        imageUrl = successState.imageUrl
-                    )
-                    queuedItems.add(newItem)
-                    viewModel.dismissCard()
-                },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
+            // Guard: don't render if bitmap was already recycled (e.g. during rapid navigation)
+            if (!successState.bitmap.isRecycled) {
+                MealAnalysisCard(
+                    result = successState.result,
+                    bitmap = successState.bitmap,
+                    saveStatus = saveStatus,
+                    onDismiss = { viewModel.dismissCard() },
+                    onAdd = { scaledResult ->
+                        val newItem = VisionFoodItem(
+                            id = System.currentTimeMillis().toString(),
+                            result = scaledResult,
+                            bitmap = successState.bitmap,
+                            imageUrl = successState.imageUrl
+                        )
+                        queuedItems.add(newItem)
+                        viewModel.dismissCard()
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
         }
         
         // Error Snackbar
@@ -493,10 +565,426 @@ fun FoodCameraScreen(
                     Text(
                         text = (uiState as CameraUIState.Error).message,
                         color = Color.White,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = { viewModel.dismissError() }) {
                         Icon(Icons.Rounded.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+
+        // --- MANUAL SEARCH & SELECT OVERLAY (Hybrid 0ms Latency Custom Creator) ---
+        if (showManualSearchSheet) {
+            var searchQuery by remember { mutableStateOf("") }
+            var isCreatingCustomFood by remember { mutableStateOf(false) }
+
+            val allFoods = remember {
+                com.example.finfit.health.ai.LocalNutritionDb.db.entries.toList()
+            }
+            val filteredFoods = allFoods.filter {
+                it.value.name.contains(searchQuery, ignoreCase = true) ||
+                it.key.contains(searchQuery, ignoreCase = true)
+            }
+
+            // Custom Gradient Placeholder Generator
+            val placeholderBitmap = remember {
+                val b = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(b)
+                val paint = android.graphics.Paint().apply {
+                    shader = android.graphics.LinearGradient(
+                        0f, 0f, 300f, 300f,
+                        android.graphics.Color.parseColor("#1E3C72"), // Deep Royal Blue
+                        android.graphics.Color.parseColor("#2A5298"), // Light Blue
+                        android.graphics.Shader.TileMode.CLAMP
+                    )
+                }
+                canvas.drawRect(0f, 0f, 300f, 300f, paint)
+                b
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .clickable { 
+                        showManualSearchSheet = false 
+                        isCreatingCustomFood = false
+                    },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Surface(
+                    color = Color(0xFF1E1E1E),
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.85f)
+                        .clickable(enabled = false) {} // Prevent click-through
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp)
+                    ) {
+                        if (isCreatingCustomFood) {
+                            // --- PART 1: CUSTOM FOOD ENTRY FORM ---
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { isCreatingCustomFood = false },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                                    ) {
+                                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Quay lại", tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "Tự nhập món ăn mới",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { 
+                                        showManualSearchSheet = false 
+                                        isCreatingCustomFood = false
+                                    },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                                ) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Đóng", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            var customName by remember { mutableStateOf(searchQuery) }
+                            var customCalories by remember { mutableStateOf("350") }
+                            var customProtein by remember { mutableStateOf("15") }
+                            var customCarbs by remember { mutableStateOf("45") }
+                            var customFat by remember { mutableStateOf("10") }
+
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Dish Name
+                                OutlinedTextField(
+                                    value = customName,
+                                    onValueChange = { customName = it },
+                                    label = { Text("Tên món ăn (bắt buộc)", color = Color.Gray) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = Color(0xFF64B5F6),
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                        focusedContainerColor = Color.White.copy(alpha = 0.03f),
+                                        unfocusedContainerColor = Color.White.copy(alpha = 0.01f)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                // Calories
+                                OutlinedTextField(
+                                    value = customCalories,
+                                    onValueChange = { customCalories = it },
+                                    label = { Text("Calo ước tính (kcal)", color = Color.Gray) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = Color(0xFF64B5F6),
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                        focusedContainerColor = Color.White.copy(alpha = 0.03f),
+                                        unfocusedContainerColor = Color.White.copy(alpha = 0.01f)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                // Macros Row (Protein, Carbs, Fat)
+                                Text(
+                                    text = "THÀNH PHẦN DINH DƯỠNG (MACROS)",
+                                    color = Color.Gray,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = customProtein,
+                                        onValueChange = { customProtein = it },
+                                        label = { Text("Đạm (g)", color = Color.Gray) },
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = Color(0xFF81C784),
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = customCarbs,
+                                        onValueChange = { customCarbs = it },
+                                        label = { Text("Carb (g)", color = Color.Gray) },
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = Color(0xFFFFD54F),
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = customFat,
+                                        onValueChange = { customFat = it },
+                                        label = { Text("Béo (g)", color = Color.Gray) },
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = Color(0xFFE57373),
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.15f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Submit Button
+                            Button(
+                                onClick = {
+                                    if (customName.trim().isNotEmpty()) {
+                                        val customResult = com.example.finfit.health.model.vision.DishNutritionResult(
+                                            dishName = customName.trim(),
+                                            dishConfidence = 1.0f,
+                                            possibleDishes = listOf(com.example.finfit.health.model.vision.DishInfo(customName.trim(), 1.0f)),
+                                            ingredients = listOf(com.example.finfit.health.model.vision.IngredientInfo("Tự nhập thủ công", 1.0f)),
+                                            estimatedCalories = (customCalories.toFloatOrNull() ?: 350f),
+                                            macros = com.example.finfit.health.model.vision.Macros(
+                                                proteinG = (customProtein.toFloatOrNull() ?: 15f),
+                                                carbsG = (customCarbs.toFloatOrNull() ?: 45f),
+                                                fatG = (customFat.toFloatOrNull() ?: 10f)
+                                            ),
+                                            healthScore = 8.0f,
+                                            analysisNotes = listOf("Món ăn tùy chỉnh được thiết lập nhanh ngoại tuyến.")
+                                        )
+                                        viewModel.selectFoodManually(customResult, placeholderBitmap)
+                                        isCreatingCustomFood = false
+                                        showManualSearchSheet = false
+                                    }
+                                },
+                                enabled = customName.trim().isNotEmpty(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF64B5F6),
+                                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                            ) {
+                                Text(
+                                    text = "Xác nhận & Thêm món",
+                                    color = if (customName.trim().isNotEmpty()) Color.Black else Color.White.copy(alpha = 0.5f),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        } else {
+                            // --- PART 2: SEARCH & LIST AVAILABLE FOODS ---
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Chọn nhanh món ăn",
+                                    color = Color.White,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                IconButton(
+                                    onClick = { showManualSearchSheet = false },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                                ) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Đóng", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Search Bar
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Tìm kiếm món ăn...", color = Color.Gray) },
+                                singleLine = true,
+                                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Color.Gray) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = Color(0xFF64B5F6),
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                    focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                    unfocusedContainerColor = Color.White.copy(alpha = 0.02f)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // "Tự nhập món ăn mới" quick action row (Aesthetic glow card)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF64B5F6).copy(alpha = 0.08f))
+                                    .border(1.dp, Color(0xFF64B5F6).copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        isCreatingCustomFood = true
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF64B5F6).copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = Color(0xFF90CAF9),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = if (searchQuery.isEmpty()) "Tự nhập món ăn tùy chỉnh..." else "Tự nhập món ăn: \"$searchQuery\"",
+                                    color = Color(0xFF90CAF9),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Food List Header
+                            Text(
+                                text = "DANH SÁCH MÓN ĂN AN TOÀN (${filteredFoods.size})",
+                                color = Color.Gray,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(filteredFoods) { item ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.White.copy(alpha = 0.03f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                            .clickable {
+                                                val nutritionResult = com.example.finfit.health.ai.LocalNutritionDb.getNutritionForLabel(item.key, 1.0f)
+                                                if (nutritionResult != null) {
+                                                    viewModel.selectFoodManually(nutritionResult, placeholderBitmap)
+                                                    showManualSearchSheet = false
+                                                }
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Food Icon or Circle
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF2E7D32).copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.Fastfood,
+                                                contentDescription = null,
+                                                tint = Color(0xFF81C784),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        // Name and Details
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = item.value.name,
+                                                color = Color.White,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "${item.value.ingredients.take(3).joinToString(", ")}...",
+                                                color = Color.Gray,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+
+                                        // Calories Badge
+                                        Surface(
+                                            color = Color(0xFF64B5F6).copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "${item.value.calories.toInt()} kcal",
+                                                color = Color(0xFF90CAF9),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -688,19 +1176,31 @@ fun MealAnalysisCard(
     bitmap: Bitmap,
     saveStatus: String = "",
     onDismiss: () -> Unit,
-    onAdd: () -> Unit,
+    onAdd: (com.example.finfit.health.model.vision.DishNutritionResult) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    var portionScale by remember { mutableStateOf(1.0f) }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .wrapContentHeight()
-            .padding(bottom = 16.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+            .fillMaxHeight(0.88f)
+            .padding(bottom = 16.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Scrollable content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)
+                ) {
             // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -737,7 +1237,7 @@ fun MealAnalysisCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Image and Calories
+            // Image and Calories (Dynamically Scaled)
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
@@ -751,8 +1251,9 @@ fun MealAnalysisCard(
                 Spacer(modifier = Modifier.width(20.dp))
                 
                 Column {
+                    val scaledCalories = (result.estimatedCalories * portionScale).toInt()
                     Text(
-                        text = "${result.estimatedCalories.toInt()}",
+                        text = "$scaledCalories",
                         color = Color.White,
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Black
@@ -767,14 +1268,17 @@ fun MealAnalysisCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Macros Row
+            // Macros Row (Dynamically Scaled)
             Row(
                 modifier = Modifier.fillMaxWidth().background(Color(0xFF2A2A2A), RoundedCornerShape(16.dp)).padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                MacroItem("Protein", "${result.macros.proteinG.toInt()}g", Color(0xFFF06292))
-                MacroItem("Carbs", "${result.macros.carbsG.toInt()}g", Color(0xFF4FC3F7))
-                MacroItem("Fat", "${result.macros.fatG.toInt()}g", Color(0xFFFFB74D))
+                val scaledProt = (result.macros.proteinG * portionScale).toInt()
+                val scaledCarb = (result.macros.carbsG * portionScale).toInt()
+                val scaledFat = (result.macros.fatG * portionScale).toInt()
+                MacroItem("Protein", "${scaledProt}g", Color(0xFFF06292))
+                MacroItem("Carbs", "${scaledCarb}g", Color(0xFF4FC3F7))
+                MacroItem("Fat", "${scaledFat}g", Color(0xFFFFB74D))
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -810,6 +1314,43 @@ fun MealAnalysisCard(
                 )
             }
 
+            // --- PORTION SIZE SEGMENTED SELECTOR ---
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "Khẩu phần ăn (Portion Size):",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2A2A2A), RoundedCornerShape(12.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(0.5f to "0.5x (Ít)", 1.0f to "1.0x (Chuẩn)", 1.5f to "1.5x (Nhiều)", 2.0f to "2.0x (Gấp đôi)").forEach { (scale, label) ->
+                    val isSelected = portionScale == scale
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) Color(0xFF64B5F6) else Color.Transparent)
+                            .clickable { portionScale = scale }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.8f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             // Analysis Notes
             if (result.analysisNotes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -822,42 +1363,69 @@ fun MealAnalysisCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                } // end scrollable column
 
-            Button(
-                onClick = onAdd,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-            ) {
-                Text("XÁC NHẬN & THÊM", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-            }
-
-            // Persistence Status Feedback
-            if (saveStatus.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                // --- PINNED BOTTOM: CONFIRM BUTTON (fixed, never moves) ---
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1E1E1E))
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
-                    if (saveStatus.contains("Đang lưu")) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            color = Color(0xFF64B5F6),
-                            strokeWidth = 2.dp
+                    Button(
+                        onClick = {
+                            val scaledResult = result.copy(
+                                estimatedCalories = result.estimatedCalories * portionScale,
+                                macros = result.macros.copy(
+                                    proteinG = result.macros.proteinG * portionScale,
+                                    carbsG = result.macros.carbsG * portionScale,
+                                    fatG = result.macros.fatG * portionScale
+                                )
+                            )
+                            onAdd(scaledResult)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    } else if (saveStatus.contains("thành công")) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
+                    ) {
+                        Text(
+                            "XÁC NHẬN & THÊM",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp
+                        )
                     }
-                    Text(
-                        text = saveStatus,
-                        color = if (saveStatus.contains("Lỗi")) Color(0xFFEF5350) else Color(0xFFB0B0B0),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+
+                    if (saveStatus.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (saveStatus.contains("Đang lưu")) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    color = Color(0xFF64B5F6),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            } else if (saveStatus.contains("thành công")) {
+                                Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text(
+                                text = saveStatus,
+                                color = if (saveStatus.contains("Lỗi")) Color(0xFFEF5350) else Color(0xFFB0B0B0),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
         }

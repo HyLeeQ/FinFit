@@ -22,6 +22,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import android.content.Intent
+import android.provider.AlarmClock
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -377,6 +381,7 @@ fun LogSleepDialog(
     onDismiss: () -> Unit,
     onSave: (Long, Long) -> Unit
 ) {
+    val context = LocalContext.current
     val initialBedMin = remember(initialSession) {
         if (initialSession != null) {
             val cal = java.util.Calendar.getInstance().apply { timeInMillis = initialSession.bedTimeTimestamp }
@@ -465,9 +470,23 @@ fun LogSleepDialog(
                     wakeCal.add(java.util.Calendar.DAY_OF_YEAR, 1)
                 }
 
+                // Thiết lập báo thức hệ thống
+                val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                    putExtra(AlarmClock.EXTRA_MESSAGE, "Báo thức (FinFit)")
+                    putExtra(AlarmClock.EXTRA_HOUR, wakeTimeMin / 60)
+                    putExtra(AlarmClock.EXTRA_MINUTES, wakeTimeMin % 60)
+                    putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                }
+                try {
+                    context.startActivity(intent)
+                    Toast.makeText(context, "Đã đặt báo thức lúc ${String.format("%02d:%02d", wakeTimeMin / 60, wakeTimeMin % 60)}", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Không tìm thấy ứng dụng báo thức", Toast.LENGTH_SHORT).show()
+                }
+
                 onSave(bedCal.timeInMillis, wakeCal.timeInMillis)
             }) {
-                Text("Lưu", color = Color(0xFF64b5f6))
+                Text(if (initialSession == null) "Lưu & Đặt Báo Thức" else "Lưu", color = Color(0xFF64b5f6))
             }
         },
         dismissButton = {

@@ -37,14 +37,22 @@ fun NavGraphBuilder.healthNavGraph(
         FoodCameraScreen(
             mealTitle = mealTitle,
             onBackClick = { navController.popBackStack() },
-            onLogMeal = { items ->
-                // MOCK: Handle saving meals
-                navController.popBackStack()
+            onLogMeal = { _ ->
+                // Safe navigation: only pop if this destination is still on the stack
+                if (navController.currentDestination?.route?.startsWith("food_camera") == true) {
+                    navController.popBackStack()
+                }
             }
         )
     }
-    composable(Routes.HEALTH_STATS) {
-        HealthStatsScreen(userEmail, onBack = { navController.popBackStack() })
+    composable(Routes.HEALTH_NEWS) {
+        NewsScreen(onNavigateToDetail = { articleId -> 
+            navController.navigate(Routes.HEALTH_NEWS_DETAIL.replace("{articleId}", articleId)) 
+        })
+    }
+    composable(Routes.HEALTH_NEWS_DETAIL) { backStackEntry ->
+        val articleId = backStackEntry.arguments?.getString("articleId") ?: ""
+        NewsDetailScreen(articleId = articleId, onBack = { navController.popBackStack() })
     }
     composable(Routes.HEALTH_PREDICTION) {
         HealthPredictionScreen(userEmail, onBack = { navController.popBackStack() })
