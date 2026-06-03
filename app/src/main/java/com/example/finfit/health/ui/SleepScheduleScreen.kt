@@ -55,7 +55,7 @@ fun SleepScheduleScreen(
             containerColor = Color(0xFF0e0e0e),
             topBar = {
                 TopAppBar(
-                    title = { Text("Sleep Schedule", fontWeight = FontWeight.Bold, color = Color.White) },
+                    title = { Text("Quản lý giấc ngủ", fontWeight = FontWeight.Bold, color = Color.White) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)

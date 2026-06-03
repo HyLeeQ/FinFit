@@ -51,6 +51,14 @@ data class HealthUiState(
 ) {
     /** Calo thuần: Nạp vào - Tiêu hao */
     val netCalorieBalance: Int get() = caloriesIn - caloriesOut
+
+    // --- DAILY HEALTH SCORE LOGIC (Tự động reset qua ngày mới vì data trong ngày sẽ = 0) ---
+    val nutritionScore: Int get() = if (calorieGoal > 0) ((caloriesIn.toFloat() / calorieGoal) * 30f).coerceIn(0f, 30f).toInt() else 0
+    val waterScore: Int get() = if (waterGoalMl > 0) ((waterConsumedMl.toFloat() / waterGoalMl) * 20f).coerceIn(0f, 20f).toInt() else 0
+    val sleepScore: Int get() = ((sleepHours / 8f) * 25f).coerceIn(0f, 25f).toInt()
+    val activityScore: Int get() = if (stepGoal > 0) ((steps.toFloat() / stepGoal) * 25f).coerceIn(0f, 25f).toInt() else 0
+    
+    val totalHealthScore: Int get() = nutritionScore + waterScore + sleepScore + activityScore
 }
 
 // ====================================================================

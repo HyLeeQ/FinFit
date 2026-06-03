@@ -257,6 +257,11 @@ fun HealthDashboardScreen(
             }
         }
 
+        // --- Daily Score Card (Span 2) ---
+        item(span = { GridItemSpan(2) }) {
+            HealthDailyScoreCard(uiState = uiState)
+        }
+
         // --- Water Card (Span 1) ---
         item(span = { GridItemSpan(1) }) {
             HealthWaterMiniCard(
@@ -731,5 +736,100 @@ fun InsightItem(title: String, source: String, icon: ImageVector, accentColor: C
                 Text(text = source, fontSize = 11.sp, color = Color(0xFFadaaaa))
             }
         }
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TỔNG ĐIỂM SỨC KHỎE TRONG NGÀY
+// ════════════════════════════════════════════════════════════════════════════
+@Composable
+fun HealthDailyScoreCard(uiState: com.example.finfit.health.model.HealthUiState) {
+    val totalScore = uiState.totalHealthScore
+    val scoreText = when {
+        totalScore >= 90 -> "Rất Tốt"
+        totalScore >= 70 -> "Tốt"
+        totalScore >= 50 -> "Trung bình"
+        else -> "Cần cố gắng"
+    }
+    
+    val scoreColor = when {
+        totalScore >= 90 -> Color(0xFF64b5f6) // Blue
+        totalScore >= 70 -> Color(0xFF81C784) // Green
+        totalScore >= 50 -> Color(0xFFFFC107) // Yellow
+        else -> Color(0xFFff716c) // Red
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1a1a1a))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Header: Ring and Total Score
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(64.dp)) {
+                    CircularProgressIndicator(
+                        progress = { 1f },
+                        modifier = Modifier.fillMaxSize(),
+                        color = Color(0xFF262626),
+                        strokeWidth = 6.dp
+                    )
+                    CircularProgressIndicator(
+                        progress = { totalScore / 100f },
+                        modifier = Modifier.fillMaxSize(),
+                        color = scoreColor,
+                        strokeWidth = 6.dp,
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                    Text(
+                        text = "$totalScore",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(text = scoreText, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = scoreColor)
+                    Text(text = "$totalScore/100", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(text = "(Dựa trên 4 chỉ số bên dưới)", fontSize = 12.sp, color = Color(0xFFadaaaa))
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFF262626))
+            Spacer(Modifier.height(16.dp))
+            
+            // Metrics List Breakdown
+            val formatStr = java.text.NumberFormat.getInstance(java.util.Locale("vi", "VN"))
+            
+            ScoreMetricRow("Dinh dưỡng", "${formatStr.format(uiState.caloriesIn)} / ${formatStr.format(uiState.calorieGoal)} kcal", "${uiState.nutritionScore}/30", Color(0xFFffcc80))
+            ScoreMetricRow("Nước uống", "${formatStr.format(uiState.waterConsumedMl)} / ${formatStr.format(uiState.waterGoalMl)} ml", "${uiState.waterScore}/20", Color(0xFF64b5f6))
+            
+            val h = uiState.sleepHours.toInt()
+            val m = ((uiState.sleepHours - h) * 60).toInt()
+            ScoreMetricRow("Giấc ngủ", "${h}h ${m}m / 8h", "${uiState.sleepScore}/25", Color(0xFFea73fb))
+            
+            ScoreMetricRow("Vận động", "${formatStr.format(uiState.steps)} / ${formatStr.format(uiState.stepGoal)} bước", "${uiState.activityScore}/25", Color(0xFFbbffb3))
+        }
+    }
+}
+
+@Composable
+private fun ScoreMetricRow(label: String, value: String, scoreStr: String, dotColor: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(dotColor))
+            Spacer(Modifier.width(12.dp))
+            Text(label, fontSize = 14.sp, color = Color.White)
+            Spacer(Modifier.width(8.dp))
+            Text(value, fontSize = 14.sp, color = Color(0xFFadaaaa))
+        }
+        Text(scoreStr, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
     }
 }
