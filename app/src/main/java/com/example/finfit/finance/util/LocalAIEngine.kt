@@ -102,6 +102,15 @@ object LocalAIEngine {
     ): LocalAnswer {
         val lower = userText.lowercase().trim()
 
+        // ── Bộ lọc tránh tryAnswerLocally chặn nhầm lệnh tạo/hành động ──
+        val hasAmount = SmartTransactionParser.parseAmount(lower) != null || lower.any { it.isDigit() }
+        val isActionOrCreation = matchesAny(lower, "tạo", "thêm", "đặt", "ghi", "trả", "thiết lập", "lập", "thu", "nhận", "cho")
+        val isExplicitQuery = matchesAny(lower, "danh sách", "tổng", "xem", "tra cứu", "kiểm tra", "báo cáo", "tình hình", "tiến độ", "bao nhiêu", "còn lại", "lịch sử")
+
+        if ((hasAmount || isActionOrCreation) && !isExplicitQuery) {
+            return LocalAnswer("", false)
+        }
+
         // ── Số dư ────────────────────────────────────────────────
         if (matchesAny(lower, "số dư", "còn bao nhiêu tiền", "balance", "tiền còn", "trong ví")) {
             if (wallet == null) return LocalAnswer("Chưa có dữ liệu ví.", true)
