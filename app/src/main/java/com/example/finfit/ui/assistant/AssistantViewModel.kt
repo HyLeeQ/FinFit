@@ -86,6 +86,13 @@ class AssistantViewModel(
             return  // No API needed
         }
 
+        // ── Local fast path: try single tx parse ───────────────
+        val singleTx = com.example.finfit.finance.util.SmartTransactionParser.parse(text)
+        if (singleTx != null) {
+            addLocalMessage(MessageContent.TransactionCard(singleTx), false)
+            return  // No API needed
+        }
+
         // ── Local Q&A: answer simple queries without API ────────
         val localAnswer = LocalAIEngine.tryAnswerLocally(
             userText = text,

@@ -295,19 +295,7 @@ class GeminiService {
                     generativeModel.generateContent(*history.toTypedArray())
                 } catch (e: Exception) {
                     val msg = e.message ?: ""
-                    when {
-                        msg.contains("429") || msg.contains("quota", ignoreCase = true) ->
-                                throw QuotaExceededException()
-                        msg.contains("403") || msg.contains("API key", ignoreCase = true) ->
-                                throw Exception(
-                                        "API Key đã bị vô hiệu hoá hoặc sai. Vui lòng kiểm tra lại cấu hình."
-                                )
-                        else ->
-                                throw Exception(
-                                        "Lỗi kết nối AI: " +
-                                                (e.localizedMessage ?: "Không xác định")
-                                )
-                    }
+                    throw Exception("Chi tiết lỗi từ Google API: $msg")
                 }
             }
 }
