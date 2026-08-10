@@ -1,7 +1,7 @@
 package com.example.finfit.finance.ui.utils
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,7 +9,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -86,7 +88,9 @@ fun VnAmountTextField(
 
 
 /** 
- * Một component hỗ trợ hiển thị số tiền có hiệu ứng nhảy số mượt mà 
+ * Hiển thị số tiền với hiệu ứng đếm số mượt mà:
+ * - Lần đầu xuất hiện: đếm từ 0 → giá trị thực (1 lần duy nhất)
+ * - Khi data cập nhật: animate nhẹ từ giá trị cũ → mới (không giật về 0)
  */
 @Composable
 fun AnimatedAmountText(
@@ -95,7 +99,7 @@ fun AnimatedAmountText(
     color: Color,
     fontSize: TextUnit,
     fontWeight: FontWeight,
-    isMaskedAll: Boolean = false 
+    isMaskedAll: Boolean = false
 ) {
     if (isHidden) {
         Text(
@@ -105,13 +109,16 @@ fun AnimatedAmountText(
             fontWeight = fontWeight
         )
     } else {
-        val animatedAmount by animateFloatAsState(
-            targetValue = amount.toFloat(),
-            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-            label = "AmountAnimation"
-        )
+        // Animatable cho phép kiểm soát chính xác: bắt đầu từ 0, animate đến amount
+        val animatable = remember { Animatable(0f) }
+        LaunchedEffect(amount) {
+            animatable.animateTo(
+                targetValue = amount.toFloat(),
+                animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing)
+            )
+        }
         Text(
-            text = formatCurrency(animatedAmount.toDouble()),
+            text = formatCurrency(animatable.value.toDouble()),
             color = color,
             fontSize = fontSize,
             fontWeight = fontWeight

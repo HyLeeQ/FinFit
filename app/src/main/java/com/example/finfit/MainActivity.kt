@@ -54,6 +54,15 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = Routes.SPLASH) {
                     composable(Routes.SPLASH) {
                         SplashScreen(
+                            onPreload = {
+                                // Prefetch dữ liệu trước khi vào giao diện chính
+                                // Chỉ fetch khi đã đăng nhập
+                                val user = authRepository.getCurrentUser()
+                                if (user != null) {
+                                    // Firestore collect lần đầu để cache local
+                                    firestoreRepository.prefetchUserData(user.uid)
+                                }
+                            },
                             onSplashFinished = {
                                 val dest = when {
                                     !themePrefs.hasSeenOnboarding() -> Routes.ONBOARDING

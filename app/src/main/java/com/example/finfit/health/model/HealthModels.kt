@@ -172,30 +172,40 @@ data class WaterLogUiItem(
 fun HealthEntity?.toUiState(
     sensorSteps: Int = 0,
     sensorCaloriesOut: Int = 0,
-    sensorActiveMinutes: Int = 0
+    sensorActiveMinutes: Int = 0,
+    calorieGoal: Int = 2200,
+    carbsGoal: Int = 250,
+    proteinGoal: Int = 120,
+    fatGoal: Int = 70,
+    waterGoalMl: Int = 2000
 ): HealthUiState {
     if (this == null) {
         return HealthUiState(
             steps = sensorSteps,
             caloriesOut = sensorCaloriesOut,
-            activeMinutes = sensorActiveMinutes
+            activeMinutes = sensorActiveMinutes,
+            calorieGoal = calorieGoal,
+            carbsGoal = carbsGoal,
+            proteinGoal = proteinGoal,
+            fatGoal = fatGoal,
+            waterGoalMl = waterGoalMl
         )
     }
     
-    val finalWaterGoal = if (waterGoal > 0) waterGoal else 2000
+    val finalWaterGoal = if (waterGoal > 0) waterGoal else waterGoalMl
 
     return HealthUiState(
         steps = maxOf(sensorSteps, steps),
         stepGoal = stepGoal,
         caloriesOut = maxOf(sensorCaloriesOut, caloriesOut),
         caloriesIn = caloriesIn,
-        calorieGoal = 2200, // Default or fetch from profile
+        calorieGoal = calorieGoal,
         carbs = carbs,
-        carbsGoal = 250,
+        carbsGoal = carbsGoal,
         protein = protein,
-        proteinGoal = 120,
+        proteinGoal = proteinGoal,
         fat = fat,
-        fatGoal = 70,
+        fatGoal = fatGoal,
         activeMinutes = maxOf(sensorActiveMinutes, activeMinutes),
         activeMinuteGoal = 60,
         waterConsumedMl = waterConsumed,

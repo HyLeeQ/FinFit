@@ -2,6 +2,7 @@ package com.example.finfit.health.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import com.example.finfit.core.ui.FinFitTopAppBar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -54,19 +55,15 @@ fun SleepScheduleScreen(
         Scaffold(
             containerColor = Color(0xFF0e0e0e),
             topBar = {
-                TopAppBar(
-                    title = { Text("Quản lý giấc ngủ", fontWeight = FontWeight.Bold, color = Color.White) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-                        }
-                    },
+                FinFitTopAppBar(
+                    title = "Quản lý giấc ngủ",
+                    onBack = onBack,
                     actions = {
                         IconButton(onClick = {}) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0e0e0e))
+                    containerColor = Color(0xFF0e0e0e)
                 )
             }
         ) { paddingValues ->

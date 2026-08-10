@@ -43,24 +43,24 @@ fun AssistantScreen(
     savingsGoals: List<SavingsGoal>,
     budgets: List<FinanceBudget>,
     habit: UserHabit?,
-    stepsToday: Int,
+    healthState: com.example.finfit.health.model.HealthUiState,
     onBack: () -> Unit
 ) {
     val viewModel: AssistantViewModel = viewModel(
-        factory = AssistantViewModelFactory(firestoreRepository, userId, wallet, transactions, schedule, debtLoans, savingsGoals, budgets, stepsToday, habit)
+        factory = AssistantViewModelFactory(firestoreRepository, userId, wallet, transactions, schedule, debtLoans, savingsGoals, budgets, healthState, habit)
     )
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     
     // Đồng bộ data thời gian thực vào ViewModel do ViewModel retaining state cũ
-    LaunchedEffect(wallet, transactions, schedule, debtLoans, savingsGoals, budgets, stepsToday) {
+    LaunchedEffect(wallet, transactions, schedule, debtLoans, savingsGoals, budgets, healthState) {
         viewModel.wallet = wallet
         viewModel.transactions = transactions
         viewModel.schedule = schedule
         viewModel.debtLoans = debtLoans
         viewModel.savingsGoals = savingsGoals
         viewModel.budgets = budgets
-        viewModel.stepsToday = stepsToday
+        viewModel.healthState = healthState
     }
     
     // Kiểm tra Thứ Hai chủ động khi mở màn hình

@@ -98,6 +98,9 @@ dependencies {
     // Thêm Navigation Compose
     implementation "androidx.navigation:navigation-compose:2.8.0"
 
+    // Sinh trắc học Biometric App Lock
+    implementation "androidx.biometric:biometric:1.1.0"
+
     // Room Database
     implementation libs.room.runtime
     implementation libs.room.ktx

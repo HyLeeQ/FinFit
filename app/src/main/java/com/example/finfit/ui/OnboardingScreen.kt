@@ -93,27 +93,60 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FF))
+            .background(Color(0xFFF4F6FF))
     ) {
         // Subtle tinted background behind illustration area
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.55f)
+                .fillMaxHeight(0.52f)
                 .background(bgColor)
         )
 
         Column(modifier = Modifier.fillMaxSize()) {
-            // Skip button
+            // ── Header: Logo + Skip button ────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                contentAlignment = Alignment.CenterEnd
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
+                // Logo FinFit nhỏ ở bên trái
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(9.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("💎", fontSize = 14.sp)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "FinFit",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        style = androidx.compose.ui.text.TextStyle(
+                            brush = Brush.horizontalGradient(
+                                listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                            )
+                        )
+                    )
+                }
+                // Skip button bên phải
                 if (!isLastPage) {
-                    TextButton(onClick = onFinished) {
+                    TextButton(
+                        onClick = onFinished,
+                        modifier = Modifier.align(Alignment.CenterEnd)
+                    ) {
                         Text(
                             text = "Bỏ qua",
                             color = Color(0xFF8E9AB0),

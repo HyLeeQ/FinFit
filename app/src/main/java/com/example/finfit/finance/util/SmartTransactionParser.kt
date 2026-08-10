@@ -211,4 +211,140 @@ object SmartTransactionParser {
 
         return allAmounts.maxOrNull()
     }
+
+    /** Phân tích vay nợ local */
+    fun parseDebt(input: String): com.example.finfit.finance.model.DebtLoan? {
+        val lower = input.lowercase().trim()
+        val searchString = " " + lower.replace(Regex("\\p{Punct}"), " ") + " "
+        
+        var isLoan = false
+        var isDebt = false
+        
+        if (searchString.contains(" cho vay ") || searchString.contains(" cho mượn ")) {
+            isLoan = true
+        } else if (searchString.contains(" vay của ") || searchString.contains(" mượn của ")) {
+            isDebt = true
+        } else {
+            val debtWords = listOf("nợ", "vay", "mượn")
+            var index = -1
+            for (w in debtWords) {
+                index = searchString.indexOf(" $w ")
+                if (index != -1) break
+            }
+            
+            if (index != -1) {
+                val prefix = searchString.substring(0, index).trim()
+                val lastWordBefore = prefix.substringAfterLast(" ").trim()
+                val selfPronouns = listOf("mình", "tôi", "tao", "t", "em", "anh", "chị", "cháu", "con", "")
+                
+                if (selfPronouns.contains(lastWordBefore)) {
+                    isDebt = true
+                } else {
+                    isLoan = true
+                }
+            }
+        }
+        
+        if (!isLoan && !isDebt) return null
+        
+        val amount = parseAmount(lower) ?: return null
+        if (amount < 1000) return null
+        
+        var name = AMOUNT_REGEX.replace(lower, "")
+        val allTriggers = listOf("cho vay", "cho mượn", "vay của", "mượn của", "cho", "của", "tôi", "mình", "tao", "t", "nợ", "vay", "mượn")
+        for (t in allTriggers) {
+            name = name.replace(Regex("\\b$t\\b", RegexOption.IGNORE_CASE), "")
+        }
+        name = name.replace(Regex("\\s+"), " ").trim().split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        
+        if (name.isBlank()) name = "Người lạ"
+        
+        return com.example.finfit.finance.model.DebtLoan(
+            personName = name,
+            amount = amount,
+            type = if (isLoan) com.example.finfit.finance.model.DebtLoanType.LOAN else com.example.finfit.finance.model.DebtLoanType.DEBT,
+            note = "Ghi nhanh"
+        )
+    }
+
+    sealed class ParsedCommand {
+        data class DepositSavings(val goalName: String, val amount: Double) : ParsedCommand()
+        data class WithdrawSavings(val goalName: String, val amount: Double) : ParsedCommand()
+        data class AddSavingsGoal(val goalName: String, val targetAmount: Double) : ParsedCommand()
+        data class AddBudget(val category: String, val amount: Double) : ParsedCommand()
+        data class AddGroupSplitBill(val amount: Double, val participantCount: Int, val category: String) : ParsedCommand()
+        data class AddHeldFund(val fundName: String, val amount: Double) : ParsedCommand()
+    }
+
+    private fun extractNameForCommand(input: String, removeWords: List<String>): String {
+        var name = AMOUNT_REGEX.replace(input, "")
+        for (w in removeWords) {
+            name = name.replace(Regex("\\b$w\\b", RegexOption.IGNORE_CASE), "")
+        }
+        return name.replace(Regex("\\s+"), " ").trim().split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+    }
+
+    fun parseCommand(input: String): ParsedCommand? {
+        val lower = input.lowercase().trim()
+        val searchString = " " + lower.replace(Regex("\\p{Punct}"), " ") + " "
+        val amount = parseAmount(lower) ?: return null
+
+        // 1. Chia tiền nhóm
+        if (searchString.contains(" chia ") || searchString.contains(" split ") || searchString.contains(" campuchia ")) {
+            val pCountRegex = Regex("""(\d+)\s*(người|ng|đứa|bạn)""")
+            val countMatch = pCountRegex.find(lower)
+            val count = countMatch?.groupValues?.get(1)?.toIntOrNull() ?: 2
+            
+            val category = EXPENSE_KEYWORDS.entries.firstOrNull { (_, kws) ->
+                kws.any { searchString.contains(" $it ") }
+            }?.key ?: "Khác"
+
+            return ParsedCommand.AddGroupSplitBill(amount, count, category)
+        }
+
+        // 2. Ngân sách
+        if (searchString.contains(" ngân sách ") || searchString.contains(" hạn mức ") || searchString.contains(" budget ")) {
+            val category = EXPENSE_KEYWORDS.entries.firstOrNull { (_, kws) ->
+                kws.any { searchString.contains(" $it ") }
+            }?.key ?: "Tất cả"
+            return ParsedCommand.AddBudget(category, amount)
+        }
+
+        // 3. Nạp tiết kiệm
+        if (searchString.contains(" nạp ") || searchString.contains(" thêm ") || searchString.contains(" bỏ ống ")) {
+            if (searchString.contains(" quỹ ") || searchString.contains(" tiết kiệm ") || searchString.contains(" mục tiêu ")) {
+                var name = extractNameForCommand(lower, listOf("nạp", "thêm", "vào", "tiền", "quỹ", "tiết kiệm", "mục tiêu", "cho", "ống", "heo"))
+                if (name.isBlank()) name = "Quỹ Tiết Kiệm"
+                return ParsedCommand.DepositSavings(name, amount)
+            }
+        }
+
+        // 4. Rút tiết kiệm
+        if (searchString.contains(" rút ") || searchString.contains(" lấy ") || searchString.contains(" đập heo ")) {
+            if (searchString.contains(" quỹ ") || searchString.contains(" tiết kiệm ") || searchString.contains(" mục tiêu ") || searchString.contains(" đập heo ")) {
+                var name = extractNameForCommand(lower, listOf("rút", "lấy", "từ", "tiền", "quỹ", "tiết kiệm", "mục tiêu", "ra", "đập", "heo"))
+                if (name.isBlank()) name = "Quỹ Tiết Kiệm"
+                return ParsedCommand.WithdrawSavings(name, amount)
+            }
+        }
+
+        // 5. Quỹ giữ hộ
+        if (searchString.contains(" giữ hộ ") || searchString.contains(" thu quỹ ") || searchString.contains(" quỹ lớp ") || searchString.contains(" quỹ nhóm ")) {
+            var name = extractNameForCommand(lower, listOf("thu", "tiền", "giữ", "hộ", "quỹ", "nhóm", "lớp"))
+            if (name.isBlank()) name = "Quỹ giữ hộ"
+            else name = "Quỹ $name"
+            return ParsedCommand.AddHeldFund(name, amount)
+        }
+        
+        // 6. Tạo mục tiêu tiết kiệm (phải check sau cùng để tránh đụng độ nạp/rút)
+        if (searchString.contains(" tạo ") || searchString.contains(" lập ") || searchString.contains(" mục tiêu ") || searchString.contains(" tiết kiệm ")) {
+            if (searchString.contains(" quỹ ") || searchString.contains(" tiết kiệm ") || searchString.contains(" mục tiêu ")) {
+                var name = extractNameForCommand(lower, listOf("tạo", "lập", "tiền", "quỹ", "tiết kiệm", "mục tiêu", "mới", "để"))
+                if (name.isBlank()) name = "Mục tiêu mới"
+                return ParsedCommand.AddSavingsGoal(name, amount)
+            }
+        }
+
+        return null
+    }
 }

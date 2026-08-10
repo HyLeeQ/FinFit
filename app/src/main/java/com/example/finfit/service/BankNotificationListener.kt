@@ -288,6 +288,15 @@ class BankNotificationListener : NotificationListenerService() {
                 firestoreRepository.addTransaction(user.uid, transaction)
                 Log.d("BankNoti", "✅ Đã lưu: $type ${amount.toLong()}đ | ${sourceAccount.name} → ${destAccount?.name ?: "–"}")
 
+                // Hiển thị Actionable Notification với nút Xác nhận / Hủy trực tiếp
+                com.example.finfit.core.notification.SmartNotificationManager.showActionableBankTransactionNotification(
+                    context = this@BankNotificationListener,
+                    bankCode = bankCode,
+                    amount = amount,
+                    note = note,
+                    txId = transaction.id
+                )
+
                 // Bước 3: Tiền ĐÃ vào ví → phân bổ tự động sang savings goals
                 // Chỉ áp dụng với THU NHậP, không áp dụng cho chi tiêu/chuyển khoản
                 if (type == TransactionType.INCOME) {

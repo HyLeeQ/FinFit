@@ -5,16 +5,41 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import com.example.finfit.core.navigation.Routes
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+
 fun NavGraphBuilder.healthNavGraph(
     navController: NavHostController,
-    userEmail: String
+    userEmail: String,
+    firestoreRepository: com.example.finfit.finance.repository.FirestoreRepository
 ) {
     composable(Routes.HEALTH_DASHBOARD) {
+        val user = remember { com.example.finfit.data.repository.AuthRepository().getCurrentUser() }
+        val walletState = if (user != null) {
+            firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
+        } else {
+            remember { mutableStateOf(null) }
+        }
+        val transactionsState = if (user != null) {
+            firestoreRepository.observeTransactions(user.uid).collectAsState(initial = emptyList())
+        } else {
+            remember { mutableStateOf(emptyList()) }
+        }
+        val goalsState = if (user != null) {
+            firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = emptyList())
+        } else {
+            remember { mutableStateOf(emptyList()) }
+        }
+
         HealthDashboardScreen(
             userEmail = userEmail,
             onNavigate = { route ->
                 navController.navigate(route) { launchSingleTop = true }
-            }
+            },
+            wallet = walletState.value,
+            transactions = transactionsState.value,
+            goals = goalsState.value
         )
     }
     composable(Routes.STEP_COUNTER) {

@@ -1,4 +1,4 @@
-# FinFit — Mô Tả Project Toàn Diện
+e# FinFit — Mô Tả Project Toàn Diện
 
 ## 1. Tổng Quan Dự Án
 

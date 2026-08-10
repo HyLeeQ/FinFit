@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_savings_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_dark"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tv_widget_savings_tag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🎯 MỤC TIÊU TIẾT KIỆM"
+        android:textColor="#F59E0B"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_widget_goal_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_widget_savings_tag"
+        android:layout_marginTop="6dp"
+        android:text="Quỹ Khẩn Cấp"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_widget_goal_amounts"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_widget_goal_name"
+        android:layout_marginTop="2dp"
+        android:text="15.000.000 đ / 20.000.000 đ"
+        android:textColor="#B0B0B8"
+        android:textSize="12sp" />
+
+    <ProgressBar
+        android:id="@+id/pb_widget_goal_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_below="@id/tv_widget_goal_amounts"
+        android:layout_marginTop="10dp"
+        android:max="100"
+        android:progress="75"
+        android:progressTint="#10B981" />
+
+    <TextView
+        android:id="@+id/tv_widget_goal_percent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/pb_widget_goal_progress"
+        android:layout_marginTop="6dp"
+        android:text="75% hoàn thành"
+        android:textColor="#10B981"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_widget_days_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/pb_widget_goal_progress"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="6dp"
+        android:text="Còn 45 ngày"
+        android:textColor="#8E8E93"
+        android:textSize="11sp" />
+
+</RelativeLayout>

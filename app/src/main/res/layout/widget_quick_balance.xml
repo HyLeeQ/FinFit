@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_quick_balance_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_dark"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tv_widget_balance_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TỔNG SỐ DƯ"
+        android:textColor="#8E8E93"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.05" />
+
+    <TextView
+        android:id="@+id/tv_widget_budget_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:text="🟢 An toàn"
+        android:textColor="#81C784"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_widget_total_balance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_widget_balance_title"
+        android:layout_marginTop="6dp"
+        android:text="15.850.000 đ"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_widget_spendable_balance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_widget_total_balance"
+        android:layout_marginTop="2dp"
+        android:text="Khả dụng: 8.200.000 đ"
+        android:textColor="#64B5F6"
+        android:textSize="12sp" />
+
+</RelativeLayout>

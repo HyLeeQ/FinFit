@@ -31,6 +31,8 @@ import com.example.finfit.health.model.WaterScreenData
 import com.example.finfit.health.model.WaterSource
 import com.example.finfit.health.model.WaterUiState
 import com.example.finfit.health.model.toUiState
+import com.example.finfit.data.local.SetupPreferences
+import com.example.finfit.data.local.UserProfileData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
@@ -58,6 +60,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     private val workManager = WorkManager.getInstance(application)
     private val sleepRepository = SleepRepository(application)
     private val mealRepository = MealRepository()
+    private val setupPrefs = SetupPreferences(application)
 
     /**
      * WaterRepository — Inject todayStepsProvider để Context Enrichment.
@@ -121,8 +124,10 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
                 waterRepository.observeTodaySummaryForDate(date),
                 waterRepository.observeLogsForDate(date)
             ) { summary, logs ->
+                val profile = setupPrefs.getUserProfile()
+                val profileWaterGoalMl = (profile.waterGoalLiters * 1000).toInt().coerceAtLeast(500)
                 val consumed = summary?.totalConsumedMl ?: 0
-                val goal     = summary?.dailyGoalMl ?: 2000
+                val goal     = if (summary != null && summary.dailyGoalMl > 0) summary.dailyGoalMl else profileWaterGoalMl
                         val mappedLogs = logs.map { entity ->
                             WaterLogUiItem(
                                 id        = entity.id,
@@ -224,10 +229,41 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
             ) { sensorData, dbEntity, cloudSummary, achPair ->
                 val (sensorSteps, sensorCal, sensorMinutes) = sensorData
                 
+                val profile = setupPrefs.getUserProfile()
+                val bmr = when (profile.gender.lowercase()) {
+                    "male" -> 10 * profile.weightKg + 6.25f * profile.heightCm - 5 * profile.age + 5
+                    "female" -> 10 * profile.weightKg + 6.25f * profile.heightCm - 5 * profile.age - 161
+                    else -> 10 * profile.weightKg + 6.25f * profile.heightCm - 5 * profile.age - 78
+                }
+                val multiplier = when (profile.activityLevel.lowercase()) {
+                    "sedentary" -> 1.2f
+                    "light" -> 1.375f
+                    "moderate" -> 1.55f
+                    "active" -> 1.725f
+                    "very_active" -> 1.9f
+                    else -> 1.55f
+                }
+                val calculatedCalorie = (bmr * multiplier).toInt()
+                val calorieGoal = if (profile.weightKg > 0f && profile.heightCm > 0 && profile.age > 0) {
+                    calculatedCalorie.coerceAtLeast(1200)
+                } else {
+                    2200
+                }
+
+                val carbsGoal = (calorieGoal * 0.55 / 4).toInt()
+                val proteinGoal = (calorieGoal * 0.20 / 4).toInt()
+                val fatGoal = (calorieGoal * 0.25 / 9).toInt()
+                val waterGoalMl = (profile.waterGoalLiters * 1000).toInt().coerceAtLeast(500)
+
                 val baseUiState = dbEntity.toUiState(
                     sensorSteps = sensorSteps,
                     sensorCaloriesOut = sensorCal,
-                    sensorActiveMinutes = sensorMinutes
+                    sensorActiveMinutes = sensorMinutes,
+                    calorieGoal = calorieGoal,
+                    carbsGoal = carbsGoal,
+                    proteinGoal = proteinGoal,
+                    fatGoal = fatGoal,
+                    waterGoalMl = waterGoalMl
                 )
 
                 // Merge cloud data for real-time dashboard update (caloriesIn, macros)
@@ -372,7 +408,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     fun logWater(
         amountMl: Int,
         drinkType: String = DrinkType.WATER,
-        goalMl: Int = 2000,
+        goalMl: Int? = null,
         source: String = WaterSource.MANUAL,
         onError: ((String) -> Unit)? = null
     ) {
@@ -382,10 +418,13 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val profile = setupPrefs.getUserProfile()
+                val profileWaterGoalMl = (profile.waterGoalLiters * 1000).toInt().coerceAtLeast(500)
+                val finalGoalMl = goalMl ?: profileWaterGoalMl
                 waterRepository.logWater(
                     amountMl  = amountMl,
                     drinkType = drinkType,
-                    goalMl    = goalMl,
+                    goalMl    = finalGoalMl,
                     source    = source
                 )
                 
@@ -426,10 +465,13 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
      * @param logId ID của WaterLogUiItem cần xóa.
      * @param goalMl Mục tiêu nước hôm nay (để Rebuild Summary đúng).
      */
-    fun deleteWaterLog(logId: String, goalMl: Int = 2000) {
+    fun deleteWaterLog(logId: String, goalMl: Int? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                waterRepository.deleteWaterLog(logId, goalMl)
+                val profile = setupPrefs.getUserProfile()
+                val profileWaterGoalMl = (profile.waterGoalLiters * 1000).toInt().coerceAtLeast(500)
+                val finalGoalMl = goalMl ?: profileWaterGoalMl
+                waterRepository.deleteWaterLog(logId, finalGoalMl)
                 val syncRequest = androidx.work.OneTimeWorkRequestBuilder<com.example.finfit.health.data.HealthSyncWorker>().build()
                 workManager.enqueue(syncRequest)
             } catch (e: Exception) {
@@ -483,6 +525,8 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
                 healthDao.observeHealthByDate(date),
                 sleepRepository.observeSleepSessionsForDate(date)
             ) { healthEntity, logs ->
+                val profile = setupPrefs.getUserProfile()
+                val sleepGoalHours = profile.sleepGoalHours.toFloat().coerceAtLeast(1f)
                 val totalSleepHours = healthEntity?.sleepHours ?: 0f
                 val bedTimeMinute = healthRepository.getBedTimeMinute()
                 val wakeTimeMinute = healthRepository.getWakeTimeMinute()
@@ -500,6 +544,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
                     com.example.finfit.health.model.SleepScreenData(
                         selectedDate = date,
                         totalSleepHours = totalSleepHours,
+                        sleepGoalHours = sleepGoalHours,
                         bedTimeMinuteOfDay = bedTimeMinute,
                         wakeTimeMinuteOfDay = wakeTimeMinute,
                         todaySessions = mappedLogs

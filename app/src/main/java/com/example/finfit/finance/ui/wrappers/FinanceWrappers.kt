@@ -40,6 +40,9 @@ fun DashboardWithData(
     val user = AuthRepository().getCurrentUser()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val healthViewModel: com.example.finfit.health.repository.HealthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val healthState by healthViewModel.healthUiState.collectAsState()
+
     // Sử dụng collectAsState để lắng nghe thời gian thực các thay đổi từ Firestore
     // Điều này giải quyết vấn đề Thông báo ngân hàng không cập nhật UI ngay lập tức
     val walletSource by if (user != null) {
@@ -103,6 +106,7 @@ fun DashboardWithData(
             goals = goalsSource,
             budgets = budgetsSource,
             schedule = if (user != null) firestoreRepository.observeWeeklySchedule(user.uid).collectAsState(initial = FirestoreRepository.cachedWeeklySchedule).value else emptyList(),
+            healthState = healthState,
             onSilentSave = { updated ->
                 scope.launch { try { firestoreRepository.saveUserWallet(updated) } catch (e: Exception) { Log.e("SilentSave", e.message ?: "") } }
             },
@@ -205,6 +209,20 @@ fun WalletManagementWithData(
     } else {
         remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
     }
+    val goals by if (user != null) {
+        firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = FirestoreRepository.cachedGoals)
+    } else {
+        remember { mutableStateOf<List<SavingsGoal>>(FirestoreRepository.cachedGoals) }
+    }
+    val debtLoans by if (user != null) {
+        firestoreRepository.observeDebtLoans(user.uid).collectAsState(initial = FirestoreRepository.cachedDebtLoans)
+    } else {
+        remember { mutableStateOf<List<DebtLoan>>(FirestoreRepository.cachedDebtLoans) }
+    }
+
+    val goalsTotal = remember(goals) { goals.sumOf { it.currentAmount } }
+    val unpaidDebts = remember(debtLoans) { debtLoans.filter { !it.isPaid && it.type == DebtLoanType.DEBT }.sumOf { it.remainingAmount } }
+    val unpaidLoans = remember(debtLoans) { debtLoans.filter { !it.isPaid && it.type == DebtLoanType.LOAN }.sumOf { it.remainingAmount } }
 
     if (walletSource == null && user != null) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
@@ -213,6 +231,9 @@ fun WalletManagementWithData(
     } else {
         WalletManagementScreen(
             wallet = walletSource,
+            goalsTotal = goalsTotal,
+            totalDebts = unpaidDebts,
+            totalLoans = unpaidLoans,
             onSaveWallet = { updated ->
                 scope.launch {
                     try { firestoreRepository.saveUserWallet(updated) }
@@ -499,11 +520,16 @@ fun SavingsGoalWithData(
     } else {
         remember { mutableStateOf<List<SavingsGoal>>(FirestoreRepository.cachedGoals) }
     }
+    val wallet by if (user != null) {
+        firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = FirestoreRepository.cachedWallet)
+    } else {
+        remember { mutableStateOf<AppUserWallet?>(FirestoreRepository.cachedWallet) }
+    }
     
-    // Ở mục tiêu tiết kiệm, nếu danh sách rỗng vẫn cho vào màn hình (không hiện xoay)
     SavingsGoalScreen(
         uid = user?.uid ?: "",
         goals = goals,
+        wallet = wallet,
         onSaveGoal = { goal ->
             scope.launch {
                 try {
@@ -539,13 +565,32 @@ fun DebtLoanWrapper(
 ) {
     val repository = remember { FirestoreRepository() }
     val items by repository.observeDebtLoans(uid).collectAsState(initial = FirestoreRepository.cachedDebtLoans)
+    val wallet by repository.observeUserWallet(uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     val scope = rememberCoroutineScope()
     
     DebtLoanScreen(
         items = items,
+        groupPrepaidItems = wallet?.groupPrepaidItems ?: emptyList(),
+        wallet = wallet,
         onSave = { dl -> scope.launch { repository.saveDebtLoan(uid, dl) } },
         onTogglePaid = { id, paid -> scope.launch { repository.toggleDebtLoanPaidStatus(uid, id, paid) } },
         onDelete = { id -> scope.launch { repository.deleteDebtLoan(uid, id) } },
+        onCollectGroupPrepaid = { item, collectAmount ->
+            wallet?.let { currentWallet ->
+                val updatedItems = currentWallet.groupPrepaidItems.map { gi ->
+                    if (gi.id == item.id) {
+                        val newCollected = (gi.collectedAmount + collectAmount).coerceAtMost(gi.groupOwedAmount)
+                        gi.copy(
+                            collectedAmount = newCollected,
+                            isFullyCollected = newCollected >= gi.groupOwedAmount
+                        )
+                    } else gi
+                }
+                scope.launch {
+                    repository.saveUserWallet(currentWallet.copy(groupPrepaidItems = updatedItems))
+                }
+            }
+        },
         onBack = onBack
     )
 }
@@ -557,9 +602,17 @@ fun AnalyticsWrapper(
 ) {
     val repository = remember { FirestoreRepository() }
     val transactions by repository.observeTransactions(uid).collectAsState(initial = FirestoreRepository.cachedTransactions)
+    val goals by repository.observeSavingsGoals(uid).collectAsState(initial = FirestoreRepository.cachedGoals)
+    val budgets by repository.observeBudgets(uid).collectAsState(initial = FirestoreRepository.cachedBudgets)
+    val debtLoans by repository.observeDebtLoans(uid).collectAsState(initial = FirestoreRepository.cachedDebtLoans)
+    val wallet by repository.observeUserWallet(uid).collectAsState(initial = FirestoreRepository.cachedWallet)
     
     AnalyticsScreen(
         transactions = transactions,
+        goals = goals,
+        budgets = budgets,
+        debtLoans = debtLoans,
+        wallet = wallet,
         onBack = onBack
     )
 }

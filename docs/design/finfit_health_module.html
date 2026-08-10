@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+<meta name="description" content="FinFit Health Module — Luminescent Observer Design System Phase 2">
+<title>FinFit — Health Module Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════
+   DESIGN TOKENS — "Deep Space" (identical to Finance)
+══════════════════════════════════════ */
+:root {
+  --bg:             #0E0E0E;
+  --surface-low:    #131313;
+  --surface:        #1A1A1A;
+  --surface-high:   #20201F;
+  --surface-highest:#262626;
+  --outline:        rgba(72,72,71,0.15);
+  --on-surface-v:   #ADAAAA;
+  --on-surface:     #F2F0F0;
+  /* Accent — health semantics */
+  --primary:   #64B5F6;  /* Water / Nước */
+  --secondary: #EA73FB;  /* Sleep / Giấc ngủ */
+  --tertiary:  #BBFFB3;  /* Activity / Hoạt động */
+  --error:     #FF6B6B;
+  --success:   #81C784;
+  --warn:      #FFD54F;
+  --r-lg: 16px; --r-xl: 24px; --r-full: 9999px;
+  --cta: linear-gradient(135deg,#64B5F6,#54A7E7);
+  --glow: 0 0 40px 0 rgba(100,181,246,0.06);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #080808;
+  font-family: 'Inter', sans-serif;
+  color: var(--on-surface); min-height: 100vh;
+}
+
+/* ── PAGE CHROME ── */
+.page-title {
+  font-family:'Manrope',sans-serif; font-size:1.5rem; font-weight:800;
+  color:var(--primary); padding:32px 24px 8px; letter-spacing:-0.5px;
+}
+.section-label {
+  font-family:'Manrope',sans-serif; font-size:0.7rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:1.2px;
+  color:var(--on-surface-v); padding:24px 24px 12px;
+}
+.screens-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(375px, max-content));
+  gap:32px; padding:0 24px 48px; align-items:flex-start;
+}
+
+/* ── PHONE FRAME ── */
+.phone {
+  width:375px; min-height:812px;
+  background:var(--bg); border-radius:44px; overflow:hidden;
+  position:relative;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 32px 80px rgba(0,0,0,0.7),var(--glow);
+  display:flex; flex-direction:column; flex-shrink:0;
+}
+.phone-wrap { display:flex; flex-direction:column; gap:8px; }
+.phone-label { text-align:center; font-size:0.7rem; font-weight:600; color:var(--on-surface-v); padding:6px 0 0; }
+.phone-scroll { overflow-y:auto; flex:1; }
+.phone-scroll::-webkit-scrollbar { display:none; }
+
+/* ── STATUS BAR ── */
+.status-bar {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:16px 24px 8px; font-size:0.75rem; font-weight:600; color:var(--on-surface);
+}
+
+/* ── HEADER (reused from Finance) ── */
+.c-header {
+  display:flex; align-items:center; padding:12px 20px; gap:14px;
+  background:var(--bg);
+}
+.c-header-back, .c-header-action {
+  width:36px; height:36px; background:var(--surface-highest);
+  border-radius:var(--r-lg);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0; font-size:0.9rem;
+}
+.c-header-title {
+  font-family:'Manrope',sans-serif; font-size:1.1rem; font-weight:700; flex:1;
+}
+
+/* ── BOTTOM NAV (reused) ── */
+.c-bottom-nav {
+  background:rgba(26,26,26,0.95); backdrop-filter:blur(20px);
+  display:flex; justify-content:space-around; padding:12px 0 24px;
+  border-top:1px solid var(--outline); flex-shrink:0;
+}
+.nav-item { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:44px; }
+.nav-icon { width:44px; height:32px; border-radius:100px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
+.nav-icon.active { background:rgba(187,255,179,0.15); }
+.nav-label { font-size:0.65rem; font-weight:600; color:var(--on-surface-v); }
+.nav-label.active { color:var(--tertiary); }
+
+/* ── CARD (reused) ── */
+.c-card { background:var(--surface); border-radius:var(--r-xl); padding:20px; width:100%; }
+.c-card-inner { background:var(--surface-highest); border-radius:var(--r-lg); padding:14px; }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  background:var(--cta); border:none; border-radius:var(--r-xl);
+  height:52px; padding:0 32px; width:100%;
+  font-family:'Inter',sans-serif; font-size:0.95rem; font-weight:600; color:#fff;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+  box-shadow:0 8px 24px rgba(100,181,246,0.25);
+}
+.btn-secondary {
+  background:var(--surface-highest); border:none; border-radius:var(--r-xl);
+  height:52px; padding:0 32px; width:100%;
+  font-family:'Inter',sans-serif; font-size:0.95rem; font-weight:600; color:var(--on-surface);
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+
+/* ── CHIP ── */
+.chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 16px; border-radius:var(--r-full);
+  font-size:0.8rem; font-weight:600;
+  background:var(--surface-high); color:var(--on-surface-v);
+  cursor:pointer; border:none; white-space:nowrap;
+}
+.chip.sel-p { background:rgba(100,181,246,0.12); color:var(--primary); box-shadow:0 0 0 1px rgba(100,181,246,0.25); }
+.chip.sel-s { background:rgba(234,115,251,0.12); color:var(--secondary); box-shadow:0 0 0 1px rgba(234,115,251,0.25); }
+.chip.sel-t { background:rgba(187,255,179,0.12); color:var(--tertiary); box-shadow:0 0 0 1px rgba(187,255,179,0.25); }
+
+/* ── METRIC VALUES (mirrors finance number style) ── */
+.metric-xl {
+  font-family:'Manrope',sans-serif; font-size:2.8rem; font-weight:800;
+  letter-spacing:-1.5px; line-height:1;
+}
+.metric-lg { font-family:'Manrope',sans-serif; font-size:1.8rem; font-weight:800; letter-spacing:-1px; }
+.metric-md { font-family:'Inter',sans-serif; font-size:1.1rem; font-weight:600; letter-spacing:-0.3px; }
+.metric-sm { font-family:'Inter',sans-serif; font-size:0.85rem; font-weight:500; }
+.unit { font-family:'Inter',sans-serif; font-size:0.75rem; font-weight:500; color:var(--on-surface-v); margin-left:4px; }
+.color-water { color:var(--primary); }
+.color-sleep { color:var(--secondary); }
+.color-activity { color:var(--tertiary); }
+.color-cals { color:var(--warn); }
+
+/* ── CIRCULAR PROGRESS (Health-specific, standardised) ── */
+.ring-svg { transform:rotate(-90deg); }
+
+/* ── METRIC PULSE (Health-specific live indicator) ── */
+.metric-pulse {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--tertiary); display:inline-block; margin-left:6px;
+  box-shadow:0 0 0 0 rgba(187,255,179,0.4);
+  animation:pulse-live 2s ease-in-out infinite;
+}
+@keyframes pulse-live {
+  0%   { box-shadow:0 0 0 0 rgba(187,255,179,0.4); }
+  70%  { box-shadow:0 0 0 8px rgba(187,255,179,0); }
+  100% { box-shadow:0 0 0 0 rgba(187,255,179,0); }
+}
+
+/* ── HEALTH 4-COLUMN MINI STAT GRID ── */
+.stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.stat-cell {
+  background:var(--surface-highest); border-radius:var(--r-lg); padding:14px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.stat-icon-row { display:flex; align-items:center; gap:6px; font-size:0.7rem; font-weight:600; color:var(--on-surface-v); }
+.stat-val { font-family:'Manrope',sans-serif; font-size:1.2rem; font-weight:800; }
+.stat-target { font-size:0.65rem; color:var(--on-surface-v); }
+
+/* ── BAR CHART ── */
+.bar-chart { display:flex; align-items:flex-end; gap:6px; height:72px; }
+.bar { flex:1; border-radius:6px 6px 0 0; min-height:8px; }
+.bar-labels { display:flex; gap:6px; margin-top:4px; }
+.bar-lbl { flex:1; text-align:center; font-size:0.62rem; color:var(--on-surface-v); }
+
+/* ── PROGRESS BAR ── */
+.prog-track { height:6px; border-radius:3px; background:var(--surface-highest); overflow:hidden; }
+.prog-fill { height:100%; border-radius:3px; }
+
+/* ── FOOD / CAMERA UI ── */
+.camera-frame {
+  flex:1; background:#000; position:relative;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+.camera-overlay-bg {
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse 200px 200px at center, transparent 40%, rgba(0,0,0,0.65) 100%);
+}
+.camera-bracket {
+  width:180px; height:180px; position:relative; z-index:2;
+}
+.camera-bracket::before, .camera-bracket::after,
+.camera-bracket span::before, .camera-bracket span::after {
+  content:''; position:absolute; width:28px; height:28px; border-color:var(--tertiary); border-style:solid; border-width:0;
+}
+.camera-bracket::before { top:0; left:0; border-top-width:2px; border-left-width:2px; border-radius:4px 0 0 0; }
+.camera-bracket::after  { top:0; right:0; border-top-width:2px; border-right-width:2px; border-radius:0 4px 0 0; }
+.camera-bracket span::before { bottom:0; left:0; border-bottom-width:2px; border-left-width:2px; border-radius:0 0 0 4px; }
+.camera-bracket span::after  { bottom:0; right:0; border-bottom-width:2px; border-right-width:2px; border-radius:0 0 4px 0; }
+.camera-shutter {
+  width:64px; height:64px; border-radius:50%;
+  background:rgba(255,255,255,0.12); backdrop-filter:blur(8px);
+  border:2px solid rgba(255,255,255,0.3);
+  display:flex; align-items:center; justify-content:center; font-size:1.4rem;
+  cursor:pointer; box-shadow:0 0 0 8px rgba(255,255,255,0.04);
+}
+.scan-line {
+  position:absolute; left:8%; right:8%; height:1.5px;
+  background:linear-gradient(90deg, transparent, var(--tertiary), transparent);
+  animation:scan 2s ease-in-out infinite;
+}
+@keyframes scan { 0%,100%{ top:20%; } 50%{ top:80%; } }
+
+/* ── WATER CUPS ── */
+.water-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.water-cup {
+  aspect-ratio:1; border-radius:var(--r-lg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; font-size:1.4rem; cursor:pointer; position:relative; overflow:hidden;
+}
+.water-cup.filled { background:rgba(100,181,246,0.15); box-shadow:0 0 0 1.5px rgba(100,181,246,0.35); }
+.water-cup.empty  { background:var(--surface-highest); }
+.water-cup-label  { font-size:0.62rem; font-weight:600; color:var(--on-surface-v); }
+.water-cup.filled .water-cup-label { color:var(--primary); }
+
+/* ── SLEEP ARC ── */
+.sleep-arc-wrap { position:relative; width:200px; height:200px; margin:0 auto; }
+.sleep-arc-center {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+
+/* ── CIRCULAR SLEEP PICKER ── */
+.sleep-picker {
+  width:240px; height:240px; position:relative; margin:0 auto;
+  border-radius:50%;
+  background:var(--surface-highest);
+  box-shadow:0 0 0 1px var(--outline), 0 0 32px rgba(234,115,251,0.08);
+}
+.sleep-picker-inner {
+  position:absolute; inset:32px; border-radius:50%;
+  background:var(--surface-low);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px;
+}
+.picker-handle {
+  width:20px; height:20px; border-radius:50%;
+  background:var(--secondary); position:absolute;
+  box-shadow:0 0 12px rgba(234,115,251,0.5);
+  cursor:pointer; transform:translate(-50%,-50%);
+}
+
+/* ── NEWS CARD ── */
+.news-card {
+  background:var(--surface); border-radius:var(--r-xl);
+  overflow:hidden; margin-bottom:12px;
+  display:flex; gap:0; cursor:pointer;
+}
+.news-thumb {
+  width:88px; height:88px; flex-shrink:0;
+  background:var(--surface-highest);
+  display:flex; align-items:center; justify-content:center; font-size:2rem;
+}
+.news-meta { padding:14px; flex:1; display:flex; flex-direction:column; gap:6px; }
+.news-cat { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; }
+.news-title { font-family:'Manrope',sans-serif; font-size:0.875rem; font-weight:700; line-height:1.35; }
+.news-time { font-size:0.7rem; color:var(--on-surface-v); }
+
+/* ── SKELETON (reused) ── */
+.skeleton {
+  background:linear-gradient(90deg,var(--surface-high) 25%,var(--surface-highest) 50%,var(--surface-high) 75%);
+  background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px;
+}
+@keyframes shimmer { to { background-position:-200% 0; } }
+
+/* ── HERO CTA GLOW (reused) ── */
+.hero-cta-wrap { position:relative; padding:4px; }
+.hero-cta-glow {
+  position:absolute; inset:-8px;
+  background:radial-gradient(ellipse,rgba(100,181,246,0.18) 0%,transparent 70%);
+  border-radius:32px; pointer-events:none;
+}
+
+/* ── NUTRITION MACRO BAR ── */
+.macro-row { display:flex; gap:8px; margin-top:12px; }
+.macro-item { flex:1; display:flex; flex-direction:column; gap:4px; }
+.macro-label { font-size:0.68rem; color:var(--on-surface-v); font-weight:600; }
+.macro-val { font-family:'Inter',sans-serif; font-size:0.9rem; font-weight:700; }
+
+/* ── MOVEMENT CARD ── */
+.movement-card {
+  background:var(--surface); border-radius:var(--r-xl); padding:16px;
+  display:flex; align-items:center; gap:14px; margin-bottom:10px;
+}
+.move-icon {
+  width:48px; height:48px; border-radius:var(--r-lg); flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:1.3rem;
+}
+.move-meta { flex:1; }
+.move-name { font-weight:700; font-size:0.9rem; }
+.move-sub { font-size:0.75rem; color:var(--on-surface-v); margin-top:2px; }
+.move-val { font-family:'Manrope',sans-serif; font-size:1rem; font-weight:800; }
+
+/* ── SUCCESS STATE (same as Finance) ── */
+.success-glow {
+  background:rgba(129,199,132,0.05);
+  box-shadow:0 0 60px rgba(129,199,132,0.1);
+  border-radius:var(--r-xl); padding:28px;
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;
+}
+
+/* ── TABS ── */
+.tab-row { display:flex; gap:4px; padding:4px; background:var(--surface-low); border-radius:var(--r-xl); }
+.tab-item {
+  flex:1; text-align:center; padding:10px;
+  border-radius:18px; font-size:0.8rem; font-weight:600;
+  color:var(--on-surface-v); cursor:pointer;
+}
+.tab-item.active { background:var(--surface-highest); color:var(--on-surface); }
+
+/* ── STEP TIMELINE ── */
+.timeline-row { display:flex; align-items:flex-end; gap:3px; height:60px; margin:12px 0; }
+.tl-bar { flex:1; border-radius:4px 4px 0 0; min-height:4px; background:var(--surface-highest); }
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .screens-grid{ grid-template-columns:repeat(auto-fill,minmax(300px,max-content)); gap:20px; padding:0 16px 40px; }
+  .phone{ width:320px; min-height:693px; border-radius:36px; }
+}
+@media(max-width:768px){
+  .screens-grid{ grid-template-columns:1fr; justify-items:center; padding:0 12px 32px; }
+  .phone{ width:300px; min-height:650px; border-radius:32px; }
+}
+@media(max-width:480px){
+  .phone-wrap{ width:100%; align-items:center; }
+  .phone{ width:min(90vw,375px); min-height:calc(min(90vw,375px)/375*812px); }
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">FinFit — Health Module · Luminescent Observer Phase 2</div>
+<div style="padding:4px 24px 20px;font-size:0.8rem;color:var(--on-surface-v);max-width:700px;line-height:1.6;">
+  <strong style="color:var(--tertiary);">Bước 1 — Đối chiếu Component:</strong>
+  TÁI SỬ DỤNG NGUYÊN VẸN: Header, Bottom Nav, Card (lg/xl), Button, Input, Chip, 4 States, Typography rules, Gradient CTA, Progress bars.<br>
+  THÊM MỚI có kiểm soát: <span style="color:var(--primary);">●</span> Circular Progress (Water/Sleep/Activity) ·
+  <span style="color:var(--tertiary);">●</span> Metric Pulse (live dot) ·
+  <span style="color:var(--secondary);">●</span> Circular Sleep Picker ·
+  Camera Overlay (shared pattern với Bill Scanner Finance) · Macro Bar · Movement Card.
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NHÓM E — Health Dashboard
+══════════════════════════════════════════════ -->
+<div class="section-label">Nhóm E — Health Dashboard (đối xứng cấu trúc với Finance Dashboard)</div>
+<div class="screens-grid">
+
+  <!-- E1: Health Screen -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div style="display:flex;gap:6px;align-items:center;"><span>📶</span><span>🔋</span></div>
+      </div>
+      <div class="phone-scroll">
+        <!-- Hero — mirrors Finance Dashboard hero position -->
+        <div style="padding:20px 20px 0;background:linear-gradient(180deg,rgba(187,255,179,0.05) 0%,transparent 100%);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:0.82rem;color:var(--on-surface-v);">Thứ Hai, 10 tháng 8</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1.05rem;font-weight:700;">Sức khoẻ của bạn hôm nay 🌿</div>
+            </div>
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--tertiary),#7ec878);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">H</div>
+          </div>
+
+          <!-- Health Score — mirrors "Tổng số dư" position in Finance -->
+          <div style="margin-top:20px;">
+            <div style="font-size:0.75rem;color:var(--on-surface-v);margin-bottom:6px;">Điểm sức khoẻ hôm nay</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <div class="metric-xl color-activity">78</div>
+              <div style="font-size:0.85rem;color:var(--on-surface-v);">/100</div>
+              <div style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--tertiary);">▲ +6 <span style="color:var(--on-surface-v);">hơn hôm qua</span></div>
+            </div>
+          </div>
+
+          <!-- 4 Stat Cards — mirrors Finance "mini card" row -->
+          <div style="margin-top:16px;padding-bottom:4px;">
+            <div class="stat-grid">
+              <div class="stat-cell">
+                <div class="stat-icon-row"><span>👟</span> Bước chân</div>
+                <div class="stat-val color-activity">7.248<span class="metric-pulse"></span></div>
+                <div class="stat-target">Mục tiêu: 10.000</div>
+                <div class="prog-track" style="margin-top:6px;"><div class="prog-fill" style="width:72%;background:var(--tertiary);"></div></div>
+              </div>
+              <div class="stat-cell">
+                <div class="stat-icon-row"><span>💧</span> Nước uống</div>
+                <div class="stat-val color-water">1.400<span class="unit">ml</span></div>
+                <div class="stat-target">Mục tiêu: 2.000ml</div>
+                <div class="prog-track" style="margin-top:6px;"><div class="prog-fill" style="width:70%;background:var(--primary);"></div></div>
+              </div>
+              <div class="stat-cell">
+                <div class="stat-icon-row"><span>🔥</span> Calo</div>
+                <div class="stat-val color-cals">1.840<span class="unit">kcal</span></div>
+                <div class="stat-target">Mục tiêu: 2.200</div>
+                <div class="prog-track" style="margin-top:6px;"><div class="prog-fill" style="width:83%;background:var(--warn);"></div></div>
+              </div>
+              <div class="stat-cell">
+                <div class="stat-icon-row"><span>🌙</span> Giấc ngủ</div>
+                <div class="stat-val color-sleep">7<span class="unit">g 20p</span></div>
+                <div class="stat-target">Mục tiêu: 8 giờ</div>
+                <div class="prog-track" style="margin-top:6px;"><div class="prog-fill" style="width:91%;background:var(--secondary);"></div></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:20px;"></div>
+        </div>
+
+        <!-- Activity Trend — mirrors Finance mini bar chart -->
+        <div style="padding:0 20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-family:'Manrope',sans-serif;font-size:0.95rem;font-weight:700;">Bước chân 7 ngày</div>
+            <div style="font-size:0.8rem;color:var(--tertiary);font-weight:600;cursor:pointer;">Chi tiết →</div>
+          </div>
+          <div class="c-card" style="padding:16px;">
+            <div class="bar-chart">
+              <div class="bar" style="height:55%;background:var(--surface-highest);"></div>
+              <div class="bar" style="height:80%;background:var(--surface-highest);"></div>
+              <div class="bar" style="height:45%;background:var(--surface-highest);"></div>
+              <div class="bar" style="height:90%;background:var(--surface-highest);"></div>
+              <div class="bar" style="height:60%;background:var(--surface-highest);"></div>
+              <div class="bar" style="height:70%;background:var(--surface-highest);"></div>
+              <div class="bar" style="height:72%;background:linear-gradient(to top,rgba(187,255,179,0.6),rgba(187,255,179,0.3));"></div>
+            </div>
+            <div class="bar-labels">
+              <div class="bar-lbl">T2</div><div class="bar-lbl">T3</div><div class="bar-lbl">T4</div>
+              <div class="bar-lbl">T5</div><div class="bar-lbl">T6</div><div class="bar-lbl">T7</div>
+              <div class="bar-lbl" style="color:var(--tertiary);">CN</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Streak reminder -->
+        <div style="padding:16px 20px;margin-top:4px;">
+          <div class="c-card" style="background:linear-gradient(135deg,rgba(187,255,179,0.07),var(--surface));display:flex;align-items:center;gap:14px;padding:16px;">
+            <div style="font-size:1.8rem;">🔥</div>
+            <div style="flex:1;">
+              <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.9rem;">Streak 12 ngày liên tục!</div>
+              <div style="font-size:0.75rem;color:var(--on-surface-v);margin-top:2px;">Đạt đủ bước chân — đừng để gãy streak hôm nay</div>
+            </div>
+            <div style="font-size:1.5rem;font-family:'Manrope',sans-serif;font-weight:800;color:var(--tertiary);">12</div>
+          </div>
+        </div>
+
+        <!-- Recent activity -->
+        <div style="padding:0 20px 100px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-family:'Manrope',sans-serif;font-size:0.95rem;font-weight:700;">Hoạt động gần đây</div>
+            <div style="font-size:0.8rem;color:var(--tertiary);font-weight:600;cursor:pointer;">Xem tất cả →</div>
+          </div>
+          <div class="movement-card">
+            <div class="move-icon" style="background:rgba(187,255,179,0.12);">🏃</div>
+            <div class="move-meta">
+              <div class="move-name">Chạy bộ buổi sáng</div>
+              <div class="move-sub">3.2km · 28 phút · 07:15</div>
+              <div class="prog-track" style="margin-top:6px;width:100px;"><div class="prog-fill" style="width:85%;background:var(--tertiary);"></div></div>
+            </div>
+            <div style="text-align:right;">
+              <div class="move-val color-activity">287</div>
+              <div style="font-size:0.65rem;color:var(--on-surface-v);">kcal</div>
+            </div>
+          </div>
+          <div class="movement-card">
+            <div class="move-icon" style="background:rgba(100,181,246,0.12);">🧘</div>
+            <div class="move-meta">
+              <div class="move-name">Yoga buổi tối</div>
+              <div class="move-sub">45 phút · 20:00</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="move-val color-water">180</div>
+              <div style="font-size:0.65rem;color:var(--on-surface-v);">kcal</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="c-bottom-nav">
+        <div class="nav-item"><div class="nav-icon">🏠</div><div class="nav-label">Trang chủ</div></div>
+        <div class="nav-item"><div class="nav-icon">💰</div><div class="nav-label">Tài chính</div></div>
+        <div class="nav-item"><div class="nav-icon" style="background:var(--cta);border-radius:50%;width:44px;height:44px;">➕</div><div class="nav-label">Thêm</div></div>
+        <div class="nav-item"><div class="nav-icon active">🏃</div><div class="nav-label active">Sức khỏe</div></div>
+        <div class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">Hồ sơ</div></div>
+      </div>
+    </div>
+    <div class="phone-label">E1 — Health Dashboard</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NHÓM F — Bước chân
+══════════════════════════════════════════════ -->
+<div class="section-label">Nhóm F — Bước chân & Vận động</div>
+<div class="screens-grid">
+
+  <!-- F1: Step Counter -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Bước chân</div>
+        <div class="c-header-action">📅</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <!-- Circular progress — tertiary (Activity) -->
+        <div style="display:flex;flex-direction:column;align-items:center;padding:24px 0 16px;">
+          <div style="position:relative;width:200px;height:200px;">
+            <svg width="200" height="200" viewBox="0 0 200 200" class="ring-svg">
+              <circle cx="100" cy="100" r="82" fill="none" stroke="var(--surface-highest)" stroke-width="16"/>
+              <circle cx="100" cy="100" r="82" fill="none" stroke="var(--tertiary)" stroke-width="16"
+                stroke-dasharray="370 515" stroke-dashoffset="-129" stroke-linecap="round"
+                style="filter:drop-shadow(0 0 8px rgba(187,255,179,0.4));"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+              <div style="display:flex;align-items:center;gap:0;">
+                <div class="metric-xl color-activity" style="font-size:2.2rem;">7.248</div>
+                <div class="metric-pulse"></div>
+              </div>
+              <div style="font-size:0.75rem;color:var(--on-surface-v);">bước / 10.000</div>
+              <div style="font-size:0.7rem;color:var(--tertiary);font-weight:600;margin-top:2px;">72%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick stats row -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <div class="c-card-inner" style="flex:1;text-align:center;padding:12px;">
+            <div style="font-size:0.65rem;color:var(--on-surface-v);">Khoảng cách</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:800;color:var(--tertiary);margin-top:2px;">5.1<span style="font-size:0.7rem;font-weight:500;color:var(--on-surface-v);"> km</span></div>
+          </div>
+          <div class="c-card-inner" style="flex:1;text-align:center;padding:12px;">
+            <div style="font-size:0.65rem;color:var(--on-surface-v);">Calo tiêu thụ</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:800;color:var(--warn);margin-top:2px;">287<span style="font-size:0.7rem;font-weight:500;color:var(--on-surface-v);"> kcal</span></div>
+          </div>
+          <div class="c-card-inner" style="flex:1;text-align:center;padding:12px;">
+            <div style="font-size:0.65rem;color:var(--on-surface-v);">Thời gian di chuyển</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:800;color:var(--primary);margin-top:2px;">42<span style="font-size:0.7rem;font-weight:500;color:var(--on-surface-v);"> phút</span></div>
+          </div>
+        </div>
+
+        <!-- Hourly timeline -->
+        <div class="c-card" style="padding:16px;margin-bottom:16px;">
+          <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;margin-bottom:12px;">Bước chân theo giờ</div>
+          <div class="timeline-row">
+            <div class="tl-bar" style="height:15%;"></div>
+            <div class="tl-bar" style="height:5%;"></div>
+            <div class="tl-bar" style="height:60%;background:rgba(187,255,179,0.5);"></div>
+            <div class="tl-bar" style="height:35%;background:rgba(187,255,179,0.3);"></div>
+            <div class="tl-bar" style="height:20%;"></div>
+            <div class="tl-bar" style="height:80%;background:rgba(187,255,179,0.6);"></div>
+            <div class="tl-bar" style="height:45%;background:rgba(187,255,179,0.4);"></div>
+            <div class="tl-bar" style="height:30%;"></div>
+            <div class="tl-bar" style="height:55%;background:rgba(187,255,179,0.5);"></div>
+            <div class="tl-bar" style="height:10%;"></div>
+            <div class="tl-bar" style="height:25%;"></div>
+            <div class="tl-bar" style="height:40%;background:rgba(187,255,179,0.35);border:1px solid rgba(187,255,179,0.4);"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.62rem;color:var(--on-surface-v);">
+            <span>6h</span><span>9h</span><span>12h</span><span>15h</span><span>18h</span><span>21h</span>
+          </div>
+        </div>
+
+        <!-- Goal achievement -->
+        <div class="c-card" style="padding:16px;background:linear-gradient(135deg,rgba(187,255,179,0.06),var(--surface));">
+          <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;margin-bottom:10px;">Mục tiêu hôm nay</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:0.85rem;">Cần thêm <strong style="color:var(--tertiary);">2.752 bước</strong> nữa</div>
+            <div style="font-size:0.75rem;color:var(--on-surface-v);">~35 phút</div>
+          </div>
+          <div class="prog-track" style="height:8px;">
+            <div class="prog-fill" style="width:72%;background:linear-gradient(90deg,var(--tertiary),rgba(187,255,179,0.7));"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">F1 — Bước chân</div>
+  </div>
+
+  <!-- F2: Movement Card (component showcase) -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Lịch sử vận động</div>
+        <div class="c-header-action">＋</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;">
+          <button class="chip sel-t">Hôm nay</button>
+          <button class="chip">Tuần này</button>
+          <button class="chip">Tháng này</button>
+        </div>
+        <!-- Summary -->
+        <div class="c-card" style="margin-bottom:16px;padding:16px;display:flex;gap:0;background:linear-gradient(135deg,rgba(187,255,179,0.06),var(--surface));">
+          <div style="flex:1;text-align:center;border-right:1px solid rgba(255,255,255,0.04);">
+            <div style="font-size:0.68rem;color:var(--on-surface-v);">Tổng calo</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.2rem;font-weight:800;color:var(--warn);">467</div>
+          </div>
+          <div style="flex:1;text-align:center;border-right:1px solid rgba(255,255,255,0.04);">
+            <div style="font-size:0.68rem;color:var(--on-surface-v);">Thời gian</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.2rem;font-weight:800;color:var(--tertiary);">73p</div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:0.68rem;color:var(--on-surface-v);">Bài tập</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.2rem;font-weight:800;color:var(--primary);">2</div>
+          </div>
+        </div>
+
+        <div style="font-size:0.72rem;font-weight:700;color:var(--on-surface-v);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">HÔM NAY</div>
+
+        <div class="movement-card">
+          <div class="move-icon" style="background:rgba(187,255,179,0.12);">🏃</div>
+          <div class="move-meta">
+            <div class="move-name">Chạy bộ buổi sáng</div>
+            <div class="move-sub">3.2km · 28 phút · 07:15</div>
+            <div class="prog-track" style="margin-top:6px;"><div class="prog-fill" style="width:80%;background:var(--tertiary);"></div></div>
+          </div>
+          <div style="text-align:right;">
+            <div class="move-val color-activity">287<span style="font-size:0.65rem;font-weight:500;color:var(--on-surface-v);">kcal</span></div>
+          </div>
+        </div>
+        <div class="movement-card">
+          <div class="move-icon" style="background:rgba(100,181,246,0.12);">🧘</div>
+          <div class="move-meta">
+            <div class="move-name">Yoga buổi tối</div>
+            <div class="move-sub">45 phút · 20:00</div>
+            <div class="prog-track" style="margin-top:6px;"><div class="prog-fill" style="width:60%;background:var(--primary);"></div></div>
+          </div>
+          <div style="text-align:right;">
+            <div class="move-val color-water">180<span style="font-size:0.65rem;font-weight:500;color:var(--on-surface-v);">kcal</span></div>
+          </div>
+        </div>
+
+        <div style="height:12px;"></div>
+        <div class="hero-cta-wrap">
+          <div class="hero-cta-glow"></div>
+          <button class="btn-primary">＋ Ghi nhận hoạt động</button>
+        </div>
+
+        <!-- Empty state example -->
+        <div style="margin-top:20px;background:var(--surface);border-radius:var(--r-xl);padding:28px;text-align:center;">
+          <div style="font-size:2.2rem;opacity:0.4;margin-bottom:8px;">🏋️</div>
+          <div style="font-family:'Manrope',sans-serif;font-size:0.9rem;font-weight:700;margin-bottom:6px;">Chưa có hoạt động nào hôm qua</div>
+          <div style="font-size:0.78rem;color:var(--on-surface-v);line-height:1.5;">Mỗi bước chân đều có giá trị — hãy bắt đầu từ 10 phút đi bộ.</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">F2 — Movement Card & History</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NHÓM G — Camera AI & Dinh dưỡng
+══════════════════════════════════════════════ -->
+<div class="section-label">Nhóm G — Dinh dưỡng & Camera AI (Camera pattern giống Bill Scanner)</div>
+<div class="screens-grid">
+
+  <!-- G1: Food Camera (shared camera pattern) -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar" style="background:#000;"><span style="color:#fff;">9:41</span><div style="display:flex;gap:6px;color:#fff;"><span>📶</span><span>🔋</span></div></div>
+      <!-- Camera area -->
+      <div class="camera-frame">
+        <!-- Simulated camera bg -->
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 40% 60%,#1a2a1a 0%,#050505 100%);"></div>
+        <div class="camera-overlay-bg"></div>
+        <!-- Scan line animation -->
+        <div class="scan-line"></div>
+        <!-- Guide bracket (same as Bill Scanner, just different icon & label) -->
+        <div class="camera-bracket" style="z-index:3;">
+          <span></span>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:0.65rem;font-weight:700;color:rgba(187,255,179,0.8);text-align:center;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Hướng vào món ăn</div>
+        </div>
+        <!-- Top controls -->
+        <div style="position:absolute;top:0;left:0;right:0;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;z-index:4;">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;cursor:pointer;">✕</div>
+          <div style="font-size:0.75rem;font-weight:600;color:rgba(255,255,255,0.8);">Nhận diện món ăn AI</div>
+          <div style="width:36px;height:36px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;cursor:pointer;">⚡</div>
+        </div>
+        <!-- Bottom controls (shared pattern with Bill Scanner) -->
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:20px;display:flex;justify-content:space-around;align-items:center;background:linear-gradient(to top,rgba(0,0,0,0.8),transparent);z-index:4;">
+          <div style="width:40px;height:40px;background:rgba(255,255,255,0.1);backdrop-filter:blur(6px);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;cursor:pointer;">🖼️</div>
+          <div class="camera-shutter">📸</div>
+          <div style="width:40px;height:40px;background:rgba(255,255,255,0.1);backdrop-filter:blur(6px);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;cursor:pointer;">🔦</div>
+        </div>
+        <!-- Tip -->
+        <div style="position:absolute;bottom:110px;left:0;right:0;text-align:center;z-index:4;">
+          <div style="display:inline-block;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);padding:6px 16px;border-radius:var(--r-full);font-size:0.72rem;color:rgba(255,255,255,0.7);">💡 Ánh sáng tốt giúp nhận diện chính xác hơn</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">G1 — Food Camera AI</div>
+  </div>
+
+  <!-- G2: Food Scanner / Result -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">✕</div>
+        <div class="c-header-title">Kết quả nhận diện</div>
+        <div class="c-header-action">✏️</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <!-- Food preview card — same Card structure as Finance Confirmation Card -->
+        <div class="c-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+          <div style="height:140px;background:radial-gradient(circle at 50% 50%,rgba(187,255,179,0.08),var(--surface-highest));display:flex;align-items:center;justify-content:center;font-size:4rem;">🍜</div>
+          <div style="padding:16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <div style="font-family:'Manrope',sans-serif;font-size:1.1rem;font-weight:800;">Phở bò tái</div>
+              <div style="background:rgba(187,255,179,0.12);color:var(--tertiary);padding:2px 10px;border-radius:var(--r-full);font-size:0.65rem;font-weight:700;">AI 94%</div>
+            </div>
+            <div style="font-size:0.8rem;color:var(--on-surface-v);">1 tô lớn · 480g</div>
+          </div>
+        </div>
+
+        <!-- Calorie highlight (mirrors Finance amount-xl pattern) -->
+        <div class="c-card" style="margin-bottom:16px;text-align:center;background:linear-gradient(135deg,rgba(255,213,79,0.06),var(--surface));">
+          <div style="font-size:0.75rem;color:var(--on-surface-v);margin-bottom:6px;">Tổng calo</div>
+          <div class="metric-xl color-cals">485</div>
+          <div style="font-size:0.8rem;color:var(--on-surface-v);margin-top:4px;">kcal</div>
+        </div>
+
+        <!-- Macros -->
+        <div class="c-card" style="margin-bottom:16px;">
+          <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;margin-bottom:4px;">Thành phần dinh dưỡng</div>
+          <div class="macro-row">
+            <div class="macro-item">
+              <div class="macro-label">Protein</div>
+              <div class="macro-val color-activity">28g</div>
+              <div class="prog-track" style="margin-top:4px;"><div class="prog-fill" style="width:56%;background:var(--tertiary);"></div></div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-label">Carbs</div>
+              <div class="macro-val color-water">52g</div>
+              <div class="prog-track" style="margin-top:4px;"><div class="prog-fill" style="width:72%;background:var(--primary);"></div></div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-label">Chất béo</div>
+              <div class="macro-val" style="color:var(--warn);">14g</div>
+              <div class="prog-track" style="margin-top:4px;"><div class="prog-fill" style="width:35%;background:var(--warn);"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cross-module prompt (Finance link) -->
+        <div style="background:rgba(100,181,246,0.06);border-radius:var(--r-xl);padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="font-size:1.2rem;">💳</div>
+          <div style="flex:1;font-size:0.8rem;color:var(--on-surface-v);line-height:1.4;">Ghi khoản chi ăn uống này vào <strong style="color:var(--primary);">FinFit Tài chính</strong> ngay?</div>
+          <div style="font-size:0.75rem;color:var(--primary);font-weight:600;cursor:pointer;white-space:nowrap;">Ghi →</div>
+        </div>
+
+        <div class="hero-cta-wrap">
+          <div class="hero-cta-glow"></div>
+          <button class="btn-primary">✓ Thêm vào nhật ký hôm nay</button>
+        </div>
+        <button class="btn-secondary" style="margin-top:10px;">Sửa thông tin</button>
+      </div>
+    </div>
+    <div class="phone-label">G2 — Food Scanner Result</div>
+  </div>
+
+  <!-- G3: Meal Detail -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Nhật ký hôm nay</div>
+        <div class="c-header-action">＋</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <!-- Daily calo ring -->
+        <div class="c-card" style="margin-bottom:16px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(255,213,79,0.05),var(--surface));">
+          <div style="position:relative;width:80px;height:80px;flex-shrink:0;">
+            <svg width="80" height="80" viewBox="0 0 80 80" class="ring-svg">
+              <circle cx="40" cy="40" r="32" fill="none" stroke="var(--surface-highest)" stroke-width="10"/>
+              <circle cx="40" cy="40" r="32" fill="none" stroke="var(--warn)" stroke-width="10"
+                stroke-dasharray="134 201" stroke-dashoffset="-50" stroke-linecap="round"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div style="font-family:'Manrope',sans-serif;font-size:0.9rem;font-weight:800;color:var(--warn);">67%</div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:0.75rem;color:var(--on-surface-v);">Calo đã nạp</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.3rem;font-weight:800;color:var(--warn);">1.840<span style="font-size:0.75rem;color:var(--on-surface-v);font-weight:500;"> / 2.200 kcal</span></div>
+            <div style="font-size:0.75rem;color:var(--on-surface-v);margin-top:2px;">Còn lại <strong style="color:var(--tertiary);">360 kcal</strong></div>
+          </div>
+        </div>
+
+        <!-- Meal list -->
+        <div style="font-size:0.72rem;font-weight:700;color:var(--on-surface-v);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">BUỔI SÁNG</div>
+        <div class="c-card" style="padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.3rem;">🥣</div>
+            <div style="flex:1;"><div style="font-weight:600;font-size:0.88rem;">Granola sữa</div><div style="font-size:0.72rem;color:var(--on-surface-v);">230g</div></div>
+            <div style="font-family:'Manrope',sans-serif;font-size:0.9rem;font-weight:700;color:var(--warn);">320 kcal</div>
+          </div>
+        </div>
+
+        <div style="font-size:0.72rem;font-weight:700;color:var(--on-surface-v);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">BUỔI TRƯA</div>
+        <div class="c-card" style="padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.3rem;">🍜</div>
+            <div style="flex:1;"><div style="font-weight:600;font-size:0.88rem;">Phở bò tái</div><div style="font-size:0.72rem;color:var(--on-surface-v);">1 tô · AI scan</div></div>
+            <div style="font-family:'Manrope',sans-serif;font-size:0.9rem;font-weight:700;color:var(--warn);">485 kcal</div>
+          </div>
+        </div>
+        <div class="c-card" style="padding:14px 16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.3rem;">🧃</div>
+            <div style="flex:1;"><div style="font-weight:600;font-size:0.88rem;">Nước cam ép</div><div style="font-size:0.72rem;color:var(--on-surface-v);">330ml</div></div>
+            <div style="font-family:'Manrope',sans-serif;font-size:0.9rem;font-weight:700;color:var(--warn);">125 kcal</div>
+          </div>
+        </div>
+
+        <div class="hero-cta-wrap">
+          <div class="hero-cta-glow"></div>
+          <button class="btn-primary">📸 Thêm bữa ăn mới</button>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">G3 — Nhật ký dinh dưỡng</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NHÓM H — Nước uống
+══════════════════════════════════════════════ -->
+<div class="section-label">Nhóm H — Water Tracker (primary = Nước, #64B5F6)</div>
+<div class="screens-grid">
+
+  <!-- H1: Water Tracker -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Nước uống</div>
+        <div class="c-header-action">⚙️</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <!-- Circular progress — PRIMARY (Water) -->
+        <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 12px;">
+          <div style="position:relative;width:190px;height:190px;">
+            <svg width="190" height="190" viewBox="0 0 190 190" class="ring-svg">
+              <circle cx="95" cy="95" r="78" fill="none" stroke="var(--surface-highest)" stroke-width="16"/>
+              <circle cx="95" cy="95" r="78" fill="none" stroke="var(--primary)" stroke-width="16"
+                stroke-dasharray="343 490" stroke-dashoffset="-122"
+                stroke-linecap="round"
+                style="filter:drop-shadow(0 0 10px rgba(100,181,246,0.45));"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+              <div class="metric-xl color-water" style="font-size:2rem;">1.400</div>
+              <div style="font-size:0.72rem;color:var(--on-surface-v);">ml / 2.000ml</div>
+              <div style="font-size:0.7rem;color:var(--primary);font-weight:600;margin-top:2px;">70% · còn 600ml</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick add buttons -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;justify-content:center;">
+          <button class="chip sel-p">+150ml</button>
+          <button class="chip sel-p">+200ml</button>
+          <button class="chip sel-p">+350ml</button>
+          <button class="chip">Tùy chỉnh</button>
+        </div>
+
+        <!-- Cup tracker grid -->
+        <div class="c-card" style="padding:16px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;">Ly hôm nay</div>
+            <div style="font-size:0.75rem;color:var(--on-surface-v);">7 / 10 ly</div>
+          </div>
+          <div class="water-grid">
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">200ml</span></div>
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">200ml</span></div>
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">200ml</span></div>
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">200ml</span></div>
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">150ml</span></div>
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">350ml</span></div>
+            <div class="water-cup filled"><span>💧</span><span class="water-cup-label">100ml</span></div>
+            <div class="water-cup empty" style="border:1.5px dashed rgba(100,181,246,0.2);">
+              <span style="opacity:0.3;">💧</span><span class="water-cup-label">Thêm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reminder -->
+        <div class="c-card" style="padding:14px;display:flex;align-items:center;gap:12px;background:rgba(100,181,246,0.05);">
+          <div style="font-size:1.2rem;">⏰</div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:0.85rem;">Nhắc nhở tiếp theo</div>
+            <div style="font-size:0.75rem;color:var(--on-surface-v);">14:30 — mỗi 90 phút</div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--primary);font-weight:600;cursor:pointer;">Sửa</div>
+        </div>
+
+        <!-- Success state (Goal achieved) -->
+        <div style="margin-top:16px;" class="success-glow" style="display:none;">
+          <div style="font-size:2rem;">🎉</div>
+          <div style="font-family:'Manrope',sans-serif;font-weight:800;font-size:1rem;color:var(--success);">Đủ nước hôm nay!</div>
+          <div style="font-size:0.8rem;color:var(--on-surface-v);line-height:1.5;">Tuyệt vời — 2.000ml đã đạt! Cơ thể bạn đang rất hạnh phúc.</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">H1 — Water Tracker</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NHÓM I — Giấc ngủ
+══════════════════════════════════════════════ -->
+<div class="section-label">Nhóm I — Giấc ngủ (secondary = Sleep, #EA73FB)</div>
+<div class="screens-grid">
+
+  <!-- I1: Sleep Schedule -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Giấc ngủ</div>
+        <div class="c-header-action">📅</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <!-- Last night summary — SECONDARY (Sleep) ring -->
+        <div class="c-card" style="margin-bottom:16px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(234,115,251,0.06),var(--surface));">
+          <div style="position:relative;width:80px;height:80px;flex-shrink:0;">
+            <svg width="80" height="80" viewBox="0 0 80 80" class="ring-svg">
+              <circle cx="40" cy="40" r="32" fill="none" stroke="var(--surface-highest)" stroke-width="10"/>
+              <circle cx="40" cy="40" r="32" fill="none" stroke="var(--secondary)" stroke-width="10"
+                stroke-dasharray="183 201" stroke-dashoffset="-50" stroke-linecap="round"
+                style="filter:drop-shadow(0 0 6px rgba(234,115,251,0.3));"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div style="font-family:'Manrope',sans-serif;font-size:0.85rem;font-weight:800;color:var(--secondary);">91%</div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:0.72rem;color:var(--on-surface-v);">Tối qua</div>
+            <div class="metric-lg color-sleep">7<span style="font-size:1rem;"> giờ </span>20<span style="font-size:1rem;"> phút</span></div>
+            <div style="font-size:0.72rem;color:var(--on-surface-v);margin-top:2px;">Ngủ lúc <strong style="color:var(--on-surface);">22:40</strong> · Dậy <strong style="color:var(--on-surface);">06:00</strong></div>
+          </div>
+        </div>
+
+        <!-- Sleep quality breakdown -->
+        <div class="c-card" style="padding:16px;margin-bottom:16px;">
+          <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;margin-bottom:14px;">Chất lượng giấc ngủ</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;"><span>Ngủ sâu (Deep)</span><span style="color:var(--secondary);">2g 15p</span></div>
+              <div class="prog-track"><div class="prog-fill" style="width:58%;background:var(--secondary);"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;"><span>Ngủ REM</span><span style="color:var(--primary);">1g 40p</span></div>
+              <div class="prog-track"><div class="prog-fill" style="width:42%;background:var(--primary);"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;"><span>Ngủ nhẹ (Light)</span><span style="color:var(--on-surface-v);">3g 25p</span></div>
+              <div class="prog-track"><div class="prog-fill" style="width:85%;background:var(--surface-highest);"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7-day sleep trend -->
+        <div class="c-card" style="padding:16px;margin-bottom:16px;">
+          <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;margin-bottom:12px;">Xu hướng 7 ngày</div>
+          <div class="bar-chart">
+            <div class="bar" style="height:80%;background:rgba(234,115,251,0.4);"></div>
+            <div class="bar" style="height:65%;background:rgba(234,115,251,0.3);"></div>
+            <div class="bar" style="height:90%;background:rgba(234,115,251,0.45);"></div>
+            <div class="bar" style="height:55%;background:rgba(234,115,251,0.25);"></div>
+            <div class="bar" style="height:85%;background:rgba(234,115,251,0.4);"></div>
+            <div class="bar" style="height:70%;background:rgba(234,115,251,0.35);"></div>
+            <div class="bar" style="height:92%;background:var(--secondary);filter:drop-shadow(0 0 4px rgba(234,115,251,0.3));"></div>
+          </div>
+          <div class="bar-labels">
+            <div class="bar-lbl">T2</div><div class="bar-lbl">T3</div><div class="bar-lbl">T4</div>
+            <div class="bar-lbl">T5</div><div class="bar-lbl">T6</div><div class="bar-lbl">T7</div>
+            <div class="bar-lbl" style="color:var(--secondary);">CN</div>
+          </div>
+        </div>
+
+        <div class="hero-cta-wrap">
+          <div class="hero-cta-glow" style="background:radial-gradient(ellipse,rgba(234,115,251,0.18) 0%,transparent 70%);"></div>
+          <button class="btn-primary" style="background:linear-gradient(135deg,var(--secondary),#d060e8);">🌙 Đặt lịch ngủ tối nay</button>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">I1 — Sleep Schedule</div>
+  </div>
+
+  <!-- I2: Circular Sleep Picker -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Đặt lịch ngủ</div>
+        <div style="width:36px;"></div>
+      </div>
+      <div class="phone-scroll" style="padding:20px 20px 32px;">
+        <div style="text-align:center;margin-bottom:6px;">
+          <div style="font-family:'Manrope',sans-serif;font-size:0.9rem;font-weight:700;">Chọn giờ đi ngủ & thức dậy</div>
+          <div style="font-size:0.78rem;color:var(--on-surface-v);margin-top:4px;">Kéo các điểm trên vòng tròn để điều chỉnh</div>
+        </div>
+
+        <!-- Circular Sleep Picker — bespoke health component -->
+        <div style="position:relative;width:240px;height:240px;margin:24px auto;">
+          <!-- Outer ring track -->
+          <svg width="240" height="240" viewBox="0 0 240 240" style="position:absolute;inset:0;transform:rotate(-90deg);">
+            <circle cx="120" cy="120" r="100" fill="none" stroke="var(--surface-highest)" stroke-width="24"/>
+            <!-- Sleep arc from ~22:00 to ~06:00 (about 240deg) -->
+            <circle cx="120" cy="120" r="100" fill="none" stroke="var(--secondary)" stroke-width="24"
+              stroke-dasharray="418 628" stroke-dashoffset="105"
+              stroke-linecap="round"
+              style="filter:drop-shadow(0 0 12px rgba(234,115,251,0.35));opacity:0.85;"/>
+          </svg>
+
+          <!-- Handle: Bedtime (sleep start) -->
+          <div class="picker-handle" style="top:22%;left:87%;background:var(--secondary);border:2px solid var(--bg);box-shadow:0 0 16px rgba(234,115,251,0.6);">
+            <div style="position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:var(--secondary);color:#000;font-size:0.62rem;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;">22:00</div>
+          </div>
+          <!-- Handle: Wake time -->
+          <div class="picker-handle" style="top:22%;left:13%;background:var(--on-surface);border:2px solid var(--bg);box-shadow:0 0 12px rgba(242,240,240,0.3);">
+            <div style="position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:var(--surface-highest);color:var(--on-surface);font-size:0.62rem;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;">06:00</div>
+          </div>
+
+          <!-- Center info -->
+          <div style="position:absolute;inset:32px;border-radius:50%;background:var(--surface-low);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 0 0 1px var(--outline);">
+            <div style="font-size:0.65rem;color:var(--on-surface-v);">Thời gian ngủ</div>
+            <div class="metric-lg color-sleep" style="font-size:1.6rem;">8<span style="font-size:0.9rem;">h</span></div>
+            <div style="font-size:0.65rem;color:var(--on-surface-v);">Khuyến nghị ✦</div>
+          </div>
+
+          <!-- Hour ticks (simplified) -->
+          <svg width="240" height="240" viewBox="0 0 240 240" style="position:absolute;inset:0;pointer-events:none;">
+            <!-- 12 tick marks -->
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(0 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(30 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(60 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(90 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(120 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(150 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(180 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(210 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(240 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(270 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(300 120 120)"/>
+            <line x1="120" y1="10" x2="120" y2="18" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" transform="rotate(330 120 120)"/>
+            <!-- Hour labels -->
+            <text x="120" y="8" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="middle" transform="rotate(0 120 120)">12</text>
+            <text x="120" y="8" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="middle" transform="rotate(90 120 120)">03</text>
+            <text x="120" y="8" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="middle" transform="rotate(180 120 120)">06</text>
+            <text x="120" y="8" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="middle" transform="rotate(270 120 120)">21</text>
+          </svg>
+        </div>
+
+        <!-- Time inputs (fallback) -->
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <div style="flex:1;background:var(--surface);border-radius:var(--r-xl);padding:14px;text-align:center;box-shadow:0 0 0 1.5px var(--secondary);">
+            <div style="font-size:0.65rem;color:var(--secondary);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">🌙 Đi ngủ</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.4rem;font-weight:800;color:var(--secondary);">22:00</div>
+          </div>
+          <div style="flex:1;background:var(--surface);border-radius:var(--r-xl);padding:14px;text-align:center;box-shadow:0 0 0 1px var(--outline);">
+            <div style="font-size:0.65rem;color:var(--on-surface-v);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">☀️ Thức dậy</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.4rem;font-weight:800;">06:00</div>
+          </div>
+        </div>
+
+        <!-- Alarm toggle -->
+        <div class="c-card" style="padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="font-size:1.1rem;">⏰</div>
+          <div style="flex:1;"><div style="font-weight:600;font-size:0.88rem;">Báo thức tự động</div><div style="font-size:0.73rem;color:var(--on-surface-v);">Rung nhẹ khi đến giờ thức dậy</div></div>
+          <div style="width:44px;height:26px;background:var(--secondary);border-radius:13px;position:relative;cursor:pointer;">
+            <div style="position:absolute;right:2px;top:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+          </div>
+        </div>
+
+        <div class="hero-cta-wrap">
+          <div class="hero-cta-glow" style="background:radial-gradient(ellipse,rgba(234,115,251,0.18) 0%,transparent 70%);"></div>
+          <button class="btn-primary" style="background:linear-gradient(135deg,var(--secondary),#d060e8);">✓ Lưu lịch ngủ</button>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">I2 — Circular Sleep Picker</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     NHÓM J — Tin tức sức khỏe
+══════════════════════════════════════════════ -->
+<div class="section-label">Nhóm J — Tin tức & Bài viết sức khỏe</div>
+<div class="screens-grid">
+
+  <!-- J1: News List -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Sức khỏe & Dinh dưỡng</div>
+        <div class="c-header-action">🔍</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 20px 32px;">
+        <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;">
+          <button class="chip sel-t">Tất cả</button>
+          <button class="chip">Vận động</button>
+          <button class="chip">Dinh dưỡng</button>
+          <button class="chip">Giấc ngủ</button>
+          <button class="chip">Tâm lý</button>
+        </div>
+
+        <!-- Featured article -->
+        <div class="c-card" style="padding:0;overflow:hidden;margin-bottom:16px;cursor:pointer;">
+          <div style="height:120px;background:radial-gradient(circle at 30% 60%,rgba(187,255,179,0.12),var(--surface-highest));display:flex;align-items:center;justify-content:center;font-size:3.5rem;position:relative;">
+            🥗
+            <div style="position:absolute;top:10px;left:12px;background:var(--tertiary);color:#0a1a08;padding:3px 10px;border-radius:var(--r-full);font-size:0.62rem;font-weight:700;">NỔI BẬT</div>
+          </div>
+          <div style="padding:14px;">
+            <div style="font-size:0.65rem;font-weight:700;color:var(--tertiary);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Dinh dưỡng</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:0.95rem;font-weight:800;line-height:1.3;margin-bottom:6px;">7 thực phẩm giúp tăng cường trí nhớ và sự tập trung mà bạn nên ăn mỗi ngày</div>
+            <div style="font-size:0.72rem;color:var(--on-surface-v);">HealthVN · 45 phút đọc · 2 giờ trước</div>
+          </div>
+        </div>
+
+        <!-- Article list -->
+        <div class="news-card">
+          <div class="news-thumb" style="background:rgba(100,181,246,0.08);">💧</div>
+          <div class="news-meta">
+            <div class="news-cat" style="color:var(--primary);">Hydration</div>
+            <div class="news-title">Uống nước đúng cách — bao nhiêu là đủ theo cân nặng?</div>
+            <div class="news-time">5 phút đọc · 3 giờ trước</div>
+          </div>
+        </div>
+
+        <div class="news-card">
+          <div class="news-thumb" style="background:rgba(234,115,251,0.08);">😴</div>
+          <div class="news-meta">
+            <div class="news-cat" style="color:var(--secondary);">Giấc ngủ</div>
+            <div class="news-title">Tại sao ngủ đủ 8 giờ quan trọng hơn bạn nghĩ?</div>
+            <div class="news-time">8 phút đọc · 5 giờ trước</div>
+          </div>
+        </div>
+
+        <div class="news-card">
+          <div class="news-thumb" style="background:rgba(187,255,179,0.08);">🏃</div>
+          <div class="news-meta">
+            <div class="news-cat" style="color:var(--tertiary);">Vận động</div>
+            <div class="news-title">10.000 bước mỗi ngày: huyền thoại hay sự thật khoa học?</div>
+            <div class="news-time">6 phút đọc · hôm qua</div>
+          </div>
+        </div>
+
+        <div class="news-card">
+          <div class="news-thumb" style="background:rgba(255,213,79,0.08);">🧠</div>
+          <div class="news-meta">
+            <div class="news-cat" style="color:var(--warn);">Tâm lý</div>
+            <div class="news-title">Quản lý stress bằng tài chính: mối liên hệ bất ngờ</div>
+            <div class="news-time">7 phút đọc · hôm qua</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">J1 — News List</div>
+  </div>
+
+  <!-- J2: News Detail -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div style="display:flex;gap:6px;"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title"></div>
+        <div class="c-header-action">⋯</div>
+      </div>
+      <div class="phone-scroll" style="padding:0;">
+        <!-- Hero image -->
+        <div style="height:180px;background:radial-gradient(circle at 40% 50%,rgba(187,255,179,0.1),var(--surface-highest));display:flex;align-items:center;justify-content:center;font-size:5rem;">🥗</div>
+
+        <div style="padding:20px 20px 40px;">
+          <!-- Category + read time -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="background:rgba(187,255,179,0.12);color:var(--tertiary);padding:3px 10px;border-radius:var(--r-full);font-size:0.65rem;font-weight:700;">DINH DƯỠNG</span>
+            <span style="font-size:0.7rem;color:var(--on-surface-v);">5 phút đọc</span>
+          </div>
+
+          <!-- Title — Manrope for heading -->
+          <div style="font-family:'Manrope',sans-serif;font-size:1.2rem;font-weight:800;line-height:1.3;letter-spacing:-0.3px;margin-bottom:8px;">
+            7 thực phẩm giúp tăng cường trí nhớ và sự tập trung
+          </div>
+          <div style="font-size:0.72rem;color:var(--on-surface-v);margin-bottom:20px;">HealthVN · 2 giờ trước</div>
+
+          <!-- Body text — Inter, max 600px, line-height 1.7 -->
+          <div style="font-family:'Inter',sans-serif;font-size:0.875rem;line-height:1.7;color:rgba(242,240,240,0.85);max-width:600px;">
+            <p style="margin-bottom:14px;">Não bộ chiếm chưa đến 2% trọng lượng cơ thể nhưng tiêu thụ đến 20% năng lượng mỗi ngày. Những gì bạn ăn ảnh hưởng trực tiếp đến khả năng tập trung, ghi nhớ và xử lý thông tin.</p>
+            <!-- H2 in article — still Manrope -->
+            <div style="font-family:'Manrope',sans-serif;font-size:0.95rem;font-weight:700;margin:18px 0 8px;color:var(--on-surface);">1. Cá hồi & các loại cá béo</div>
+            <p style="margin-bottom:14px;">Omega-3 trong cá hồi, cá thu, cá trích là thành phần thiết yếu để xây dựng tế bào thần kinh. Nghiên cứu cho thấy người ăn cá đều đặn có vùng não liên quan đến trí nhớ lớn hơn đáng kể.</p>
+            <div style="font-family:'Manrope',sans-serif;font-size:0.95rem;font-weight:700;margin:18px 0 8px;color:var(--on-surface);">2. Việt quất (Blueberry)</div>
+            <p style="margin-bottom:14px;">Chứa flavonoid — chất chống oxy hoá giúp cải thiện giao tiếp giữa các tế bào thần kinh, làm chậm quá trình lão hoá não và có thể trì hoãn suy giảm trí nhớ ngắn hạn.</p>
+          </div>
+
+          <!-- Related articles -->
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--outline);">
+            <div style="font-family:'Manrope',sans-serif;font-weight:700;font-size:0.85rem;margin-bottom:12px;">Bài viết liên quan</div>
+            <div class="news-card" style="margin-bottom:0;">
+              <div class="news-thumb" style="background:rgba(100,181,246,0.08);width:72px;height:72px;">💧</div>
+              <div class="news-meta" style="padding:10px;">
+                <div class="news-title" style="font-size:0.8rem;">Uống nước đúng cách theo từng hoạt động</div>
+                <div class="news-time">4 phút đọc</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">J2 — News Detail</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 3 — Flow Map: Cross-Module Navigation
+══════════════════════════════════════════════ -->
+<div class="section-label">Bước 3 — Bản đồ điều hướng chéo module Finance ↔ Health</div>
+<div style="padding:0 24px 64px;">
+<div style="background:var(--surface-low);border-radius:var(--r-xl);padding:28px;max-width:900px;">
+
+  <div style="font-family:'Manrope',sans-serif;font-size:0.95rem;font-weight:800;color:var(--primary);margin-bottom:20px;">Kiểm tra thành công — Checklist đối chiếu</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+    <div style="background:var(--surface);border-radius:var(--r-lg);padding:16px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--tertiary);margin-bottom:10px;">✓ Đã đảm bảo</div>
+      <div style="display:flex;flex-direction:column;gap:7px;font-size:0.8rem;color:var(--on-surface-v);line-height:1.5;">
+        <div>✅ Palette chỉ dùng Deep Space + 3 accent — zero màu neon mới</div>
+        <div>✅ primary=Nước, secondary=Ngủ, tertiary=Hoạt động — nhất quán 100%</div>
+        <div>✅ Camera overlay dùng chung pattern (bracket + scan-line + shutter)</div>
+        <div>✅ Card/Button/Chip/Header y hệt Finance Module</div>
+        <div>✅ Số liệu lớn = Manrope 800 display scale, đơn vị = Inter 500 nhỏ hơn</div>
+        <div>✅ 4 trạng thái Loading/Empty/Error/Success đầy đủ</div>
+        <div>✅ Typography chỉ Manrope + Inter (News Detail vẫn giữ nguyên)</div>
+        <div>✅ Cross-module prompt: Food scan gợi ý ghi chi phí vào Finance</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border-radius:var(--r-lg);padding:16px;">
+      <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--secondary);margin-bottom:10px;">Transition Rules</div>
+      <div style="display:flex;flex-direction:column;gap:7px;font-size:0.8rem;color:var(--on-surface-v);line-height:1.5;">
+        <div>Tab Finance → Tab Health: <strong style="color:var(--on-surface);">fade 150ms</strong> (no slide để tránh choáng)</div>
+        <div>Health Screen → Step Counter: <strong style="color:var(--on-surface);">slide-left 200ms ease-out</strong></div>
+        <div>Food Camera open: <strong style="color:var(--on-surface);">slide-up from bottom</strong></div>
+        <div>Food scan → Finance cross-prompt: <strong style="color:var(--on-surface);">inline banner</strong> (không modal)</div>
+        <div>Sleep Picker: <strong style="color:var(--on-surface);">slide-up bottom sheet</strong></div>
+        <div>Success achievement: <strong style="color:var(--on-surface);">micro-bounce + ambient glow 500ms</strong> (y hệt Finance)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cross-module flow diagram -->
+  <div style="font-family:'Manrope',sans-serif;font-size:0.8rem;font-weight:700;color:var(--on-surface);margin-bottom:12px;">Luồng tích hợp chéo module</div>
+  <div style="background:var(--surface);border-radius:var(--r-lg);padding:16px;font-size:0.78rem;color:var(--on-surface-v);line-height:1.8;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <span style="background:rgba(100,181,246,0.12);color:var(--primary);padding:4px 12px;border-radius:var(--r-full);font-weight:700;">Finance: Bill Scanner</span>
+      <span style="color:var(--on-surface);">→ nhận diện hóa đơn nhà hàng →</span>
+      <span style="background:rgba(187,255,179,0.12);color:var(--tertiary);padding:4px 12px;border-radius:var(--r-full);font-weight:700;">Inline prompt: "Ghi vào log dinh dưỡng?"</span>
+      <span style="color:var(--on-surface);">→</span>
+      <span style="background:rgba(187,255,179,0.12);color:var(--tertiary);padding:4px 12px;border-radius:var(--r-full);font-weight:700;">Health: Food Scanner Result</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="background:rgba(187,255,179,0.12);color:var(--tertiary);padding:4px 12px;border-radius:var(--r-full);font-weight:700;">Health: Food Camera</span>
+      <span style="color:var(--on-surface);">→ nhận diện món ăn →</span>
+      <span style="background:rgba(100,181,246,0.12);color:var(--primary);padding:4px 12px;border-radius:var(--r-full);font-weight:700;">Inline prompt: "Ghi chi phí vào Finance?"</span>
+      <span style="color:var(--on-surface);">→</span>
+      <span style="background:rgba(100,181,246,0.12);color:var(--primary);padding:4px 12px;border-radius:var(--r-full);font-weight:700;">Finance: Add Transaction</span>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;padding:14px;background:rgba(187,255,179,0.05);border-radius:var(--r-lg);border-left:3px solid var(--tertiary);">
+    <div style="font-size:0.78rem;color:var(--on-surface-v);line-height:1.6;">
+      <strong style="color:var(--tertiary);">Câu hỏi kiểm tra cuối:</strong> Đặt cạnh nhau Finance Dashboard và Health Dashboard — người dùng nhận ra ngay đây là 1 app:
+      cùng header pattern, cùng mini-card layout 2×2, cùng bar chart style, cùng bottom nav, cùng typography, cùng glow/ambient effect.
+      Điểm khác biệt duy nhất và có chủ đích: accent color active trên Bottom Nav (Finance = primary #64B5F6, Health = tertiary #BBFFB3).
+    </div>
+  </div>
+
+</div>
+</div>
+
+</body>
+</html>

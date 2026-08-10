@@ -1,12 +1,13 @@
 package com.example.finfit.data.repository
 
+import com.example.finfit.features.auth.domain.repository.IAuthRepository
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.tasks.await
 
-class AuthRepository {
+class AuthRepository : IAuthRepository {
     private val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
 
-    suspend fun signUp(email: String, password: String): FirebaseUser? {
+    override suspend fun signUp(email: String, password: String): FirebaseUser? {
         try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             return result.user
@@ -16,7 +17,7 @@ class AuthRepository {
         }
     }
 
-    suspend fun signIn(email: String, password: String): FirebaseUser? {
+    override suspend fun signIn(email: String, password: String): FirebaseUser? {
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             return result.user
@@ -26,7 +27,7 @@ class AuthRepository {
         }
     }
 
-    fun getCurrentUser(): FirebaseUser? {
+    override fun getCurrentUser(): FirebaseUser? {
         try {
             return auth.currentUser
         } catch (e: Exception) {
@@ -35,7 +36,7 @@ class AuthRepository {
         }
     }
 
-    fun signOut() {
+    override fun signOut() {
         auth.signOut()
     }
 }

@@ -242,6 +242,47 @@ class GeminiService {
                     requiredParameters = listOf("goalName", "amount")
             )
 
+    private val querySpendingAnalyticsTool =
+            defineFunction(
+                    name = "querySpendingAnalytics",
+                    description = "Tra cứu và phân tích số liệu chi tiêu thực tế của người dùng theo kỳ (tháng này, tháng trước, tuần này, 7 ngày qua) và danh mục.",
+                    parameters =
+                            listOf(
+                                    Schema.str("period", "Kỳ cần tra cứu: 'THIS_MONTH' (tháng này), 'LAST_MONTH' (tháng trước), 'THIS_WEEK' (tuần này), 'LAST_7_DAYS' (7 ngày qua)"),
+                                    Schema.str("category", "Tên danh mục cụ thể cần lọc (VD: 'Ăn uống', 'Mua sắm', 'Di chuyển', 'Tất cả')", nullable = true)
+                            ),
+                    requiredParameters = listOf("period")
+            )
+
+    private val getFinancialHealthDetailsTool =
+            defineFunction(
+                    name = "getFinancialHealthDetails",
+                    description = "Lấy bảng phân tích chi tiết Điểm Sức khỏe Tài chính (0-100) gồm 4 trụ cột: Tỷ lệ tiết kiệm, Kiểm soát nợ, Tuân thủ ngân sách, Quỹ dự phòng khẩn cấp.",
+                    parameters = emptyList()
+            )
+
+    private val explainBudgetStatusTool =
+            defineFunction(
+                    name = "explainBudgetStatus",
+                    description = "Kiểm tra và giải thích chi tiết trạng thái ngân sách tháng/tuần: danh mục nào an toàn, danh mục nào sắp chạm trần hoặc đã bội chi.",
+                    parameters =
+                            listOf(
+                                    Schema.str("category", "Danh mục cần kiểm tra ngân sách (hoặc 'ALL' cho tất cả danh mục)", nullable = true)
+                            )
+            )
+
+    private val compareSpendingPeriodsTool =
+            defineFunction(
+                    name = "compareSpendingPeriods",
+                    description = "So sánh chi tiêu thực tế giữa 2 kỳ (VD: tháng này vs tháng trước, tuần này vs tuần trước) để tìm mức tăng giảm % và các danh mục biến động bất thường.",
+                    parameters =
+                            listOf(
+                                    Schema.str("period1", "'THIS_MONTH' hoặc 'THIS_WEEK'"),
+                                    Schema.str("period2", "'LAST_MONTH' hoặc 'LAST_WEEK'")
+                            ),
+                    requiredParameters = listOf("period1", "period2")
+            )
+
     suspend fun getCompletion(
             sysInstruct: String,
             history: List<Content>
@@ -249,9 +290,9 @@ class GeminiService {
             withContext(Dispatchers.IO) {
                 val generativeModel =
                         GenerativeModel(
-                                modelName = "gemini-2.0-flash",
+                                modelName = "gemini-2.5-flash",
                                 apiKey = apiKey,
-                                generationConfig = generationConfig { temperature = 0.2f },
+                                generationConfig = generationConfig { temperature = 0.35f },
                                 systemInstruction = content("system") { text(sysInstruct) },
                                 tools =
                                         listOf(
@@ -267,7 +308,11 @@ class GeminiService {
                                                                 updateUserHabitTool,
                                                                 proposeWeeklyPlanTool,
                                                                 depositSavingsTool,
-                                                                withdrawSavingsTool
+                                                                withdrawSavingsTool,
+                                                                querySpendingAnalyticsTool,
+                                                                getFinancialHealthDetailsTool,
+                                                                explainBudgetStatusTool,
+                                                                compareSpendingPeriodsTool
                                                         )
                                                 )
                                         ),

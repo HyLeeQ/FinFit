@@ -194,7 +194,7 @@ fun InternalTransferScreen(
                         .height(64.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                    enabled = amountText.isNotEmpty() && fromAccount?.id != toAccount?.id
+                    enabled = amountText.isNotEmpty() && (amountText.toDoubleOrNull() ?: 0.0) > 0 && fromAccount?.id != toAccount?.id
                 ) {
                     Text("Xác nhận chuyển tiền", fontWeight = FontWeight.Black, fontSize = 16.sp)
                 }

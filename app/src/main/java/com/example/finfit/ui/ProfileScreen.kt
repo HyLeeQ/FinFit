@@ -37,7 +37,8 @@ fun ProfileScreen(
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
     onLogout: () -> Unit,
-    onEditProfile: () -> Unit = {}
+    onEditProfile: () -> Unit = {},
+    healthState: com.example.finfit.health.model.HealthUiState? = null
 ) {
     val scrollState = rememberScrollState()
     var transactionNotiEnabled by remember { mutableStateOf(true) }
@@ -167,6 +168,62 @@ fun ProfileScreen(
                     title = "Ngân sách",
                     subtitle = "Thiết lập hạn mức chi tiêu"
                 )
+            }
+            
+            // Chỉ số Sức khoẻ hôm nay
+            if (healthState != null) {
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeader(icon = Icons.Default.Favorite, title = "Chỉ số sức khỏe hôm nay")
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                val context = LocalContext.current
+                val setupPrefs = remember { com.example.finfit.data.local.SetupPreferences(context) }
+                val profile = remember { setupPrefs.getUserProfile() }
+                val sleepGoal = profile.sleepGoalHours.toFloat().coerceAtLeast(1f)
+                
+                SettingsCard {
+                    val stepProgress = if (healthState.stepGoal > 0) (healthState.steps.toFloat() / healthState.stepGoal).coerceIn(0f, 1f) else 0f
+                    HealthProgressItem(
+                        icon = Icons.Default.DirectionsRun,
+                        iconBgColor = Color(0xFF10B981),
+                        title = "Bước chân",
+                        valueText = "${healthState.steps} / ${healthState.stepGoal} bước",
+                        progress = stepProgress
+                    )
+                    
+                    DividerProfile()
+                    
+                    val waterProgress = if (healthState.waterGoalMl > 0) (healthState.waterConsumedMl.toFloat() / healthState.waterGoalMl).coerceIn(0f, 1f) else 0f
+                    HealthProgressItem(
+                        icon = Icons.Default.LocalDrink,
+                        iconBgColor = Color(0xFF3B82F6),
+                        title = "Nước uống",
+                        valueText = "${healthState.waterConsumedMl} / ${healthState.waterGoalMl} ml",
+                        progress = waterProgress
+                    )
+                    
+                    DividerProfile()
+                    
+                    val sleepProgress = (healthState.sleepHours / sleepGoal).coerceIn(0f, 1f)
+                    HealthProgressItem(
+                        icon = Icons.Default.NightsStay,
+                        iconBgColor = Color(0xFF8B5CF6),
+                        title = "Giấc ngủ",
+                        valueText = "${String.format(java.util.Locale.US, "%.1f", healthState.sleepHours)} / ${String.format(java.util.Locale.US, "%.1f", sleepGoal)} giờ",
+                        progress = sleepProgress
+                    )
+                    
+                    DividerProfile()
+                    
+                    val calorieProgress = if (healthState.calorieGoal > 0) (healthState.caloriesIn.toFloat() / healthState.calorieGoal).coerceIn(0f, 1f) else 0f
+                    HealthProgressItem(
+                        icon = Icons.Default.Restaurant,
+                        iconBgColor = Color(0xFFF59E0B),
+                        title = "Dinh dưỡng",
+                        valueText = "${healthState.caloriesIn} / ${healthState.calorieGoal} kcal",
+                        progress = calorieProgress
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -403,6 +460,58 @@ fun SettingsToggleItem(
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                 uncheckedBorderColor = Color.Transparent
             )
+        )
+    }
+}
+
+@Composable
+fun HealthProgressItem(
+    icon: ImageVector,
+    iconBgColor: Color,
+    title: String,
+    valueText: String,
+    progress: Float
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconBgColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = iconBgColor, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(valueText, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 12.sp)
+            }
+            Text(
+                "${(progress * 100).toInt()}%",
+                color = iconBgColor,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(CircleShape),
+            color = iconBgColor,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
         )
     }
 }

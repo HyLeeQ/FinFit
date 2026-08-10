@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+<meta name="description" content="FinFit Luminescent Observer Design System — Component Library & Screen Mockups">
+<title>FinFit — Luminescent Observer Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ══════════════════════════════════════════════
+     DESIGN TOKEN — "Luminescent Observer"
+  ══════════════════════════════════════════════ */
+  :root {
+    --bg:           #0E0E0E;
+    --surface-low:  #131313;
+    --surface:      #1A1A1A;
+    --surface-high: #20201F;
+    --surface-highest: #262626;
+    --outline:      rgba(72,72,71,0.15);
+    --on-surface-variant: #ADAAAA;
+    --on-surface:   #F2F0F0;
+    --primary:      #64B5F6;
+    --primary-c:    #54A7E7;
+    --secondary:    #EA73FB;
+    --tertiary:     #BBFFB3;
+    --error:        #FF6B6B;
+    --success:      #81C784;
+    --warn:         #FFD54F;
+    --radius-lg:    16px;
+    --radius-xl:    24px;
+    --radius-full:  9999px;
+    --gradient-cta: linear-gradient(135deg, #64B5F6, #54A7E7);
+    --glow-primary: 0 0 40px 0 rgba(100,181,246,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #080808;
+    font-family: 'Inter', sans-serif;
+    color: var(--on-surface);
+    min-height: 100vh;
+  }
+
+  /* ── SHELL ── */
+  .page-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 1.5rem; font-weight: 800;
+    color: var(--primary); padding: 32px 24px 8px;
+    letter-spacing: -0.5px;
+  }
+  .section-label {
+    font-family: 'Manrope', sans-serif;
+    font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--on-surface-variant);
+    padding: 24px 24px 12px;
+  }
+  .screens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(375px, max-content));
+    gap: 32px;
+    padding: 0 24px 48px;
+    align-items: flex-start;
+    justify-content: start;
+  }
+
+  /* ══ PHONE FRAME ══ */
+  .phone {
+    width: 375px;
+    min-height: 812px;
+    background: var(--bg);
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06),
+                0 32px 80px rgba(0,0,0,0.7),
+                var(--glow-primary);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+    /* responsive: scale down on small screens */
+    transform-origin: top left;
+  }
+  .phone-wrap {
+    /* allow phone to scale within its container */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    container-type: inline-size;
+  }
+  .phone-label {
+    text-align: center;
+    font-size: 0.7rem; font-weight: 600;
+    color: var(--on-surface-variant);
+    padding: 8px 0 0;
+    letter-spacing: 0.5px;
+  }
+  .phone-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 24px 8px; font-size: 0.75rem; font-weight: 600;
+    color: var(--on-surface);
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+
+  /* ══ COMPONENT SHEET ══ */
+  .comp-sheet {
+    background: var(--surface-low);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    width: 100%;
+    max-width: min(800px, 100%);
+    box-sizing: border-box;
+  }
+  .comp-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 32px; }
+  .comp-group { margin-bottom: 32px; }
+  .comp-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 0.75rem; font-weight: 700;
+    color: var(--primary); text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 16px;
+  }
+
+  /* ── HEADER COMPONENT ── */
+  .c-header {
+    background: var(--bg);
+    display: flex; align-items: center;
+    padding: 16px 24px; gap: 16px;
+    width: 100%;
+  }
+  .c-header-back {
+    width: 36px; height: 36px;
+    background: var(--surface-highest);
+    border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .c-header-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 1.125rem; font-weight: 700;
+    color: var(--on-surface); flex: 1;
+  }
+  .c-header-action {
+    width: 36px; height: 36px;
+    background: var(--surface-highest);
+    border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+
+  /* ── BOTTOM NAV ── */
+  .c-bottom-nav {
+    background: rgba(26,26,26,0.95);
+    backdrop-filter: blur(20px);
+    display: flex; justify-content: space-around;
+    padding: 12px 0 24px;
+    border-top: 1px solid var(--outline);
+  }
+  .nav-item {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    min-width: 44px;
+  }
+  .nav-icon {
+    width: 44px; height: 32px;
+    border-radius: 100px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; position: relative;
+    transition: background 0.2s;
+  }
+  .nav-icon.active { background: rgba(100,181,246,0.15); }
+  .nav-label {
+    font-size: 0.65rem; font-weight: 600;
+    color: var(--on-surface-variant);
+  }
+  .nav-label.active { color: var(--primary); }
+
+  /* ── CARD VARIANTS ── */
+  .c-card {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    width: 100%;
+  }
+  .c-card-inner {
+    background: var(--surface-highest);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+
+  /* ── BUTTON ── */
+  .btn-primary {
+    background: var(--gradient-cta);
+    border: none; border-radius: var(--radius-xl);
+    padding: 0 32px; height: 52px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem; font-weight: 600;
+    color: #fff; cursor: pointer;
+    width: 100%;
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(100,181,246,0.25);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(100,181,246,0.35); }
+
+  .btn-secondary {
+    background: var(--surface-highest);
+    border: none; border-radius: var(--radius-xl);
+    padding: 0 32px; height: 52px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem; font-weight: 600;
+    color: var(--on-surface); cursor: pointer;
+    width: 100%;
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: #2e2e2e; }
+
+  /* ── INPUT ── */
+  .c-input-wrap { position: relative; }
+  .c-input {
+    width: 100%;
+    background: var(--surface-low);
+    border: none;
+    border-bottom: 1.5px solid transparent;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 16px 16px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem; color: var(--on-surface);
+    outline: none; transition: border-color 0.2s;
+  }
+  .c-input:focus { border-bottom-color: var(--primary); }
+  .c-input::placeholder { color: var(--on-surface-variant); }
+  .c-input-label {
+    font-size: 0.7rem; font-weight: 600;
+    color: var(--on-surface-variant);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 6px; display: block;
+  }
+
+  /* ── CHIP ── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--radius-full);
+    font-size: 0.8rem; font-weight: 600;
+    background: var(--surface-high); color: var(--on-surface-variant);
+    cursor: pointer; border: none;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+  }
+  .chip.selected {
+    background: rgba(100,181,246,0.12);
+    color: var(--primary);
+    box-shadow: 0 0 0 1px rgba(100,181,246,0.25);
+  }
+
+  /* ── STATES ── */
+  .state-card {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    padding: 32px 24px;
+    display: flex; flex-direction: column;
+    align-items: center; text-align: center; gap: 12px;
+    min-width: 160px; flex: 1;
+  }
+  .state-icon { font-size: 2rem; }
+  .state-title { font-family: 'Manrope', sans-serif; font-size: 0.9rem; font-weight: 700; }
+  .state-desc { font-size: 0.75rem; color: var(--on-surface-variant); line-height: 1.5; }
+
+  /* ── SKELETON ── */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-high) 25%, var(--surface-highest) 50%, var(--surface-high) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* ══════════════════════════════════════════════
+     SCREEN INTERNALS — REUSABLE PATTERNS
+  ══════════════════════════════════════════════ */
+
+  /* ── Money display ── */
+  .amount-xl {
+    font-family: 'Manrope', sans-serif;
+    font-size: 2.5rem; font-weight: 800;
+    letter-spacing: -1px; color: var(--on-surface);
+  }
+  .amount-md {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem; font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  .amount-sm {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem; font-weight: 500;
+  }
+  .amount-income { color: var(--tertiary); }
+  .amount-expense { color: #FF7B7B; }
+
+  /* ── Tags ── */
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: var(--radius-full);
+    font-size: 0.7rem; font-weight: 600;
+  }
+  .tag-income { background: rgba(187,255,179,0.12); color: var(--tertiary); }
+  .tag-expense { background: rgba(255,123,123,0.12); color: #FF7B7B; }
+  .tag-neutral { background: var(--surface-high); color: var(--on-surface-variant); }
+
+  /* ── Progress ring ── */
+  .progress-ring-wrap { position: relative; display: inline-flex; }
+  .progress-ring-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+
+  /* ── Divider (spacing only, no line) ── */
+  .spacer-sm { height: 16px; }
+  .spacer-md { height: 24px; }
+  .spacer-lg { height: 32px; }
+
+  /* ── Transaction row ── */
+  .tx-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .tx-row:last-child { border-bottom: none; }
+  .tx-icon {
+    width: 44px; height: 44px; border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .tx-meta { flex: 1; min-width: 0; }
+  .tx-name { font-size: 0.9rem; font-weight: 600; color: var(--on-surface); }
+  .tx-cat { font-size: 0.75rem; color: var(--on-surface-variant); }
+
+  /* ── Ambient glow button ── */
+  .hero-cta-wrap { position: relative; padding: 4px; }
+  .hero-cta-glow {
+    position: absolute; inset: -8px;
+    background: radial-gradient(ellipse, rgba(100,181,246,0.18) 0%, transparent 70%);
+    border-radius: 32px; pointer-events: none;
+  }
+
+  /* Scroll inside phone */
+  .phone-scroll { overflow-y: auto; flex: 1; }
+  .phone-scroll::-webkit-scrollbar { display: none; }
+
+  /* ══════════════════════════════════════════════
+     INDIVIDUAL SCREENS
+  ══════════════════════════════════════════════ */
+
+  /* ─ Splash ─ */
+  .splash-bg {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg);
+    position: relative; overflow: hidden;
+  }
+  .splash-glow {
+    position: absolute;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(100,181,246,0.15) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -60%);
+  }
+  .splash-logo {
+    font-family: 'Manrope', sans-serif;
+    font-size: 3rem; font-weight: 800;
+    background: var(--gradient-cta);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -2px; position: relative; z-index: 1;
+  }
+  .splash-tagline {
+    font-size: 0.85rem; color: var(--on-surface-variant);
+    margin-top: 8px; position: relative; z-index: 1;
+  }
+  .splash-dots {
+    position: absolute; bottom: 60px;
+    display: flex; gap: 6px;
+  }
+  .splash-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--primary); opacity: 0.3;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+  .splash-dot:nth-child(2) { animation-delay: 0.3s; }
+  .splash-dot:nth-child(3) { animation-delay: 0.6s; }
+  @keyframes pulse-dot { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+
+  /* ─ Auth ─ */
+  .auth-hero {
+    padding: 48px 24px 24px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .auth-eyebrow {
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--primary); text-transform: uppercase; letter-spacing: 1px;
+  }
+  .auth-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 2rem; font-weight: 800;
+    line-height: 1.1; letter-spacing: -1px;
+  }
+  .auth-sub { font-size: 0.875rem; color: var(--on-surface-variant); line-height: 1.5; }
+  .auth-form { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+  .auth-divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--on-surface-variant); font-size: 0.8rem;
+  }
+  .auth-divider::before, .auth-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--outline);
+  }
+  .social-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    height: 52px; border-radius: var(--radius-xl);
+    background: var(--surface-highest); border: none; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 600;
+    color: var(--on-surface); width: 100%;
+  }
+
+  /* ─ Onboarding ─ */
+  .onboard-art {
+    height: 280px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .onboard-circle {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(100,181,246,0.12) 0%, transparent 70%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 5rem;
+  }
+  .onboard-progress { display: flex; gap: 6px; justify-content: center; padding: 16px; }
+  .onboard-dot {
+    height: 4px; border-radius: 2px; background: var(--surface-highest);
+    transition: width 0.3s, background 0.3s;
+  }
+  .onboard-dot.active { width: 24px; background: var(--primary); }
+  .onboard-dot:not(.active) { width: 6px; }
+  .onboard-content { padding: 0 32px 32px; }
+
+  /* ─ Dashboard ─ */
+  .dash-hero {
+    padding: 24px 24px 0;
+    background: linear-gradient(180deg, rgba(100,181,246,0.05) 0%, transparent 100%);
+  }
+  .dash-greeting { font-size: 0.85rem; color: var(--on-surface-variant); margin-bottom: 4px; }
+  .dash-balance-label { font-size: 0.75rem; color: var(--on-surface-variant); margin-bottom: 8px; margin-top: 24px; }
+  .dash-pill-row { display: flex; gap: 8px; margin-top: 16px; overflow-x: auto; padding-bottom: 4px; }
+  .dash-pill-row::-webkit-scrollbar { display: none; }
+  .dash-mini-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    min-width: 140px;
+    display: flex; flex-direction: column; gap: 8px;
+    flex-shrink: 0;
+  }
+  .dash-mini-label { font-size: 0.7rem; color: var(--on-surface-variant); font-weight: 500; }
+  .dash-section { padding: 24px 24px 0; }
+  .dash-section-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+  }
+  .dash-section-title {
+    font-family: 'Manrope', sans-serif; font-size: 1rem; font-weight: 700;
+  }
+  .dash-see-all { font-size: 0.8rem; color: var(--primary); font-weight: 600; cursor: pointer; }
+  .chart-bar-row {
+    display: flex; align-items: flex-end; gap: 6px;
+    height: 80px; padding: 0 0 4px;
+  }
+  .chart-bar {
+    flex: 1; border-radius: 6px 6px 0 0;
+    background: var(--surface-highest); min-height: 12px;
+    position: relative; transition: background 0.2s;
+  }
+  .chart-bar.active { background: var(--gradient-cta); }
+  .chart-bar-labels { display: flex; gap: 6px; }
+  .chart-bar-label { flex: 1; text-align: center; font-size: 0.65rem; color: var(--on-surface-variant); }
+
+  /* Budget progress */
+  .budget-row {
+    display: flex; flex-direction: column; gap: 8px; padding: 16px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .budget-row:last-child { border-bottom: none; }
+  .budget-header { display: flex; justify-content: space-between; align-items: center; }
+  .budget-bar-track { height: 6px; border-radius: 3px; background: var(--surface-highest); overflow: hidden; }
+  .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+
+  /* Circular progress SVG */
+  .ring-svg { transform: rotate(-90deg); }
+
+  /* ─ Add Transaction ─ */
+  .numpad {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 2px; background: var(--surface-low);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    overflow: hidden;
+  }
+  .numpad-key {
+    background: var(--surface); padding: 18px;
+    text-align: center; font-size: 1.2rem; font-weight: 600;
+    cursor: pointer; border: none; color: var(--on-surface);
+    font-family: 'Inter', sans-serif;
+    transition: background 0.1s;
+  }
+  .numpad-key:hover { background: var(--surface-high); }
+  .numpad-key.wide { grid-column: span 2; }
+  .numpad-key.action { background: rgba(100,181,246,0.15); color: var(--primary); }
+  .category-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    padding: 16px 0;
+  }
+  .cat-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .cat-icon {
+    width: 52px; height: 52px; border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; transition: transform 0.15s;
+  }
+  .cat-icon:hover { transform: scale(1.08); }
+  .cat-label { font-size: 0.65rem; color: var(--on-surface-variant); text-align: center; font-weight: 500; }
+
+  /* ─ Analytics ─ */
+  .donut-wrap { position: relative; width: 160px; height: 160px; margin: 0 auto; }
+  .donut-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .legend-item:last-child { border-bottom: none; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-name { flex: 1; font-size: 0.85rem; color: var(--on-surface); }
+  .legend-bar-track { width: 80px; height: 4px; border-radius: 2px; background: var(--surface-highest); }
+  .legend-bar-fill { height: 100%; border-radius: 2px; }
+  .legend-pct { font-size: 0.8rem; font-weight: 600; width: 36px; text-align: right; }
+
+  /* Savings Goal */
+  .goal-card {
+    background: var(--surface);
+    border-radius: var(--radius-xl); padding: 20px;
+    display: flex; gap: 16px; align-items: center;
+    margin-bottom: 12px;
+  }
+  .goal-ring-wrap { flex-shrink: 0; }
+  .goal-meta { flex: 1; min-width: 0; }
+  .goal-name { font-family: 'Manrope', sans-serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+  .goal-progress-text { font-size: 0.75rem; color: var(--on-surface-variant); }
+  .goal-days { font-size: 0.7rem; color: var(--primary); font-weight: 600; margin-top: 6px; }
+
+  /* Debt card */
+  .debt-card {
+    background: var(--surface);
+    border-radius: var(--radius-xl); padding: 20px;
+    margin-bottom: 12px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .debt-header { display: flex; align-items: center; gap: 12px; }
+  .debt-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--surface-highest);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  .debt-type-tag {
+    padding: 3px 10px; border-radius: var(--radius-full);
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  }
+  .debt-type-owe { background: rgba(255,123,123,0.12); color: #FF7B7B; }
+  .debt-type-lend { background: rgba(187,255,179,0.12); color: var(--tertiary); }
+
+  /* Wallet card */
+  .wallet-card {
+    border-radius: var(--radius-xl); padding: 24px;
+    margin-bottom: 12px; position: relative; overflow: hidden;
+    min-height: 140px;
+  }
+  .wallet-card-glow {
+    position: absolute; top: -30px; right: -30px;
+    width: 120px; height: 120px; border-radius: 50%;
+    opacity: 0.15;
+  }
+  .wallet-bank { font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.6); margin-bottom: 8px; }
+  .wallet-num { font-size: 0.85rem; font-weight: 500; color: rgba(255,255,255,0.5); letter-spacing: 2px; }
+  .wallet-amount { font-family: 'Manrope', sans-serif; font-size: 1.6rem; font-weight: 800; margin-top: 20px; }
+
+  /* Section tabs */
+  .tab-row { display: flex; gap: 4px; padding: 4px; background: var(--surface-low); border-radius: var(--radius-xl); }
+  .tab-item {
+    flex: 1; text-align: center; padding: 10px;
+    border-radius: 18px; font-size: 0.8rem; font-weight: 600;
+    color: var(--on-surface-variant); cursor: pointer; transition: all 0.2s;
+  }
+  .tab-item.active { background: var(--surface-highest); color: var(--on-surface); }
+
+  /* FAB */
+  .fab {
+    position: absolute; bottom: 80px; right: 20px;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--gradient-cta);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(100,181,246,0.35);
+    z-index: 10;
+  }
+
+  /* Profile */
+  .profile-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--gradient-cta);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; flex-shrink: 0;
+  }
+  .profile-stat {
+    flex: 1; text-align: center; padding: 16px;
+  }
+  .profile-stat-val { font-family: 'Manrope', sans-serif; font-size: 1.2rem; font-weight: 800; }
+  .profile-stat-label { font-size: 0.7rem; color: var(--on-surface-variant); margin-top: 2px; }
+  .setting-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+  }
+
+  /* ══════════════════════════════════════════════
+     RESPONSIVE BREAKPOINTS
+  ══════════════════════════════════════════════ */
+
+  /* ── Tablet landscape: ≤ 1200px ── */
+  @media (max-width: 1200px) {
+    .screens-grid {
+      grid-template-columns: repeat(auto-fill, minmax(340px, max-content));
+      gap: 24px;
+      padding: 0 20px 40px;
+    }
+    .comp-sheet { padding: 24px; }
+  }
+
+  /* ── Tablet portrait: ≤ 900px ── */
+  @media (max-width: 900px) {
+    .page-title { font-size: 1.2rem; padding: 24px 20px 8px; }
+    .section-label { padding: 20px 20px 10px; }
+
+    .screens-grid {
+      grid-template-columns: repeat(auto-fill, minmax(300px, max-content));
+      gap: 20px;
+      padding: 0 16px 40px;
+    }
+
+    /* Scale phone frames down to fit */
+    .phone-wrap {
+      transform-origin: top center;
+    }
+    .phone {
+      width: 320px;
+      min-height: 693px; /* 320/375 * 812 */
+      border-radius: 36px;
+    }
+
+    /* comp-sheet: collapse horizontal card rows */
+    .comp-sheet { padding: 20px; }
+    .comp-row { gap: 12px; }
+    .comp-row[style*="flex-wrap:nowrap"],
+    .comp-row[style*="flex-wrap: nowrap"] { flex-wrap: wrap !important; }
+
+    /* State cards: 2-column grid */
+    .state-card { min-width: 140px; }
+  }
+
+  /* ── Small tablet / large phone: ≤ 768px ── */
+  @media (max-width: 768px) {
+    .page-title { font-size: 1.1rem; padding: 20px 16px 6px; }
+    .section-label { font-size: 0.65rem; padding: 16px 16px 8px; }
+
+    .screens-grid {
+      /* Stack phones in single column on narrow screens */
+      grid-template-columns: 1fr;
+      justify-items: center;
+      padding: 0 12px 32px;
+      gap: 32px;
+    }
+
+    /* Shrink phone frames */
+    .phone {
+      width: 300px;
+      min-height: 650px;
+      border-radius: 32px;
+    }
+
+    /* Component sheet simplifications */
+    .comp-sheet { padding: 16px; border-radius: 16px; }
+    .comp-row { flex-direction: column; }
+
+    /* Component row for cards — allow horizontal scroll */
+    .comp-row[style*="min-width"] {
+      flex-direction: row;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .comp-row[style*="min-width"]::-webkit-scrollbar { height: 4px; }
+    .comp-row[style*="min-width"]::-webkit-scrollbar-thumb {
+      background: var(--surface-highest); border-radius: 2px;
+    }
+
+    /* Status cards grid */
+    .state-card { padding: 20px 16px; }
+
+    /* Comp-sheet container padding */
+    div[style*="padding: 0 24px 32px"] { padding: 0 12px 24px !important; }
+
+    /* Bottom nav labels smaller */
+    .nav-label { font-size: 0.6rem; }
+
+    /* Budget & legend rows */
+    .legend-bar-track { width: 60px; }
+  }
+
+  /* ── Mobile: ≤ 480px ── */
+  @media (max-width: 480px) {
+    body { font-size: 14px; }
+    .page-title { font-size: 1rem; padding: 16px 12px 4px; }
+    .section-label { font-size: 0.6rem; padding: 12px 12px 6px; }
+
+    .screens-grid {
+      padding: 0 8px 24px;
+      gap: 24px;
+    }
+
+    /* Phone frame: scale to fit viewport with some margin */
+    .phone-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .phone {
+      /* Scale to 90% of viewport width, max 375px */
+      width: min(90vw, 375px);
+      min-height: calc(min(90vw, 375px) / 375 * 812px);
+      border-radius: min(44px, calc(min(90vw, 375px) * 0.117));
+      font-size: calc(min(90vw, 375px) / 375 * 16px);
+    }
+
+    /* Component sheet */
+    .comp-sheet { padding: 12px; border-radius: 12px; }
+    .comp-title { font-size: 0.65rem; }
+
+    /* Amount display scales */
+    .amount-xl { font-size: 2rem; }
+
+    /* State cards — horizontal scroll */
+    .comp-row:has(.state-card) {
+      flex-direction: row;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .state-card { min-width: 160px; flex-shrink: 0; }
+
+    /* Category grid: 3 columns instead of 4 */
+    .category-grid { grid-template-columns: repeat(3, 1fr); }
+
+    /* Flow map section */
+    div[style*="padding:0 24px 64px"] { padding: 0 8px 40px !important; }
+    div[style*="max-width: 900px"] { max-width: 100% !important; padding: 20px !important; }
+  }
+
+  /* ── Very small: ≤ 360px ── */
+  @media (max-width: 360px) {
+    .phone {
+      width: 95vw;
+      min-height: calc(95vw / 375 * 812px);
+    }
+    .amount-xl { font-size: 1.7rem; }
+    .screens-grid { padding: 0 6px 20px; gap: 20px; }
+  }
+
+  /* ── Print / reduce motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    .splash-dot, .skeleton { animation: none; }
+    .btn-primary, .btn-secondary, .cat-icon { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">FinFit — Luminescent Observer Design System</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 1: COMPONENT LIBRARY SHEET
+══════════════════════════════════════════════ -->
+<div class="section-label">Step 1 — Component Library Sheet</div>
+<div style="padding: 0 24px 32px;">
+<div class="comp-sheet">
+
+  <!-- Header -->
+  <div class="comp-group">
+    <div class="comp-title">Header — Chuẩn nhất quán mọi màn hình</div>
+    <div class="c-header" style="background:var(--surface-low); border-radius:var(--radius-xl);">
+      <div class="c-header-back">←</div>
+      <div class="c-header-title">Tiêu đề màn hình</div>
+      <div class="c-header-action">⋯</div>
+    </div>
+    <div style="margin-top:8px;font-size:0.75rem;color:var(--on-surface-variant);">
+      Back icon: 36×36 roundedlg • Manrope 700 18px • Action icon: 36×36 roundedlg (tùy chọn)
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="comp-group">
+    <div class="comp-title">Bottom Navigation — 5 tabs đồng nhất</div>
+    <div class="c-bottom-nav" style="border-radius:var(--radius-xl); border-top:none;">
+      <div class="nav-item">
+        <div class="nav-icon active">🏠</div>
+        <div class="nav-label active">Trang chủ</div>
+      </div>
+      <div class="nav-item">
+        <div class="nav-icon">💰</div>
+        <div class="nav-label">Tài chính</div>
+      </div>
+      <div class="nav-item">
+        <div class="nav-icon" style="background:var(--gradient-cta);border-radius:50%;width:44px;height:44px;">➕</div>
+        <div class="nav-label">Thêm</div>
+      </div>
+      <div class="nav-item">
+        <div class="nav-icon">🏃</div>
+        <div class="nav-label">Sức khỏe</div>
+      </div>
+      <div class="nav-item">
+        <div class="nav-icon">👤</div>
+        <div class="nav-label">Hồ sơ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="comp-group">
+    <div class="comp-title">Card System — 3 cấp độ thông tin</div>
+    <div class="comp-row" style="flex-wrap:nowrap;overflow-x:auto;">
+      <!-- Tier 1 -->
+      <div class="c-card" style="min-width:220px;">
+        <div style="font-size:0.7rem;color:var(--primary);font-weight:700;text-transform:uppercase;margin-bottom:12px;">Card Cấp 1 — xl radius</div>
+        <div style="font-size:0.85rem;color:var(--on-surface-variant);">Tổng chi tháng này</div>
+        <div class="amount-xl amount-expense">-4.250.000đ</div>
+        <div class="spacer-md"></div>
+        <div class="c-card-inner">
+          <div style="font-size:0.75rem;color:var(--on-surface-variant);">Ngân sách còn lại</div>
+          <div class="amount-md">1.750.000đ</div>
+        </div>
+      </div>
+      <!-- Tier 2 — transaction -->
+      <div class="c-card" style="min-width:220px;">
+        <div style="font-size:0.7rem;color:var(--primary);font-weight:700;text-transform:uppercase;margin-bottom:12px;">Card Cấp 2 — xl radius</div>
+        <div class="tx-row" style="padding:0 0 12px;">
+          <div class="tx-icon" style="background:rgba(234,115,251,0.12);">🍜</div>
+          <div class="tx-meta">
+            <div class="tx-name">Bữa trưa văn phòng</div>
+            <div class="tx-cat">Ăn uống • hôm nay 12:30</div>
+          </div>
+          <div class="amount-sm amount-expense">-65.000đ</div>
+        </div>
+        <div class="tx-row" style="padding:12px 0 0;border-bottom:none;">
+          <div class="tx-icon" style="background:rgba(187,255,179,0.12);">💰</div>
+          <div class="tx-meta">
+            <div class="tx-name">Lương tháng 8</div>
+            <div class="tx-cat">Thu nhập • 01/08/2025</div>
+          </div>
+          <div class="amount-sm amount-income">+15.000.000đ</div>
+        </div>
+      </div>
+      <!-- Tier 3 — nested -->
+      <div class="c-card" style="min-width:220px;padding:16px;">
+        <div style="font-size:0.7rem;color:var(--primary);font-weight:700;text-transform:uppercase;margin-bottom:12px;">Card Lồng — lg radius</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="c-card-inner" style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:0.8rem;font-weight:600;">Ăn uống</div>
+            <div class="amount-sm amount-expense">-1.200.000đ</div>
+          </div>
+          <div class="c-card-inner" style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:0.8rem;font-weight:600;">Đi lại</div>
+            <div class="amount-sm amount-expense">-420.000đ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="comp-group">
+    <div class="comp-title">Button System</div>
+    <div class="comp-row" style="max-width:500px;flex-direction:column;">
+      <div class="hero-cta-wrap" style="width:100%;">
+        <div class="hero-cta-glow"></div>
+        <button class="btn-primary">✦ Tiếp tục</button>
+      </div>
+      <button class="btn-secondary">Đăng nhập bằng tài khoản</button>
+    </div>
+  </div>
+
+  <!-- Inputs -->
+  <div class="comp-group">
+    <div class="comp-title">Input Field — Ghost border focus</div>
+    <div class="comp-row" style="max-width:400px;flex-direction:column;">
+      <div>
+        <label class="c-input-label">Số tiền</label>
+        <div class="c-input-wrap">
+          <input class="c-input" type="text" placeholder="0 đ" value="65.000" style="font-size:1.2rem;font-weight:700;">
+        </div>
+      </div>
+      <div>
+        <label class="c-input-label">Ghi chú</label>
+        <div class="c-input-wrap">
+          <input class="c-input" type="text" placeholder="Mô tả giao dịch...">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chips -->
+  <div class="comp-group">
+    <div class="comp-title">Chip — Filter / Category selector</div>
+    <div class="comp-row">
+      <button class="chip selected">Tất cả</button>
+      <button class="chip">Tháng này</button>
+      <button class="chip">Quý này</button>
+      <button class="chip">Chi tiêu</button>
+      <button class="chip">Thu nhập</button>
+    </div>
+  </div>
+
+  <!-- States -->
+  <div class="comp-group">
+    <div class="comp-title">States — Loading / Empty / Error / Success</div>
+    <div class="comp-row">
+      <!-- Loading -->
+      <div class="state-card">
+        <div style="width:100%;display:flex;flex-direction:column;gap:8px;">
+          <div class="skeleton" style="height:12px;width:60%;"></div>
+          <div class="skeleton" style="height:24px;width:80%;"></div>
+          <div class="skeleton" style="height:10px;width:45%;"></div>
+        </div>
+        <div class="state-title" style="color:var(--on-surface-variant);">Skeleton Loading</div>
+      </div>
+      <!-- Empty -->
+      <div class="state-card">
+        <div style="font-size:2.5rem;opacity:0.5;">📭</div>
+        <div class="state-title">Chưa có dữ liệu</div>
+        <div class="state-desc">Ghi lại giao dịch đầu tiên của bạn và bắt đầu hành trình tài chính.</div>
+        <button class="btn-primary" style="font-size:0.8rem;height:40px;border-radius:12px;">+ Thêm giao dịch</button>
+      </div>
+      <!-- Error -->
+      <div class="state-card">
+        <div style="font-size:2.5rem;">⚡</div>
+        <div class="state-title" style="color:var(--error);">Không tải được</div>
+        <div class="state-desc">Kiểm tra kết nối và thử lại. Dữ liệu cục bộ vẫn hiển thị bình thường.</div>
+        <button class="btn-secondary" style="font-size:0.8rem;height:40px;border-radius:12px;max-width:160px;">Thử lại</button>
+      </div>
+      <!-- Success -->
+      <div class="state-card" style="background:rgba(129,199,132,0.06);box-shadow:0 0 40px rgba(129,199,132,0.08);">
+        <div style="font-size:2.5rem;">✅</div>
+        <div class="state-title" style="color:var(--success);">Hoàn thành!</div>
+        <div class="state-desc">Giao dịch đã được ghi nhận. Số dư ví được cập nhật tức thì.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Typography & Money rules -->
+  <div class="comp-group">
+    <div class="comp-title">Quy chuẩn hiển thị số tiền — áp dụng 100% xuyên suốt</div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <div class="amount-xl" style="font-size:2.8rem;">42.750.000đ</div>
+        <div style="font-size:0.75rem;color:var(--on-surface-variant);">display-lg — Số dư tổng (Dashboard hero)</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <div class="amount-md amount-income">+2.500.000đ</div>
+        <div style="font-size:0.75rem;color:var(--on-surface-variant);">body-lg — Thu (tertiary #BBFFB3)</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <div class="amount-md amount-expense">-320.000đ</div>
+        <div style="font-size:0.75rem;color:var(--on-surface-variant);">body-lg — Chi (error #FF7B7B)</div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <div class="amount-sm" style="color:var(--on-surface-variant);">Dấu chấm phân cách nghìn: 1.500.000đ (chuẩn VN)</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 2: SCREENS — GROUP A (Onboarding)
+══════════════════════════════════════════════ -->
+<div class="section-label">Step 2 — Nhóm A: Luồng Onboarding & Xác thực</div>
+<div class="screens-grid">
+
+  <!-- A1: Splash -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="splash-bg">
+        <div class="splash-glow"></div>
+        <div style="position:relative;z-index:1;text-align:center;">
+          <div style="font-size:5rem;margin-bottom:8px;">✦</div>
+          <div class="splash-logo">FinFit</div>
+          <div class="splash-tagline">Tài chính · Sức khỏe · Tương lai</div>
+        </div>
+        <div class="splash-dots">
+          <div class="splash-dot"></div>
+          <div class="splash-dot"></div>
+          <div class="splash-dot"></div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">A1 — Splash Screen</div>
+  </div>
+
+  <!-- A2: Auth (Login) -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons"><span>📶</span><span>🔋</span></div>
+      </div>
+      <div class="phone-scroll">
+        <div class="auth-hero">
+          <div class="auth-eyebrow">Chào mừng trở lại</div>
+          <div class="auth-title">Đăng nhập<br>FinFit</div>
+          <div class="auth-sub" style="margin-top:8px;">Dữ liệu tài chính của bạn được bảo mật và đồng bộ tự động.</div>
+        </div>
+        <div class="auth-form">
+          <div>
+            <label class="c-input-label">Email</label>
+            <input class="c-input" type="email" placeholder="you@email.com">
+          </div>
+          <div>
+            <label class="c-input-label">Mật khẩu</label>
+            <input class="c-input" type="password" placeholder="••••••••">
+          </div>
+          <div style="text-align:right;font-size:0.8rem;color:var(--primary);font-weight:600;cursor:pointer;">Quên mật khẩu?</div>
+          <div class="hero-cta-wrap">
+            <div class="hero-cta-glow"></div>
+            <button class="btn-primary">Đăng nhập</button>
+          </div>
+          <div class="auth-divider">hoặc tiếp tục với</div>
+          <div class="social-btn">
+            <span>🌐</span> Đăng nhập bằng Google
+          </div>
+          <div style="text-align:center;font-size:0.8rem;color:var(--on-surface-variant);">
+            Chưa có tài khoản? <span style="color:var(--primary);font-weight:600;cursor:pointer;">Đăng ký ngay</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">A2 — Auth · Đăng nhập</div>
+  </div>
+
+  <!-- A2b: Auth (Register) -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons"><span>📶</span><span>🔋</span></div>
+      </div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Tạo tài khoản</div>
+        <div style="width:36px;"></div>
+      </div>
+      <div class="phone-scroll">
+        <div class="auth-form">
+          <div style="padding:0 0 8px;">
+            <div style="font-family:'Manrope',sans-serif;font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;">Bắt đầu hành trình<br>tài chính của bạn ✦</div>
+          </div>
+          <div>
+            <label class="c-input-label">Họ và tên</label>
+            <input class="c-input" type="text" placeholder="Nguyễn Văn A">
+          </div>
+          <div>
+            <label class="c-input-label">Email</label>
+            <input class="c-input" type="email" placeholder="you@email.com">
+          </div>
+          <div>
+            <label class="c-input-label">Mật khẩu</label>
+            <input class="c-input" type="password" placeholder="Tối thiểu 8 ký tự">
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:8px;background:var(--surface);border-radius:var(--radius-lg);">
+            <input type="checkbox" style="margin-top:2px;accent-color:var(--primary);">
+            <div style="font-size:0.8rem;color:var(--on-surface-variant);line-height:1.5;">
+              Tôi đồng ý với <span style="color:var(--primary);font-weight:600;">Điều khoản sử dụng</span> và <span style="color:var(--primary);font-weight:600;">Chính sách bảo mật</span> của FinFit.
+            </div>
+          </div>
+          <div class="hero-cta-wrap">
+            <div class="hero-cta-glow"></div>
+            <button class="btn-primary">Tạo tài khoản</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">A2b — Auth · Đăng ký</div>
+  </div>
+
+  <!-- A3: Onboarding -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons"><span>📶</span><span>🔋</span></div>
+      </div>
+      <div class="onboard-art">
+        <div class="onboard-circle">💰</div>
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 60%, rgba(100,181,246,0.08) 0%, transparent 70%);"></div>
+      </div>
+      <div class="onboard-progress">
+        <div class="onboard-dot active"></div>
+        <div class="onboard-dot"></div>
+        <div class="onboard-dot"></div>
+      </div>
+      <div class="onboard-content">
+        <div style="font-family:'Manrope',sans-serif;font-size:1.6rem;font-weight:800;line-height:1.2;letter-spacing:-0.5px;margin-bottom:12px;">
+          Quản lý tài chính<br>thông minh hơn
+        </div>
+        <div style="font-size:0.9rem;color:var(--on-surface-variant);line-height:1.6;margin-bottom:32px;">
+          Tự động phân loại giao dịch, theo dõi ngân sách và nhận tư vấn từ AI — mọi thứ trong một ứng dụng duy nhất.
+        </div>
+        <div class="hero-cta-wrap">
+          <div class="hero-cta-glow"></div>
+          <button class="btn-primary">Tiếp theo →</button>
+        </div>
+        <div style="text-align:center;margin-top:12px;font-size:0.8rem;color:var(--on-surface-variant);cursor:pointer;">Bỏ qua giới thiệu</div>
+      </div>
+    </div>
+    <div class="phone-label">A3 — Onboarding Slide 1</div>
+  </div>
+
+  <!-- A4: Setup Currency -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons"><span>📶</span><span>🔋</span></div>
+      </div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Thiết lập ban đầu</div>
+        <div style="width:36px;"></div>
+      </div>
+      <div class="phone-scroll" style="padding:24px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:6px;">Bạn dùng loại tiền nào?</div>
+        <div style="font-size:0.85rem;color:var(--on-surface-variant);margin-bottom:24px;">Sẽ dùng xuyên suốt toàn bộ app. Có thể thay đổi trong Cài đặt.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:rgba(100,181,246,0.1);border:1px solid rgba(100,181,246,0.3);border-radius:var(--radius-xl);padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <span style="font-size:1.5rem;">🇻🇳</span>
+            <div style="flex:1;"><div style="font-weight:700;">Việt Nam Đồng</div><div style="font-size:0.8rem;color:var(--on-surface-variant);">VND • đồng</div></div>
+            <div style="width:20px;height:20px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:0.7rem;">✓</div>
+          </div>
+          <div style="background:var(--surface);border-radius:var(--radius-xl);padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <span style="font-size:1.5rem;">🇺🇸</span>
+            <div style="flex:1;"><div style="font-weight:700;">US Dollar</div><div style="font-size:0.8rem;color:var(--on-surface-variant);">USD • $</div></div>
+          </div>
+          <div style="background:var(--surface);border-radius:var(--radius-xl);padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <span style="font-size:1.5rem;">🇸🇬</span>
+            <div style="flex:1;"><div style="font-weight:700;">Singapore Dollar</div><div style="font-size:0.8rem;color:var(--on-surface-variant);">SGD • S$</div></div>
+          </div>
+        </div>
+        <div style="margin-top:24px;" class="hero-cta-wrap">
+          <div class="hero-cta-glow"></div>
+          <button class="btn-primary">Xác nhận — VND</button>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">A4 — Thiết lập tiền tệ</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 2: SCREENS — GROUP B (Dashboard)
+══════════════════════════════════════════════ -->
+<div class="section-label">Step 2 — Nhóm B: Dashboard (Trung tâm điều hướng)</div>
+<div class="screens-grid">
+
+  <!-- B1: Dashboard -->
+  <div class="phone-wrap">
+    <div class="phone" style="position:relative;">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons"><span>📶</span><span>🔋</span></div>
+      </div>
+      <div class="phone-scroll">
+        <div class="dash-hero">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div class="dash-greeting">Thứ Hai, 10 tháng 8</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1.1rem;font-weight:700;">Chào buổi sáng, Huy 👋</div>
+            </div>
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--gradient-cta);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">H</div>
+          </div>
+          <div class="dash-balance-label">Tổng số dư</div>
+          <div class="amount-xl">42.750.000đ</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <span style="font-size:0.75rem;color:var(--tertiary);">▲ +8.2%</span>
+            <span style="font-size:0.75rem;color:var(--on-surface-variant);">so với tháng trước</span>
+          </div>
+
+          <div class="dash-pill-row">
+            <div class="dash-mini-card">
+              <div class="dash-mini-label">Thu tháng này</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:700;color:var(--tertiary);">+15.000.000đ</div>
+            </div>
+            <div class="dash-mini-card">
+              <div class="dash-mini-label">Chi tháng này</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:700;color:#FF7B7B;">-4.250.000đ</div>
+            </div>
+            <div class="dash-mini-card">
+              <div class="dash-mini-label">Tiết kiệm</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:700;color:var(--primary);">8.200.000đ</div>
+            </div>
+          </div>
+          <div style="height:24px;"></div>
+        </div>
+
+        <!-- Mini chart -->
+        <div class="dash-section">
+          <div class="dash-section-head">
+            <div class="dash-section-title">Chi tiêu 7 ngày qua</div>
+            <div class="dash-see-all">Chi tiết →</div>
+          </div>
+          <div class="c-card" style="padding:20px;">
+            <div class="chart-bar-row">
+              <div class="chart-bar" style="height:35%;"></div>
+              <div class="chart-bar" style="height:55%;"></div>
+              <div class="chart-bar" style="height:45%;"></div>
+              <div class="chart-bar" style="height:80%;"></div>
+              <div class="chart-bar" style="height:30%;"></div>
+              <div class="chart-bar" style="height:60%;"></div>
+              <div class="chart-bar active" style="height:70%;"></div>
+            </div>
+            <div class="chart-bar-labels">
+              <div class="chart-bar-label">T2</div><div class="chart-bar-label">T3</div>
+              <div class="chart-bar-label">T4</div><div class="chart-bar-label">T5</div>
+              <div class="chart-bar-label">T6</div><div class="chart-bar-label">T7</div>
+              <div class="chart-bar-label" style="color:var(--primary);">CN</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent transactions -->
+        <div class="dash-section" style="margin-top:24px;">
+          <div class="dash-section-head">
+            <div class="dash-section-title">Giao dịch gần đây</div>
+            <div class="dash-see-all">Xem tất cả →</div>
+          </div>
+          <div class="c-card" style="padding:20px 20px 8px;">
+            <div class="tx-row">
+              <div class="tx-icon" style="background:rgba(234,115,251,0.12);">🍜</div>
+              <div class="tx-meta"><div class="tx-name">Cơm văn phòng</div><div class="tx-cat">Ăn uống • 12:30</div></div>
+              <div class="amount-sm amount-expense">-65.000đ</div>
+            </div>
+            <div class="tx-row">
+              <div class="tx-icon" style="background:rgba(100,181,246,0.12);">🏪</div>
+              <div class="tx-meta"><div class="tx-name">GrabMart</div><div class="tx-cat">Mua sắm • hôm qua</div></div>
+              <div class="amount-sm amount-expense">-280.000đ</div>
+            </div>
+            <div class="tx-row">
+              <div class="tx-icon" style="background:rgba(187,255,179,0.12);">💰</div>
+              <div class="tx-meta"><div class="tx-name">Lương tháng 8</div><div class="tx-cat">Thu nhập • 01/08</div></div>
+              <div class="amount-sm amount-income">+15.000.000đ</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Budget overview -->
+        <div class="dash-section" style="margin-top:24px;padding-bottom:120px;">
+          <div class="dash-section-head">
+            <div class="dash-section-title">Ngân sách tháng này</div>
+            <div class="dash-see-all">Quản lý →</div>
+          </div>
+          <div class="c-card" style="padding:20px;">
+            <div class="budget-row">
+              <div class="budget-header">
+                <div style="display:flex;align-items:center;gap:8px;"><span>🍜</span><span style="font-size:0.85rem;font-weight:600;">Ăn uống</span></div>
+                <div style="font-size:0.8rem;color:var(--on-surface-variant);">1.200.000 / 2.000.000đ</div>
+              </div>
+              <div class="budget-bar-track"><div class="budget-bar-fill" style="width:60%;background:var(--gradient-cta);"></div></div>
+            </div>
+            <div class="budget-row">
+              <div class="budget-header">
+                <div style="display:flex;align-items:center;gap:8px;"><span>🛒</span><span style="font-size:0.85rem;font-weight:600;">Mua sắm</span></div>
+                <div style="font-size:0.8rem;color:var(--warn);">1.750.000 / 2.000.000đ</div>
+              </div>
+              <div class="budget-bar-track"><div class="budget-bar-fill" style="width:87%;background:var(--warn);"></div></div>
+            </div>
+            <div class="budget-row">
+              <div class="budget-header">
+                <div style="display:flex;align-items:center;gap:8px;"><span>🚗</span><span style="font-size:0.85rem;font-weight:600;">Đi lại</span></div>
+                <div style="font-size:0.8rem;color:#FF7B7B;">1.050.000 / 1.000.000đ</div>
+              </div>
+              <div class="budget-bar-track"><div class="budget-bar-fill" style="width:100%;background:var(--error);"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fab">➕</div>
+      <div class="c-bottom-nav">
+        <div class="nav-item"><div class="nav-icon active">🏠</div><div class="nav-label active">Trang chủ</div></div>
+        <div class="nav-item"><div class="nav-icon">💰</div><div class="nav-label">Tài chính</div></div>
+        <div class="nav-item"><div class="nav-icon" style="background:var(--gradient-cta);border-radius:50%;width:44px;height:44px;">➕</div><div class="nav-label">Thêm</div></div>
+        <div class="nav-item"><div class="nav-icon">🏃</div><div class="nav-label">Sức khỏe</div></div>
+        <div class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">Hồ sơ</div></div>
+      </div>
+    </div>
+    <div class="phone-label">B1 — Dashboard</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 2: SCREENS — GROUP C (Finance Detail)
+══════════════════════════════════════════════ -->
+<div class="section-label">Step 2 — Nhóm C: Module Tài chính chi tiết</div>
+<div class="screens-grid">
+
+  <!-- C1: Add Transaction -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">✕</div>
+        <div class="c-header-title">Thêm giao dịch</div>
+        <div class="c-header-action">📸</div>
+      </div>
+      <div class="phone-scroll">
+        <!-- Type tabs -->
+        <div style="padding:0 24px 16px;">
+          <div class="tab-row">
+            <div class="tab-item active">Chi tiêu</div>
+            <div class="tab-item">Thu nhập</div>
+            <div class="tab-item">Chuyển khoản</div>
+          </div>
+        </div>
+        <!-- Amount input -->
+        <div style="padding:0 24px;text-align:center;">
+          <div style="font-family:'Manrope',sans-serif;font-size:3rem;font-weight:800;color:#FF7B7B;letter-spacing:-2px;">65.000đ</div>
+          <div style="font-size:0.8rem;color:var(--on-surface-variant);margin-top:4px;">Số tiền chi tiêu</div>
+        </div>
+        <!-- Category grid -->
+        <div style="padding:16px 24px 0;">
+          <div style="font-size:0.75rem;color:var(--on-surface-variant);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Danh mục</div>
+          <div class="category-grid">
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(234,115,251,0.12);">🍜</div>
+              <div class="cat-label">Ăn uống</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(100,181,246,0.15);box-shadow:0 0 0 2px var(--primary);">🛒</div>
+              <div class="cat-label" style="color:var(--primary);">Mua sắm</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(187,255,179,0.12);">🚗</div>
+              <div class="cat-label">Đi lại</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(255,213,79,0.12);">🏠</div>
+              <div class="cat-label">Nhà ở</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(100,181,246,0.12);">💊</div>
+              <div class="cat-label">Y tế</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(234,115,251,0.12);">🎮</div>
+              <div class="cat-label">Giải trí</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:rgba(187,255,179,0.12);">📚</div>
+              <div class="cat-label">Học tập</div>
+            </div>
+            <div class="cat-item">
+              <div class="cat-icon" style="background:var(--surface-highest);">⋯</div>
+              <div class="cat-label">Khác</div>
+            </div>
+          </div>
+        </div>
+        <!-- Note -->
+        <div style="padding:16px 24px;">
+          <label class="c-input-label">Ghi chú</label>
+          <input class="c-input" type="text" placeholder="Mô tả chi tiêu...">
+        </div>
+      </div>
+      <!-- Numpad -->
+      <div class="numpad">
+        <button class="numpad-key">1</button><button class="numpad-key">2</button><button class="numpad-key">3</button>
+        <button class="numpad-key">4</button><button class="numpad-key">5</button><button class="numpad-key">6</button>
+        <button class="numpad-key">7</button><button class="numpad-key">8</button><button class="numpad-key">9</button>
+        <button class="numpad-key">000</button><button class="numpad-key">0</button><button class="numpad-key action">✓</button>
+      </div>
+    </div>
+    <div class="phone-label">C1 — Thêm giao dịch</div>
+  </div>
+
+  <!-- C2: Transaction History -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Lịch sử giao dịch</div>
+        <div class="c-header-action">🔍</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px;">
+        <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;">
+          <button class="chip selected">Tất cả</button>
+          <button class="chip">Chi tiêu</button>
+          <button class="chip">Thu nhập</button>
+          <button class="chip">Tháng 8</button>
+        </div>
+        <!-- Summary -->
+        <div class="c-card" style="display:flex;gap:0;padding:0;overflow:hidden;margin-bottom:16px;">
+          <div style="flex:1;padding:16px;border-right:1px solid rgba(255,255,255,0.03);text-align:center;">
+            <div style="font-size:0.7rem;color:var(--on-surface-variant);margin-bottom:4px;">Tổng thu</div>
+            <div class="amount-sm amount-income" style="font-size:0.95rem;font-weight:700;">+15.000.000đ</div>
+          </div>
+          <div style="flex:1;padding:16px;text-align:center;">
+            <div style="font-size:0.7rem;color:var(--on-surface-variant);margin-bottom:4px;">Tổng chi</div>
+            <div class="amount-sm amount-expense" style="font-size:0.95rem;font-weight:700;">-4.250.000đ</div>
+          </div>
+        </div>
+        <!-- Day group -->
+        <div style="font-size:0.75rem;font-weight:700;color:var(--on-surface-variant);margin-bottom:8px;">HÔM NAY · Chủ nhật 10/8</div>
+        <div class="c-card" style="padding:16px 20px;margin-bottom:12px;">
+          <div class="tx-row">
+            <div class="tx-icon" style="background:rgba(234,115,251,0.12);">🍜</div>
+            <div class="tx-meta"><div class="tx-name">Cơm văn phòng</div><div class="tx-cat">Ăn uống</div></div>
+            <div class="amount-sm amount-expense">-65.000đ</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon" style="background:rgba(100,181,246,0.12);">☕</div>
+            <div class="tx-meta"><div class="tx-name">Highlands Coffee</div><div class="tx-cat">Ăn uống</div></div>
+            <div class="amount-sm amount-expense">-55.000đ</div>
+          </div>
+        </div>
+        <div style="font-size:0.75rem;font-weight:700;color:var(--on-surface-variant);margin-bottom:8px;">HÔM QUA · Thứ Bảy 9/8</div>
+        <div class="c-card" style="padding:16px 20px;margin-bottom:40px;">
+          <div class="tx-row">
+            <div class="tx-icon" style="background:rgba(187,255,179,0.12);">💰</div>
+            <div class="tx-meta"><div class="tx-name">Lương tháng 8</div><div class="tx-cat">Thu nhập</div></div>
+            <div class="amount-sm amount-income">+15.000.000đ</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon" style="background:rgba(100,181,246,0.12);">🏪</div>
+            <div class="tx-meta"><div class="tx-name">GrabMart</div><div class="tx-cat">Mua sắm</div></div>
+            <div class="amount-sm amount-expense">-280.000đ</div>
+          </div>
+        </div>
+      </div>
+      <div class="c-bottom-nav">
+        <div class="nav-item"><div class="nav-icon">🏠</div><div class="nav-label">Trang chủ</div></div>
+        <div class="nav-item"><div class="nav-icon active">💰</div><div class="nav-label active">Tài chính</div></div>
+        <div class="nav-item"><div class="nav-icon" style="background:var(--gradient-cta);border-radius:50%;width:44px;height:44px;">➕</div><div class="nav-label">Thêm</div></div>
+        <div class="nav-item"><div class="nav-icon">🏃</div><div class="nav-label">Sức khỏe</div></div>
+        <div class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">Hồ sơ</div></div>
+      </div>
+    </div>
+    <div class="phone-label">C2 — Lịch sử giao dịch</div>
+  </div>
+
+  <!-- C3: Analytics -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Phân tích chi tiêu</div>
+        <div class="c-header-action">📅</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px 32px;">
+        <div style="display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;">
+          <button class="chip selected">Tháng 8</button>
+          <button class="chip">Quý 3</button>
+          <button class="chip">Năm 2025</button>
+        </div>
+        <!-- Donut chart -->
+        <div class="c-card" style="padding:24px;">
+          <div style="font-family:'Manrope',sans-serif;font-size:0.85rem;font-weight:700;margin-bottom:16px;">Phân bổ chi tiêu</div>
+          <div class="donut-wrap">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="60" fill="none" stroke="var(--surface-highest)" stroke-width="20"/>
+              <circle cx="80" cy="80" r="60" fill="none" stroke="var(--primary)" stroke-width="20"
+                stroke-dasharray="226 377" stroke-dashoffset="-94" stroke-linecap="round"/>
+              <circle cx="80" cy="80" r="60" fill="none" stroke="var(--secondary)" stroke-width="20"
+                stroke-dasharray="113 377" stroke-dashoffset="-320" stroke-linecap="round"/>
+              <circle cx="80" cy="80" r="60" fill="none" stroke="var(--tertiary)" stroke-width="20"
+                stroke-dasharray="75 377" stroke-dashoffset="-433" stroke-linecap="round"/>
+            </svg>
+            <div class="donut-center">
+              <div style="font-size:0.65rem;color:var(--on-surface-variant);">Tổng chi</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:800;">4.250k</div>
+              <div style="font-size:0.65rem;color:var(--on-surface-variant);">tháng 8</div>
+            </div>
+          </div>
+          <div style="margin-top:20px;">
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--primary);"></div>
+              <div class="legend-name">Ăn uống</div>
+              <div class="legend-bar-track"><div class="legend-bar-fill" style="width:60%;background:var(--primary);"></div></div>
+              <div class="legend-pct" style="color:var(--primary);">60%</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--secondary);"></div>
+              <div class="legend-name">Mua sắm</div>
+              <div class="legend-bar-track"><div class="legend-bar-fill" style="width:30%;background:var(--secondary);"></div></div>
+              <div class="legend-pct" style="color:var(--secondary);">30%</div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--tertiary);"></div>
+              <div class="legend-name">Đi lại</div>
+              <div class="legend-bar-track"><div class="legend-bar-fill" style="width:20%;background:var(--tertiary);"></div></div>
+              <div class="legend-pct" style="color:var(--tertiary);">20%</div>
+            </div>
+          </div>
+        </div>
+        <!-- Period comparison -->
+        <div class="c-card" style="margin-top:16px;padding:20px;">
+          <div style="font-family:'Manrope',sans-serif;font-size:0.85rem;font-weight:700;margin-bottom:16px;">So sánh kỳ trước</div>
+          <div style="display:flex;gap:12px;align-items:flex-end;">
+            <div style="flex:1;">
+              <div style="font-size:0.7rem;color:var(--on-surface-variant);margin-bottom:8px;">Tháng 7</div>
+              <div style="height:80px;background:var(--surface-highest);border-radius:8px;display:flex;align-items:flex-end;">
+                <div style="width:100%;height:75%;background:linear-gradient(to top, rgba(100,181,246,0.3), transparent);border-radius:8px;"></div>
+              </div>
+              <div style="font-size:0.8rem;font-weight:600;margin-top:6px;color:var(--on-surface-variant);">3.920.000đ</div>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:0.7rem;color:var(--primary);margin-bottom:8px;font-weight:600;">Tháng 8</div>
+              <div style="height:80px;background:rgba(100,181,246,0.08);border-radius:8px;display:flex;align-items:flex-end;box-shadow:0 0 0 1px rgba(100,181,246,0.2);">
+                <div style="width:100%;height:90%;background:var(--gradient-cta);border-radius:8px;opacity:0.7;"></div>
+              </div>
+              <div style="font-size:0.8rem;font-weight:700;margin-top:6px;color:#FF7B7B;">4.250.000đ ▲8.4%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">C3 — Phân tích chi tiêu</div>
+  </div>
+
+  <!-- C4: Budget -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Ngân sách</div>
+        <div class="c-header-action">＋</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px 32px;">
+        <!-- Month summary -->
+        <div class="c-card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(100,181,246,0.08),var(--surface));">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+            <div>
+              <div style="font-size:0.75rem;color:var(--on-surface-variant);">Đã chi / Ngân sách</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1.4rem;font-weight:800;margin-top:4px;">4.250.000 / <span style="color:var(--on-surface-variant);font-size:1rem;">8.000.000đ</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:0.7rem;color:var(--on-surface-variant);">Còn lại</div>
+              <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:700;color:var(--tertiary);">3.750.000đ</div>
+            </div>
+          </div>
+          <div class="budget-bar-track" style="height:8px;">
+            <div class="budget-bar-fill" style="width:53%;background:var(--gradient-cta);"></div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--on-surface-variant);margin-top:8px;">53% ngân sách đã dùng · còn 21 ngày</div>
+        </div>
+
+        <div style="font-size:0.75rem;font-weight:700;color:var(--on-surface-variant);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.8px;">NGÂN SÁCH THEO DANH MỤC</div>
+        <div class="c-card" style="padding:20px;">
+          <div class="budget-row">
+            <div class="budget-header">
+              <div style="display:flex;align-items:center;gap:8px;"><span>🍜</span><span style="font-weight:600;">Ăn uống</span><span class="tag tag-neutral">Bình thường</span></div>
+              <div style="font-size:0.8rem;">1.200k/2.000k</div>
+            </div>
+            <div class="budget-bar-track"><div class="budget-bar-fill" style="width:60%;background:var(--gradient-cta);"></div></div>
+          </div>
+          <div class="budget-row">
+            <div class="budget-header">
+              <div style="display:flex;align-items:center;gap:8px;"><span>🛒</span><span style="font-weight:600;">Mua sắm</span><span style="background:rgba(255,213,79,0.15);color:var(--warn);padding:2px 8px;border-radius:999px;font-size:0.65rem;font-weight:700;">87%</span></div>
+              <div style="font-size:0.8rem;color:var(--warn);">1.750k/2.000k</div>
+            </div>
+            <div class="budget-bar-track"><div class="budget-bar-fill" style="width:87%;background:var(--warn);"></div></div>
+          </div>
+          <div class="budget-row">
+            <div class="budget-header">
+              <div style="display:flex;align-items:center;gap:8px;"><span>🚗</span><span style="font-weight:600;">Đi lại</span><span style="background:rgba(255,107,107,0.15);color:var(--error);padding:2px 8px;border-radius:999px;font-size:0.65rem;font-weight:700;">Vượt!</span></div>
+              <div style="font-size:0.8rem;color:var(--error);">1.050k/1.000k</div>
+            </div>
+            <div class="budget-bar-track"><div class="budget-bar-fill" style="width:100%;background:var(--error);"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">C4 — Ngân sách</div>
+  </div>
+
+  <!-- C5: Savings Goal -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Mục tiêu tiết kiệm</div>
+        <div class="c-header-action">＋</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px 32px;">
+        <!-- Hero summary -->
+        <div class="c-card" style="padding:20px;margin-bottom:16px;background:linear-gradient(135deg,rgba(100,181,246,0.06),var(--surface));">
+          <div style="font-size:0.75rem;color:var(--on-surface-variant);">Tổng đang tiết kiệm</div>
+          <div class="amount-xl" style="font-size:1.8rem;margin:4px 0;">12.500.000đ</div>
+          <div style="font-size:0.8rem;color:var(--on-surface-variant);">trải đều 3 mục tiêu đang hoạt động</div>
+        </div>
+
+        <div class="goal-card">
+          <div class="goal-ring-wrap">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--surface-highest)" stroke-width="8"/>
+              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--primary)" stroke-width="8"
+                stroke-dasharray="82 163" stroke-dashoffset="-41" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="goal-meta">
+            <div class="goal-name">✈️ Du lịch Đà Nẵng</div>
+            <div class="goal-progress-text">5.000.000 / 8.000.000đ</div>
+            <div class="budget-bar-track" style="margin-top:8px;"><div class="budget-bar-fill" style="width:62%;background:var(--gradient-cta);"></div></div>
+            <div class="goal-days">Còn 45 ngày — tiết kiệm thêm ~67k/ngày</div>
+          </div>
+        </div>
+        <div class="goal-card">
+          <div class="goal-ring-wrap">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--surface-highest)" stroke-width="8"/>
+              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--secondary)" stroke-width="8"
+                stroke-dasharray="122 163" stroke-dashoffset="-41" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="goal-meta">
+            <div class="goal-name">💻 MacBook Pro 2025</div>
+            <div class="goal-progress-text">7.500.000 / 12.000.000đ</div>
+            <div class="budget-bar-track" style="margin-top:8px;"><div class="budget-bar-fill" style="width:62%;background:var(--secondary);"></div></div>
+            <div class="goal-days" style="color:var(--secondary);">Còn 120 ngày</div>
+          </div>
+        </div>
+        <div class="hero-cta-wrap" style="margin-top:8px;">
+          <div class="hero-cta-glow"></div>
+          <button class="btn-primary">✦ Tạo mục tiêu mới</button>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">C5 — Mục tiêu tiết kiệm</div>
+  </div>
+
+  <!-- C6: Debt Loan -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Sổ nợ</div>
+        <div class="c-header-action">＋</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px 32px;">
+        <!-- Net summary -->
+        <div class="c-card" style="margin-bottom:16px;display:flex;gap:0;padding:0;overflow:hidden;">
+          <div style="flex:1;padding:20px;background:rgba(255,123,123,0.06);text-align:center;border-right:1px solid rgba(255,255,255,0.03);">
+            <div style="font-size:0.7rem;color:var(--on-surface-variant);margin-bottom:4px;">Tôi đang nợ</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.1rem;font-weight:800;color:#FF7B7B;">1.500.000đ</div>
+          </div>
+          <div style="flex:1;padding:20px;background:rgba(187,255,179,0.04);text-align:center;">
+            <div style="font-size:0.7rem;color:var(--on-surface-variant);margin-bottom:4px;">Người nợ tôi</div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.1rem;font-weight:800;color:var(--tertiary);">2.800.000đ</div>
+          </div>
+        </div>
+
+        <div class="tab-row" style="margin-bottom:16px;">
+          <div class="tab-item active">Tôi nợ</div>
+          <div class="tab-item">Nợ tôi</div>
+          <div class="tab-item">Đã xong</div>
+        </div>
+
+        <div class="debt-card">
+          <div class="debt-header">
+            <div class="debt-avatar">👤</div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                <span style="font-weight:700;font-size:0.95rem;">Người quen #1</span>
+                <span class="debt-type-tag debt-type-owe">Tôi nợ</span>
+              </div>
+              <div style="font-size:0.75rem;color:var(--on-surface-variant);">Hạn: 15/09/2025 · còn 36 ngày</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:800;color:#FF7B7B;">1.500.000đ</div>
+            </div>
+          </div>
+          <div style="background:var(--surface-highest);border-radius:var(--radius-lg);padding:12px;font-size:0.8rem;color:var(--on-surface-variant);">Vay tiền mua laptop dự phòng</div>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <button class="btn-secondary" style="height:40px;font-size:0.8rem;border-radius:12px;">Ghi nhận đã trả</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-label">C6 — Sổ nợ</div>
+  </div>
+
+  <!-- C7: Wallet Management -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div class="c-header-back">←</div>
+        <div class="c-header-title">Quản lý ví</div>
+        <div class="c-header-action">＋</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px 32px;">
+        <div style="font-size:0.75rem;color:var(--on-surface-variant);margin-bottom:4px;">Tổng tài sản</div>
+        <div class="amount-xl" style="margin-bottom:20px;">42.750.000đ</div>
+
+        <div class="wallet-card" style="background:linear-gradient(135deg,#1a2535,#0f1923);">
+          <div class="wallet-card-glow" style="background:var(--primary);"></div>
+          <div class="wallet-bank">MBBank</div>
+          <div class="wallet-num">**** **** **** 5678</div>
+          <div class="wallet-amount">28.500.000đ</div>
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:4px;">Tài khoản chính</div>
+        </div>
+
+        <div class="wallet-card" style="background:linear-gradient(135deg,#1e1a2e,#12102a);">
+          <div class="wallet-card-glow" style="background:var(--secondary);"></div>
+          <div class="wallet-bank">Momo</div>
+          <div class="wallet-num">Ví điện tử</div>
+          <div class="wallet-amount">2.250.000đ</div>
+        </div>
+
+        <div class="wallet-card" style="background:linear-gradient(135deg,#1a2518,#111e0f);">
+          <div class="wallet-card-glow" style="background:var(--tertiary);"></div>
+          <div class="wallet-bank">Tiền mặt</div>
+          <div class="wallet-num">Trong ví</div>
+          <div class="wallet-amount">12.000.000đ</div>
+        </div>
+
+        <button class="btn-secondary" style="margin-top:8px;">＋ Thêm tài khoản mới</button>
+      </div>
+    </div>
+    <div class="phone-label">C7 — Quản lý ví</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 2: SCREENS — GROUP D (Profile)
+══════════════════════════════════════════════ -->
+<div class="section-label">Step 2 — Nhóm D: Hồ sơ</div>
+<div class="screens-grid">
+
+  <!-- D1: Profile -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><div class="status-icons"><span>📶</span><span>🔋</span></div></div>
+      <div class="c-header">
+        <div style="width:36px;"></div>
+        <div class="c-header-title">Hồ sơ</div>
+        <div class="c-header-action">⚙️</div>
+      </div>
+      <div class="phone-scroll" style="padding:0 24px 32px;">
+        <!-- Avatar + stats -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+          <div class="profile-avatar">H</div>
+          <div>
+            <div style="font-family:'Manrope',sans-serif;font-size:1.2rem;font-weight:800;">Nguyễn Văn Huy</div>
+            <div style="font-size:0.8rem;color:var(--on-surface-variant);">huy@email.com</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+              <span style="font-size:0.7rem;color:var(--primary);font-weight:700;">✦ Kỷ Luật Gia</span>
+              <span style="font-size:0.7rem;color:var(--on-surface-variant);">Cấp 3</span>
+            </div>
+          </div>
+        </div>
+        <!-- Stats row -->
+        <div class="c-card" style="display:flex;padding:0;overflow:hidden;margin-bottom:20px;">
+          <div class="profile-stat" style="border-right:1px solid rgba(255,255,255,0.03);">
+            <div class="profile-stat-val">127</div>
+            <div class="profile-stat-label">Giao dịch</div>
+          </div>
+          <div class="profile-stat" style="border-right:1px solid rgba(255,255,255,0.03);">
+            <div class="profile-stat-val" style="color:var(--primary);">🔥18</div>
+            <div class="profile-stat-label">Ngày streak</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-val">2.450</div>
+            <div class="profile-stat-label">XP</div>
+          </div>
+        </div>
+        <!-- Settings list -->
+        <div class="c-card" style="padding:16px 20px;">
+          <div class="setting-row">
+            <div class="setting-icon" style="background:rgba(100,181,246,0.12);">🛡️</div>
+            <div style="flex:1;font-size:0.9rem;font-weight:600;">Bảo mật & Quyền riêng tư</div>
+            <span style="color:var(--on-surface-variant);">›</span>
+          </div>
+          <div class="setting-row">
+            <div class="setting-icon" style="background:rgba(234,115,251,0.12);">🔔</div>
+            <div style="flex:1;font-size:0.9rem;font-weight:600;">Thông báo</div>
+            <span style="color:var(--on-surface-variant);">›</span>
+          </div>
+          <div class="setting-row">
+            <div class="setting-icon" style="background:rgba(187,255,179,0.12);">💱</div>
+            <div style="flex:1;font-size:0.9rem;font-weight:600;">Tiền tệ & Định dạng</div>
+            <span style="color:var(--on-surface-variant);">›</span>
+          </div>
+          <div class="setting-row">
+            <div class="setting-icon" style="background:rgba(100,181,246,0.12);">📱</div>
+            <div style="flex:1;font-size:0.9rem;font-weight:600;">Thiết bị đang đăng nhập</div>
+            <span style="color:var(--on-surface-variant);">›</span>
+          </div>
+          <div class="setting-row" style="border-bottom:none;">
+            <div class="setting-icon" style="background:rgba(255,107,107,0.12);">🚪</div>
+            <div style="flex:1;font-size:0.9rem;font-weight:600;color:#FF7B7B;">Đăng xuất</div>
+          </div>
+        </div>
+      </div>
+      <div class="c-bottom-nav">
+        <div class="nav-item"><div class="nav-icon">🏠</div><div class="nav-label">Trang chủ</div></div>
+        <div class="nav-item"><div class="nav-icon">💰</div><div class="nav-label">Tài chính</div></div>
+        <div class="nav-item"><div class="nav-icon" style="background:var(--gradient-cta);border-radius:50%;width:44px;height:44px;">➕</div><div class="nav-label">Thêm</div></div>
+        <div class="nav-item"><div class="nav-icon">🏃</div><div class="nav-label">Sức khỏe</div></div>
+        <div class="nav-item"><div class="nav-icon active">👤</div><div class="nav-label active">Hồ sơ</div></div>
+      </div>
+    </div>
+    <div class="phone-label">D1 — Hồ sơ</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     STEP 3: FLOW MAP
+══════════════════════════════════════════════ -->
+<div class="section-label">Step 3 — Flow Map: Điểm chuyển tiếp giữa các màn hình</div>
+<div style="padding:0 24px 64px;">
+<div style="background:var(--surface-low);border-radius:var(--radius-xl);padding:32px;max-width:900px;font-family:'Inter',sans-serif;">
+  <div style="font-family:'Manrope',sans-serif;font-size:1rem;font-weight:700;margin-bottom:20px;color:var(--primary);">Luồng chính người dùng (Transition: slide-horizontal + fade 200ms ease-out)</div>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Splash (1.5s)</div>
+      <div style="color:var(--primary);">→ fade</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Auth</div>
+      <div style="color:var(--primary);">→ slide-up</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Onboarding</div>
+      <div style="color:var(--primary);">→ slide-horizontal</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Setup Currency</div>
+      <div style="color:var(--primary);">→ slide</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Dashboard</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Dashboard</div>
+      <div style="color:var(--on-surface-variant);">→ Tab</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Tài chính Hub</div>
+      <div style="color:var(--on-surface-variant);">→ Bottom Sheet</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Add Transaction</div>
+      <div style="color:var(--on-surface-variant);">→ slide-horizontal</div>
+      <div style="background:var(--surface);padding:10px 16px;border-radius:var(--radius-lg);font-size:0.85rem;font-weight:600;">Transaction History</div>
+    </div>
+    <div style="margin-top:12px;padding:16px;background:rgba(100,181,246,0.06);border-radius:var(--radius-lg);">
+      <div style="font-size:0.8rem;color:var(--on-surface-variant);line-height:1.6;">
+        <span style="color:var(--primary);font-weight:700;">Quy tắc Transition:</span><br>
+        • Mọi điều hướng forward (push): slide-left 200ms ease-out + fade<br>
+        • Back navigation: slide-right + reverse fade, KHÔNG reverse scale<br>
+        • Tab switch: fade-only 150ms (không slide để tránh choáng)<br>
+        • Modal/Bottom sheet: slide-up từ dưới, dismiss slide-down<br>
+        • Success confirmation: micro-bounce (scale 1→1.05→1) 300ms + ambient glow xuất hiện 500ms
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

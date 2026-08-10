@@ -132,33 +132,7 @@ fun GeneralSavingsScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                // ── Tiền chi hộ nhóm ────────────────────────────────────────
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Group, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text("ĐÃ TRẢ TRƯỚC CHO NHÓM", fontSize = 10.sp, fontWeight = FontWeight.Black, color = PrimaryBlue, letterSpacing = 0.5.sp)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(formatCurrency(wallet.groupPrepaidAmount), fontSize = 18.sp, fontWeight = FontWeight.Black)
-                            if (wallet.groupPrepaidAmount > 0) {
-                                TextButton(onClick = { onSaveWallet(wallet.copy(groupPrepaidAmount = 0.0)) }) {
-                                    Text("Đã thu hồi ✓", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AccentGreen)
-                                }
-                            }
-                        }
-                        Text("Số tiền bạn chi hộ nhóm, đang chờ thu hồi.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
-                    }
-                }
 
-                Spacer(Modifier.height(16.dp))
 
                 // ── Danh sách mục tiêu liên kết ─────────────────────────────
                 if (goals.isNotEmpty()) {
@@ -256,6 +230,8 @@ fun GeneralSavingsScreen(
                 }
             )
         }
+
+
     }
 }
 
@@ -406,3 +382,4 @@ fun AdjustSavingsDialog(
         shape = RoundedCornerShape(24.dp)
     )
 }
+

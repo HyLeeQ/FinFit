@@ -195,7 +195,8 @@ fun MainScreen(
                 // Health Routes
                 healthNavGraph(
                     navController = navController,
-                    userEmail = userEmail
+                    userEmail = userEmail,
+                    firestoreRepository = firestoreRepository
                 )
 
                 // Bill Scanner
@@ -229,6 +230,9 @@ fun MainScreen(
                         val budgets by firestoreRepository.observeBudgets(user.uid).collectAsState(initial = emptyList())
                         val userHabit by firestoreRepository.observeUserHabit(user.uid).collectAsState(initial = null)
                         
+                        val healthViewModel: com.example.finfit.health.repository.HealthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                        val healthState by healthViewModel.healthUiState.collectAsState()
+
                         AssistantScreen(
                             firestoreRepository = firestoreRepository,
                             userId = user.uid,
@@ -239,7 +243,7 @@ fun MainScreen(
                             savingsGoals = savingsGoals,
                             budgets = budgets,
                             habit = userHabit,
-                            stepsToday = 3420, // Placeholder cho đến khi tích hợp Health ViewModel hoàn chỉnh
+                            healthState = healthState,
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -252,6 +256,9 @@ fun MainScreen(
                         val wallet by firestoreRepository.observeUserWallet(user.uid).collectAsState(initial = null)
                         val savingsGoals by firestoreRepository.observeSavingsGoals(user.uid).collectAsState(initial = emptyList())
                         
+                        val healthViewModel: com.example.finfit.health.repository.HealthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+                        val healthState by healthViewModel.healthUiState.collectAsState()
+
                         ProfileScreen(
                             email = userEmail,
                             wallet = wallet,
@@ -259,7 +266,8 @@ fun MainScreen(
                             themeMode = themeMode,
                             onThemeChange = onThemeChange,
                             onLogout = onLogout,
-                            onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) }
+                            onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
+                            healthState = healthState
                         )
                     }
                 }
